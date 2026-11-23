@@ -6,6 +6,18 @@ public static class CaseFormats
     public static string LowerHyphenToUpperCamel(string input) =>
         ToUpperCamel(Split(input, '-'));
 
+    /// <summary>字典 item_code → UpperCamel（同时支持 <c>_</c> / <c>-</c> 分隔）。</summary>
+    public static string DictCodeToUpperCamel(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return "";
+        }
+
+        var parts = input.Split(['_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return ToUpperCamel(parts);
+    }
+
     public static string LowerUnderscoreToLowerHyphen(string input) =>
         string.Join('-', Split(input, '_').Select(s => s.ToLowerInvariant()));
 

@@ -4,98 +4,197 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer Padding="32,20,32,20" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="880" HorizontalAlignment="Left" Spacing="16">
+        <StackPanel MaxWidth="920" HorizontalAlignment="Left" Spacing="12">
             <TextBlock Text="代码生成配置" FontSize="24" FontWeight="SemiBold" />
-            <Grid ColumnSpacing="16" RowSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140" />
-                    <ColumnDefinition Width="*" MinWidth="320" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="作者" VerticalAlignment="Center" />
-                <TextBox x:Name="AuthorBox" Grid.Row="0" Grid.Column="1" />
+            <!-- 基本信息 -->
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Text="基本信息" FontWeight="SemiBold" />
+                </Expander.Header>
+                <Grid Margin="0,8,0,0" ColumnSpacing="16" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" MinWidth="320" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="作者" VerticalAlignment="Center" />
+                    <TextBox x:Name="AuthorBox" Grid.Row="0" Grid.Column="1" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="邮箱" VerticalAlignment="Center" />
+                    <TextBox x:Name="EmailBox" Grid.Row="1" Grid.Column="1" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="basePackage" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="BasePackageBox"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        PlaceholderText="com.qolome.starter" />
+                </Grid>
+            </Expander>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="邮箱" VerticalAlignment="Center" />
-                <TextBox x:Name="EmailBox" Grid.Row="1" Grid.Column="1" />
+            <!-- Enum -->
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Text="Enum" FontWeight="SemiBold" />
+                </Expander.Header>
+                <Grid Margin="0,8,0,0" ColumnSpacing="16" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" MinWidth="320" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="enumPackagePath" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="EnumPackageBox"
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        PlaceholderText="com.qolome.common.dict.biz.enums" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="enumNameSuffix" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="EnumSuffixBox"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        PlaceholderText="Enum" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="enumInterface" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="EnumInterfaceBox"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        PlaceholderText="com.qolome.common.dict.biz.inft.IBizEnum" />
+                </Grid>
+            </Expander>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="basePackage" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="BasePackageBox"
-                    Grid.Row="2"
-                    Grid.Column="1"
-                    PlaceholderText="com.qolome.starter" />
+            <!-- Dao -->
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Text="Dao" FontWeight="SemiBold" />
+                </Expander.Header>
+                <Grid Margin="0,8,0,0" ColumnSpacing="16" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" MinWidth="320" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="enumPackagePath" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="EnumPackageBox"
-                    Grid.Row="3"
-                    Grid.Column="1"
-                    PlaceholderText="com.qolome.common.dict.biz.enums" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="entitySuperClass" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="EntitySuperClassBox"
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        PlaceholderText="com.qolome.starter.dao.model.BaseModel" />
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="逻辑删除字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="LogicDeleteBox"
-                    Grid.Row="4"
-                    Grid.Column="1"
-                    PlaceholderText="deleted" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="entityPackage" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="EntityPackageBox"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        PlaceholderText="dao.model" />
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="多租户字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="TenantIdBox"
-                    Grid.Row="5"
-                    Grid.Column="1"
-                    PlaceholderText="tenant_id" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="mapperPackage" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="MapperPackageBox"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        PlaceholderText="dao.mapper" />
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="创建日期字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="CreateTimeBox"
-                    Grid.Row="6"
-                    Grid.Column="1"
-                    PlaceholderText="create_time" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="xmlPackage" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="XmlPackageBox"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        PlaceholderText="mapper" />
 
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="创建人字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="CreaterIdBox"
-                    Grid.Row="7"
-                    Grid.Column="1"
-                    PlaceholderText="creater_id" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="逻辑删除字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="LogicDeleteBox"
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        PlaceholderText="deleted" />
 
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="修改日期字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="ModifyTimeBox"
-                    Grid.Row="8"
-                    Grid.Column="1"
-                    PlaceholderText="modify_time" />
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="多租户字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="TenantIdBox"
+                        Grid.Row="5"
+                        Grid.Column="1"
+                        PlaceholderText="tenant_id" />
 
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="修改人字段" VerticalAlignment="Center" />
-                <TextBox
-                    x:Name="ModifierIdBox"
-                    Grid.Row="9"
-                    Grid.Column="1"
-                    PlaceholderText="modifier_id" />
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="创建日期字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="CreateTimeBox"
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        PlaceholderText="create_time" />
 
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="主键生成类型" VerticalAlignment="Center" />
-                <ComboBox
-                    x:Name="IdTypeCombo"
-                    Grid.Row="10"
-                    Grid.Column="1"
-                    MinWidth="280"
-                    HorizontalAlignment="Left" />
-            </Grid>
-            <Button Click="OnSave" Margin="140,4,0,0" HorizontalAlignment="Left">
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="创建人字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="CreaterIdBox"
+                        Grid.Row="7"
+                        Grid.Column="1"
+                        PlaceholderText="creater_id" />
+
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="修改日期字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="ModifyTimeBox"
+                        Grid.Row="8"
+                        Grid.Column="1"
+                        PlaceholderText="modify_time" />
+
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="修改人字段" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="ModifierIdBox"
+                        Grid.Row="9"
+                        Grid.Column="1"
+                        PlaceholderText="modifier_id" />
+
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="主键生成类型" VerticalAlignment="Center" />
+                    <ComboBox
+                        x:Name="IdTypeCombo"
+                        Grid.Row="10"
+                        Grid.Column="1"
+                        MinWidth="280"
+                        HorizontalAlignment="Left" />
+                </Grid>
+            </Expander>
+
+            <!-- TypeScript -->
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False">
+                <Expander.Header>
+                    <TextBlock Text="TypeScript" FontWeight="SemiBold" />
+                </Expander.Header>
+                <Grid Margin="0,8,0,0" ColumnSpacing="16" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" MinWidth="320" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="tsDictPath" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="TsDictPathBox"
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        PlaceholderText="src\dict" />
+                </Grid>
+            </Expander>
+
+            <Button Click="OnSave" Margin="0,8,0,0" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
                         <SymbolIcon Symbol="Save" />

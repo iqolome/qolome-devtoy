@@ -71,6 +71,24 @@ public static class UiGlyphResources
         };
     }
 
+    /// <summary>可缩放的 FontIcon（Segoe Fluent Icons 字形）。</summary>
+    public static Viewbox CreateScaledFontIcon(string glyph, double? size = null)
+    {
+        var side = size ?? IconBox;
+        return new Viewbox
+        {
+            Width = side,
+            Height = side,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new FontIcon
+            {
+                Glyph = glyph,
+                FontFamily = new FontFamily("Segoe Fluent Icons"),
+            },
+        };
+    }
+
     private static Style CreateTextStyle(double fontSize)
     {
         var style = new Style(typeof(TextBlock));

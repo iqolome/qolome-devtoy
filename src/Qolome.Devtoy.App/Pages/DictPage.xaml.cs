@@ -714,16 +714,12 @@ public sealed partial class DictPage : Page
 
     private void SetSortHeader(Button button, string key, string label)
     {
-        var arrow = "";
-        if (string.Equals(_sortKey, key, StringComparison.Ordinal))
-        {
-            arrow = _sortAscending ? " ▲" : " ▼";
-        }
-
-        button.Content = DevtoyButtons.BuildContent(label + arrow, Symbol.Sort);
-        button.FontWeight = string.Equals(_sortKey, key, StringComparison.Ordinal)
-            ? FontWeights.SemiBold
-            : FontWeights.Normal;
+        var active = string.Equals(_sortKey, key, StringComparison.Ordinal);
+        // Segoe Fluent Icons: ChevronUp / ChevronDown；未激活用 Sort
+        button.Content = active
+            ? DevtoyButtons.BuildContentWithGlyph(label, _sortAscending ? "\uE70E" : "\uE70D")
+            : DevtoyButtons.BuildContent(label, Symbol.Sort);
+        button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
     private Task RunBusyAsync(string message, Func<Task> action) =>

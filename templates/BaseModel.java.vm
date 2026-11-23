@@ -1,0 +1,101 @@
+/*
+ * $!{copyright}
+ * ProjectName: $!{projectName}
+ * Title: BaseModel.java
+ * Date: $!{datetime}
+ */
+
+package com.qolome.starter.dao.model;
+
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Set;
+
+/**
+ * 基础 model
+ *
+ * @author ${author}
+ */
+@Data
+@SuperBuilder
+@AllArgsConstructor
+@NoArgsConstructor
+public class BaseModel implements Serializable {
+
+    /**
+     * 租户ID
+     */
+    @TableField(value = "tenant_id")
+    private Long tenantId;
+
+    /**
+     * 创建时间
+     */
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+
+    /**
+     * 创建人ID
+     */
+    @TableField(value = "creater_id", fill = FieldFill.INSERT)
+    private Long createrId;
+
+    /**
+     * 修改时间
+     */
+    @TableField(value = "modify_time", fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime modifyTime;
+
+    /**
+     * 修改人ID
+     */
+    @TableField(value = "modifier_id", fill = FieldFill.INSERT_UPDATE)
+    private Long modifierId;
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 字段 租户ID
+     */
+    public static final String COL_TENANT_ID = "tenant_id";
+
+    /**
+     * 字段 创建时间
+     */
+    public static final String COL_CREATE_TIME = "create_time";
+
+    /**
+     * 字段 创建ID
+     */
+    public static final String COL_CREATER_ID = "creater_id";
+
+    /**
+     * 字段 修改时间
+     */
+    public static final String COL_MODIFY_TIME = "modify_time";
+
+    /**
+     * 字段 修改ID
+     */
+    public static final String COL_MODIFIER_ID = "modifier_id";
+
+    /**
+     * 基本排序字段
+     */
+    public static final Set<String> BASE_SORT_COLUMNS = Set.of(
+            COL_TENANT_ID,
+            COL_CREATE_TIME,
+            COL_CREATER_ID,
+            COL_MODIFY_TIME,
+            COL_MODIFIER_ID);
+
+}

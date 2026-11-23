@@ -39,27 +39,27 @@
                 <NavigationViewItemHeader Content="配置管理" />
                 <NavigationViewItem Content="主题设置" Tag="ConfigTheme">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="BrowsePhotos" />
+                        <SymbolIcon Symbol="Switch" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="代码生成配置" Tag="ConfigBasic">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Contact" />
+                        <SymbolIcon Symbol="Setting" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="数据源设置" Tag="ConfigDataSource">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Link" />
+                        <SymbolIcon Symbol="MapDrive" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="模板管理" Tag="ConfigTemplates">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Document" />
+                        <SymbolIcon Symbol="Page2" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="导入导出" Tag="ConfigImportExport">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Share" />
+                        <SymbolIcon Symbol="Import" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItemHeader Content=" " />

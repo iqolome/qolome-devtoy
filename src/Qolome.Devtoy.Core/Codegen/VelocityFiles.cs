@@ -99,7 +99,7 @@ public sealed class VelocityFiles
             engine.Init();
             _engine = engine;
             _templateRoot = root;
-            return engine;
+            return _engine;
         }
     }
 
@@ -122,24 +122,111 @@ public sealed class VelocityFiles
     }
 
     /// <summary>
-    /// NVelocity 1.x 无 $foreach.hasNext；注入 loopSize 并用 velocityCount 比较。
+    /// NVelocity 1.x 无 $foreach.hasNext：为每个 foreach 注入独立 loopSize，避免共用变量导致后续循环丢项。
     /// </summary>
     internal static string AdaptForNVelocity(string template)
     {
-        var withLoopSize = ForeachPattern.Replace(
-            template,
-            m =>
-            {
-                var collection = m.Groups[2].Value;
-                var sizeExpr = collection.StartsWith("${", StringComparison.Ordinal)
-                    ? collection[..^1] + ".size()}"
-                    : collection + ".size()";
-                return "#set($__loopSize=" + sizeExpr + ")" + m.Value;
-            });
+        var matches = ForeachPattern.Matches(template);
+        if (matches.Count == 0)
+        {
+            return template;
+        }
 
-        return withLoopSize
-            .Replace("${foreach.hasNext}", "($velocityCount < $__loopSize)", StringComparison.Ordinal)
-            .Replace("$foreach.hasNext", "($velocityCount < $__loopSize)", StringComparison.Ordinal);
+        var sb = new StringBuilder(template.Length + matches.Count * 48);
+        var last = 0;
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var m = matches[i];
+            sb.Append(template, last, m.Index - last);
+
+            var collection = m.Groups[2].Value;
+            var sizeExpr = collection.StartsWith("${", StringComparison.Ordinal)
+                ? collection[..^1] + ".size()}"
+                : collection + ".size()";
+            var sizeVar = "__loopSize" + i;
+            sb.Append("#set($").Append(sizeVar).Append('=').Append(sizeExpr).Append(')');
+            sb.Append(m.Value);
+
+            var bodyStart = m.Index + m.Length;
+            var bodyEnd = FindForeachBodyEnd(template, bodyStart);
+            if (bodyEnd < 0)
+            {
+                last = m.Index + m.Length;
+                continue;
+            }
+
+            var body = template[bodyStart..bodyEnd];
+            body = body
+                .Replace("${foreach.hasNext}", "($velocityCount < $" + sizeVar + ")", StringComparison.Ordinal)
+                .Replace("$foreach.hasNext", "($velocityCount < $" + sizeVar + ")", StringComparison.Ordinal);
+            sb.Append(body);
+            last = bodyEnd;
+        }
+
+        sb.Append(template, last, template.Length - last);
+        return sb.ToString();
+    }
+
+    /// <summary>从 foreach 体起点找到与之匹配的 #end 起始下标（不含 #end）。</summary>
+    private static int FindForeachBodyEnd(string template, int bodyStart)
+    {
+        var depth = 1;
+        var i = bodyStart;
+        while (i < template.Length)
+        {
+            if (template[i] != '#')
+            {
+                i++;
+                continue;
+            }
+
+            if (StartsWithDirective(template, i, "foreach")
+                || StartsWithDirective(template, i, "if")
+                || StartsWithDirective(template, i, "macro"))
+            {
+                depth++;
+                i++;
+                continue;
+            }
+
+            if (StartsWithDirective(template, i, "end"))
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+
+                i++;
+                continue;
+            }
+
+            i++;
+        }
+
+        return -1;
+    }
+
+    private static bool StartsWithDirective(string template, int index, string name)
+    {
+        if (index + 1 + name.Length > template.Length || template[index] != '#')
+        {
+            return false;
+        }
+
+        if (!string.Equals(template.Substring(index + 1, name.Length), name, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var after = index + 1 + name.Length;
+        if (after >= template.Length)
+        {
+            return true;
+        }
+
+        var c = template[after];
+        return !char.IsLetterOrDigit(c) && c != '_';
     }
 
     private static Hashtable ToDictionary(object data)

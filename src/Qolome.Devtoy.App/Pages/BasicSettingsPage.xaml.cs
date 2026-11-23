@@ -21,13 +21,23 @@ public sealed partial class BasicSettingsPage : Page
         AuthorBox.Text = s.AuthorName;
         EmailBox.Text = s.AuthorEmail;
         BasePackageBox.Text = s.BasePackage;
+
         EnumPackageBox.Text = s.EnumPackagePath;
+        EnumSuffixBox.Text = s.EnumNameSuffix;
+        EnumInterfaceBox.Text = s.EnumInterface;
+
+        EntitySuperClassBox.Text = s.EntitySuperClass;
+        EntityPackageBox.Text = s.EntityPackage;
+        MapperPackageBox.Text = s.MapperPackage;
+        XmlPackageBox.Text = s.XmlPackage;
         LogicDeleteBox.Text = s.LogicDeleteColumnName;
         TenantIdBox.Text = s.TenantIdColumnName;
         CreateTimeBox.Text = s.CreateTimeColumnName;
         CreaterIdBox.Text = s.CreaterIdColumnName;
         ModifyTimeBox.Text = s.ModifyTimeColumnName;
         ModifierIdBox.Text = s.ModifierIdColumnName;
+
+        TsDictPathBox.Text = s.TsDictPath;
 
         IdTypeCombo.ItemsSource = MybatisIdType.All
             .Select(x => new IdTypeOption(x.Id, x.DisplayName))
@@ -47,9 +57,29 @@ public sealed partial class BasicSettingsPage : Page
         s.BasePackage = string.IsNullOrWhiteSpace(BasePackageBox.Text)
             ? "com.qolome.starter"
             : BasePackageBox.Text.Trim();
+
         s.EnumPackagePath = string.IsNullOrWhiteSpace(EnumPackageBox.Text)
             ? "com.qolome.common.dict.biz.enums"
             : EnumPackageBox.Text.Trim();
+        s.EnumNameSuffix = string.IsNullOrWhiteSpace(EnumSuffixBox.Text)
+            ? "Enum"
+            : EnumSuffixBox.Text.Trim();
+        s.EnumInterface = string.IsNullOrWhiteSpace(EnumInterfaceBox.Text)
+            ? "com.qolome.common.dict.biz.inft.IBizEnum"
+            : EnumInterfaceBox.Text.Trim();
+
+        // 留空表示不继承基类；默认值为 BaseModel（新配置）
+        s.EntitySuperClass = EntitySuperClassBox.Text.Trim();
+
+        s.EntityPackage = string.IsNullOrWhiteSpace(EntityPackageBox.Text)
+            ? "dao.model"
+            : EntityPackageBox.Text.Trim();
+        s.MapperPackage = string.IsNullOrWhiteSpace(MapperPackageBox.Text)
+            ? "dao.mapper"
+            : MapperPackageBox.Text.Trim();
+        s.XmlPackage = string.IsNullOrWhiteSpace(XmlPackageBox.Text)
+            ? "mapper"
+            : XmlPackageBox.Text.Trim();
         s.LogicDeleteColumnName = NormalizeColumn(LogicDeleteBox.Text, "deleted");
         s.TenantIdColumnName = NormalizeColumn(TenantIdBox.Text, "tenant_id");
         s.CreateTimeColumnName = NormalizeColumn(CreateTimeBox.Text, "create_time");
@@ -59,6 +89,10 @@ public sealed partial class BasicSettingsPage : Page
         s.IdType = IdTypeCombo.SelectedItem is IdTypeOption option
             ? MybatisIdType.Resolve(option.Id)
             : MybatisIdType.AssignId;
+
+        s.TsDictPath = string.IsNullOrWhiteSpace(TsDictPathBox.Text)
+            ? Path.Combine("src", "dict")
+            : TsDictPathBox.Text.Trim();
 
         _session.SaveSettings();
         _session.Log($"代码生成配置已保存（author={s.FormatAuthorHtml()}）");

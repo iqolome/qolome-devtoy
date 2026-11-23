@@ -1,5 +1,6 @@
 using System.Collections;
 using Qolome.Devtoy.Core.Models;
+using Qolome.Devtoy.Core.Services;
 
 namespace Qolome.Devtoy.Core.Codegen;
 
@@ -18,6 +19,7 @@ public sealed class DaoGenerator
 
     private readonly VelocityFiles _velocityFiles;
     private readonly MySqlTableReader _tableReader = new();
+    private readonly DictCatalogService _dictCatalog = new();
 
     public DaoGenerator(VelocityFiles velocityFiles) => _velocityFiles = velocityFiles;
 
@@ -44,7 +46,7 @@ public sealed class DaoGenerator
         {
             cancellationToken.ThrowIfCancellationRequested();
             var meta = _tableReader.Read(dataSource, tableName);
-            var context = BuildContext(settings, target, meta);
+            var context = BuildContext(settings, target, meta, dataSource);
             written.AddRange(WriteArtifacts(target, meta, context, generateEntityMapper));
         }
 
@@ -153,55 +155,82 @@ public sealed class DaoGenerator
         return path;
     }
 
-    private static Hashtable BuildContext(CodegenSettings settings, DaoTarget target, TableMetadata meta)
+    private Hashtable BuildContext(
+        CodegenSettings settings,
+        DaoTarget target,
+        TableMetadata meta,
+        DataSourceSettings dataSource)
     {
         var datetime = TimeZoneInfo.ConvertTime(DateTime.UtcNow, Zone)
             .ToString("yyyy年MM月dd日 HH:mm:ss");
         var entityName = EntityName(meta.Name);
         var entityLower = CaseFormats.UpperCamelToLowerCamel(entityName);
         var parentPackage = JoinPackage(target.BasePackage, target.ModelName);
+        var (superSimpleName, superFullName) = ResolveSuperEntity(target.EntitySuperClass);
+        var excludeBaseColumns = superSimpleName is not null;
+        var commentRenderer = new DictCommentRenderer(
+            settings,
+            dataSource,
+            _dictCatalog,
+            _velocityFiles,
+            meta.Name,
+            meta.Columns);
+
         var fields = new VmList();
+        var commonFields = new VmList();
+        var allFields = new VmList();
+        var allFieldNames = new List<string>();
+        var sortColumnConstants = new VmList();
         var imports = new SortedSet<string>(StringComparer.Ordinal);
         imports.Add("com.baomidou.mybatisplus.annotation.TableName");
         imports.Add("com.baomidou.mybatisplus.annotation.TableId");
         imports.Add("com.baomidou.mybatisplus.annotation.TableField");
         imports.Add("com.baomidou.mybatisplus.annotation.IdType");
         imports.Add("com.baomidou.mybatisplus.annotation.FieldFill");
+        if (superFullName is not null)
+        {
+            imports.Add(superFullName);
+        }
 
-        string? fillImportNeeded = null;
         foreach (var column in meta.Columns)
         {
+            var isCommon = excludeBaseColumns && IsSuperEntityColumn(settings, column.Name);
             var (propertyType, jdbcType, typeImports) = MySqlJavaTypeMapper.Map(column);
-            foreach (var typeImport in typeImports)
+            if (!isCommon)
             {
-                imports.Add(typeImport);
+                var enumJavaType = commentRenderer.TryResolveEnumJavaType(column.Comment, column.Name);
+                if (enumJavaType is not null)
+                {
+                    propertyType = enumJavaType.Value.SimpleName;
+                    typeImports = new[] { enumJavaType.Value.ImportName };
+                }
+
+                foreach (var typeImport in typeImports)
+                {
+                    imports.Add(typeImport);
+                }
             }
 
-            var propertyName = CaseFormats.LowerUnderscoreToUpperCamel(column.Name);
-            propertyName = CaseFormats.UpperCamelToLowerCamel(propertyName);
+            var propertyName = CaseFormats.UpperCamelToLowerCamel(
+                CaseFormats.LowerUnderscoreToUpperCamel(column.Name));
             var capitalName = CaseFormats.LowerCamelToUpperCamel(propertyName);
             var fill = ResolveFill(settings, column.Name);
-            if (fill is not null)
-            {
-                fillImportNeeded = "com.baomidou.mybatisplus.annotation.FieldFill";
-            }
-
             var versionField = string.Equals(column.Name, settings.VersionColumnName, StringComparison.OrdinalIgnoreCase);
             var logicDeleteField = string.Equals(column.Name, settings.LogicDeleteColumnName, StringComparison.OrdinalIgnoreCase);
-            if (versionField)
+            if (!isCommon && versionField)
             {
                 imports.Add("com.baomidou.mybatisplus.annotation.Version");
             }
 
-            if (logicDeleteField)
+            if (!isCommon && logicDeleteField)
             {
                 imports.Add("com.baomidou.mybatisplus.annotation.TableLogic");
             }
 
-            fields.Add(new
+            var fieldVm = new
             {
                 name = new VmString(column.Name),
-                comment = column.Comment,
+                comment = isCommon ? "" : commentRenderer.Render(column.Comment, column.Name),
                 propertyName,
                 propertyType = new VmString(propertyType),
                 capitalName,
@@ -213,10 +242,21 @@ public sealed class DaoGenerator
                 versionField,
                 logicDeleteField,
                 metaInfo = new { jdbcType },
-            });
+            };
+
+            allFields.Add(fieldVm);
+            allFieldNames.Add(column.Name);
+            if (isCommon)
+            {
+                // 基类字段：实体类不生成，但 mapper resultMap / 列清单需要完整对象
+                commonFields.Add(fieldVm);
+                continue;
+            }
+
+            fields.Add(fieldVm);
+            sortColumnConstants.Add(target.ColumnConstantFieldPrefix + column.Name.ToUpperInvariant());
         }
 
-        _ = fillImportNeeded;
         var packageInfo = new Hashtable(StringComparer.OrdinalIgnoreCase)
         {
             ["Entity"] = JoinPackage(parentPackage, target.EntityPackage),
@@ -233,7 +273,7 @@ public sealed class DaoGenerator
             ["name"] = meta.Name,
             ["comment"] = meta.Comment,
             ["fields"] = fields,
-            ["commonFields"] = new VmList(),
+            ["commonFields"] = commonFields,
             ["importPackages"] = new VmList(imports),
             ["convert"] = true,
             ["mapperName"] = entityName + "Mapper",
@@ -249,7 +289,7 @@ public sealed class DaoGenerator
             ? CaseFormats.LowerCamelToUpperCamel(target.ModelName)
             : "";
 
-        var context = new Hashtable(StringComparer.OrdinalIgnoreCase)
+        return new Hashtable(StringComparer.OrdinalIgnoreCase)
         {
             ["copyright"] = settings.Copyright,
             ["projectName"] = target.ProjectName,
@@ -268,7 +308,8 @@ public sealed class DaoGenerator
             ["springdoc"] = false,
             ["swagger"] = false,
             ["kotlin"] = false,
-            ["superEntityClass"] = string.IsNullOrWhiteSpace(target.EntitySuperClass) ? null : target.EntitySuperClass,
+            // 模板 extends 使用简单类名；全限定名已加入 importPackages
+            ["superEntityClass"] = superSimpleName,
             ["idType"] = settings.IdType,
             ["schemaName"] = "",
             ["mapperAnnotationClass"] = new VmAnnotationClass(settings.MapperAnnotation),
@@ -286,14 +327,40 @@ public sealed class DaoGenerator
             ["dtoPackageName"] = target.DtoPackageName,
             ["dtoConvertGenEnabled"] = target.DtoConvertGenEnabled,
             ["dtoConvertPackageName"] = target.DtoConvertPackageName,
-            ["tableFields"] = fields,
-            ["allFieldNames"] = string.Join(",", meta.Columns.Select(c => c.Name)),
+            // mapper batch* 与 Base_Column_List 使用全列（含基类字段），顺序与表结构一致
+            ["tableFields"] = allFields,
+            ["sortColumnConstants"] = sortColumnConstants,
+            ["allFieldNames"] = string.Join(",", allFieldNames),
             ["enableCache"] = false,
             ["baseResultMap"] = true,
             ["baseColumnList"] = true,
         };
+    }
 
-        return context;
+    /// <summary>BaseModel 中的审计字段：有基类时不在子实体中重复生成。</summary>
+    private static bool IsSuperEntityColumn(CodegenSettings settings, string columnName) =>
+        EqualsCol(columnName, settings.TenantIdColumnName)
+        || EqualsCol(columnName, settings.CreateTimeColumnName)
+        || EqualsCol(columnName, settings.CreaterIdColumnName)
+        || EqualsCol(columnName, settings.ModifyTimeColumnName)
+        || EqualsCol(columnName, settings.ModifierIdColumnName);
+
+    /// <summary>返回 (简单类名, 全限定名)；无基类时均为 null。</summary>
+    private static (string? SimpleName, string? FullName) ResolveSuperEntity(string? entitySuperClass)
+    {
+        if (string.IsNullOrWhiteSpace(entitySuperClass))
+        {
+            return (null, null);
+        }
+
+        var full = entitySuperClass.Trim();
+        var dot = full.LastIndexOf('.');
+        if (dot < 0)
+        {
+            return (full, null);
+        }
+
+        return (full[(dot + 1)..], full);
     }
 
     private static string? ResolveFill(CodegenSettings settings, string columnName)

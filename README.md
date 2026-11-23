@@ -82,13 +82,13 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | **字典管理** | 加载 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（二次确认）、字典值维护；可生成 Java 枚举 / TS 字典 |
 | **模块管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；忽略列表（仍显示但不参与生成）；**生成配置**（模块名 + 勾选习惯）；查询有生成配置的模块；双击路径打开资源管理器 |
 | **配置 · 主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
-| **配置 · 代码生成配置** | 作者 / 邮箱、`basePackage`、`enumPackagePath`、逻辑删除 / 多租户 / 审计字段、主键 `IdType`（见下表） |
+| **配置 · 代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
 | **配置 · 数据源** | JDBC URL / 分项、MySQL 测试连接；**生成初始化 SQL** / **初始化**（表已存在则报错中止） |
 | **配置 · 模板管理** | 从仓库默认 `.vm` 复制到本机，可编辑 / 还原 |
 | **配置 · 导入导出** | 全局配置导入导出 |
 | **关于** | 产品、版本、官网、许可 |
 
-界面约定：按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖；底部控制台可显隐；浅色主题下自定义标题栏系统按钮配色。
+界面约定：按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖；底部控制台可显隐；浅色主题下自定义标题栏系统按钮配色。UI 字形取自 [Segoe Fluent Icons](https://learn.microsoft.com/zh-cn/windows/apps/design/style/segoe-fluent-icons-font)（`SymbolIcon` / `FontIcon`）；完整离线清单见 [docs/segoe-fluent-icons.md](docs/segoe-fluent-icons.md)。
 
 生成逻辑在 Core 的 `CodegenEngine` + `Codegen/*Generator` 中实现（对照 `qolome-codegen`，NVelocity 渲染同款 `.vm`）。
 

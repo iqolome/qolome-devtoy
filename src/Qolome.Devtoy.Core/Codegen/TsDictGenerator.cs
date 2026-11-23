@@ -40,7 +40,7 @@ public sealed class TsDictGenerator
             datetime,
             itemId = item.ItemId.ToString(),
             itemCode = item.ItemCode,
-            itemEnumName = CaseFormats.LowerHyphenToUpperCamel(item.ItemCode),
+            itemEnumName = CaseFormats.DictCodeToUpperCamel(item.ItemCode),
             itemName = item.ItemName,
             version,
             tsName,

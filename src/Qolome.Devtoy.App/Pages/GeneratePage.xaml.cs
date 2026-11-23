@@ -424,17 +424,41 @@ public sealed partial class GeneratePage : Page
         SetGenerateBusy(true);
         try
         {
-            var ok = await UiBusy.RunAsync(
+            var result = await UiBusy.RunAsync(
                     "正在生成代码…",
                     () => _session.RunCodegenAsync(tasks, tables, null, ModelNameBox.Text))
                 .ConfigureAwait(true);
-            if (ok)
+            if (result.Success)
             {
                 var module = _session.SelectedModule?.ProjectNameDisplay ?? "";
                 var dialog = new ContentDialog
                 {
                     Title = "生成完成",
                     Content = $"代码已生成完成。\n模块：{module}\n表：{tables.Count} 张",
+                    CloseButtonText = "确定",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = XamlRoot,
+                };
+                await dialog.ShowWithIconsAsync();
+            }
+            else
+            {
+                var detail = result.Lines.Count > 0
+                    ? string.Join("\n", result.Lines)
+                    : "未知错误";
+                var dialog = new ContentDialog
+                {
+                    Title = "生成失败",
+                    Content = new ScrollViewer
+                    {
+                        MaxHeight = 420,
+                        Content = new TextBlock
+                        {
+                            Text = detail,
+                            TextWrapping = TextWrapping.WrapWholeWords,
+                            IsTextSelectionEnabled = true,
+                        },
+                    },
                     CloseButtonText = "确定",
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot,

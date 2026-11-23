@@ -14,6 +14,7 @@ public sealed class TemplateStore
             ["entity.java.vm"] = ("Entity", "表/实体"),
             ["entity-comment.java.vm"] = ("Entity 注释", "表/实体"),
             ["entity.kt.vm"] = ("Entity (Kotlin)", "表/实体"),
+            ["BaseModel.java.vm"] = ("实体基类 BaseModel", "表/实体"),
             ["mapper.java.vm"] = ("Mapper 接口", "表/实体"),
             ["mapper.xml.vm"] = ("Mapper XML", "表/实体"),
             ["TemplateConvert.java.vm"] = ("Convert", "DTO"),

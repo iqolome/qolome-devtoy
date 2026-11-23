@@ -14,6 +14,27 @@ public sealed class DevtoySettings
     /// <summary>业务枚举包路径（对齐 CodegenSettings.EnumPackage）。</summary>
     public string EnumPackagePath { get; set; } = "com.qolome.common.dict.biz.enums";
 
+    /// <summary>枚举类名后缀。</summary>
+    public string EnumNameSuffix { get; set; } = "Enum";
+
+    /// <summary>枚举接口全限定名。</summary>
+    public string EnumInterface { get; set; } = "com.qolome.common.dict.biz.inft.IBizEnum";
+
+    /// <summary>实体基类全限定名；空则不继承。</summary>
+    public string EntitySuperClass { get; set; } = "com.qolome.starter.dao.model.BaseModel";
+
+    /// <summary>Entity 相对包名。</summary>
+    public string EntityPackage { get; set; } = "dao.model";
+
+    /// <summary>Mapper 接口相对包名。</summary>
+    public string MapperPackage { get; set; } = "dao.mapper";
+
+    /// <summary>Mapper XML 相对资源包名。</summary>
+    public string XmlPackage { get; set; } = "mapper";
+
+    /// <summary>TS 字典输出相对路径。</summary>
+    public string TsDictPath { get; set; } = Path.Combine("src", "dict");
+
     /// <summary>逻辑删除字段名。</summary>
     public string LogicDeleteColumnName { get; set; } = "deleted";
 
@@ -123,14 +144,40 @@ public sealed class DevtoySettings
             ModifyTimeColumnName = NormalizeColumn(ModifyTimeColumnName, "modify_time"),
             ModifierIdColumnName = NormalizeColumn(ModifierIdColumnName, "modifier_id"),
             IdType = MybatisIdType.Resolve(IdType),
-            EnumPackage = string.IsNullOrWhiteSpace(EnumPackagePath)
-                ? "com.qolome.common.dict.biz.enums"
-                : EnumPackagePath.Trim(),
+            EnumPackage = ResolveEnumPackagePath(),
+            EnumNameSuffix = string.IsNullOrWhiteSpace(EnumNameSuffix) ? "Enum" : EnumNameSuffix.Trim(),
+            EnumInterface = string.IsNullOrWhiteSpace(EnumInterface)
+                ? "com.qolome.common.dict.biz.inft.IBizEnum"
+                : EnumInterface.Trim(),
+            TsDictPath = ResolveTsDictPath(),
         };
     }
 
     public string ResolveBasePackage() =>
         string.IsNullOrWhiteSpace(BasePackage) ? "com.qolome.starter" : BasePackage.Trim();
+
+    public string ResolveEnumPackagePath() =>
+        string.IsNullOrWhiteSpace(EnumPackagePath)
+            ? "com.qolome.common.dict.biz.enums"
+            : EnumPackagePath.Trim();
+
+    public string? ResolveEntitySuperClass()
+    {
+        var value = EntitySuperClass?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    public string ResolveEntityPackage() =>
+        string.IsNullOrWhiteSpace(EntityPackage) ? "dao.model" : EntityPackage.Trim();
+
+    public string ResolveMapperPackage() =>
+        string.IsNullOrWhiteSpace(MapperPackage) ? "dao.mapper" : MapperPackage.Trim();
+
+    public string ResolveXmlPackage() =>
+        string.IsNullOrWhiteSpace(XmlPackage) ? "mapper" : XmlPackage.Trim();
+
+    public string ResolveTsDictPath() =>
+        string.IsNullOrWhiteSpace(TsDictPath) ? Path.Combine("src", "dict") : TsDictPath.Trim();
 
     private static string NormalizeColumn(string? value, string fallback) =>
         string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();

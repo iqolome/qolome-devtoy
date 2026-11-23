@@ -157,8 +157,11 @@ public class ${entity} {
      */
   private static final Set<String> SORT_COLUMNS =
           Set.of(
-               #foreach($field in ${table.fields})
-               ${columnConstantFieldPrefix}${field.name.toUpperCase()}#if($foreach.hasNext),#end
+               #foreach($col in ${sortColumnConstants})
+#if($velocityCount > 1)
+,
+#end
+               ${col}
                #end
           );
 

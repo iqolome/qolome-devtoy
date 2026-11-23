@@ -13,7 +13,8 @@ public sealed class DaoTarget
 
     public string BasePackage { get; set; } = "com.qolome.starter";
 
-    public string? EntitySuperClass { get; set; }
+    /// <summary>实体基类；默认 com.qolome.starter.dao.model.BaseModel。</summary>
+    public string? EntitySuperClass { get; set; } = "com.qolome.starter.dao.model.BaseModel";
 
     public string EntityPackage { get; set; } = "dao.model";
 

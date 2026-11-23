@@ -37,10 +37,16 @@ public static class DevtoyButtons
         return button;
     }
 
-    public static UIElement BuildContent(string label, Symbol symbol, double? fontSize = null)
+    public static UIElement BuildContent(string label, Symbol symbol, double? fontSize = null) =>
+        BuildContent(label, UiGlyphResources.CreateScaledSymbol(symbol, ResolveIconBox(fontSize)), fontSize);
+
+    /// <summary>图标为 Segoe Fluent Icons 字形（如排序升降箭头）。</summary>
+    public static UIElement BuildContentWithGlyph(string label, string glyph, double? fontSize = null) =>
+        BuildContent(label, UiGlyphResources.CreateScaledFontIcon(glyph, ResolveIconBox(fontSize)), fontSize);
+
+    private static UIElement BuildContent(string label, UIElement icon, double? fontSize)
     {
         var textSize = fontSize ?? UiGlyphResources.FontSize;
-        var iconBox = fontSize is null ? UiGlyphResources.IconBox : UiGlyphResources.IconBoxFor(textSize);
         var text = new TextBlock
         {
             Text = label,
@@ -54,11 +60,14 @@ public static class DevtoyButtons
             Spacing = 6,
             Children =
             {
-                UiGlyphResources.CreateScaledSymbol(symbol, iconBox),
+                icon,
                 text,
             },
         };
     }
+
+    private static double ResolveIconBox(double? fontSize) =>
+        fontSize is null ? UiGlyphResources.IconBox : UiGlyphResources.IconBoxFor(fontSize.Value);
 
     /// <summary>可缩放 Symbol 图标（Viewbox）。</summary>
     public static UIElement CreateSymbolIcon(Symbol symbol, double? box = null) =>

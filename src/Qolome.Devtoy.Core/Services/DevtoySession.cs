@@ -678,7 +678,7 @@ public sealed class DevtoySession
         }
     }
 
-    public async Task<bool> RunCodegenAsync(
+    public async Task<CodegenResult> RunCodegenAsync(
         IReadOnlyList<string> tasks,
         IReadOnlyList<string> tables,
         IReadOnlyList<string>? dictCodes,
@@ -688,7 +688,7 @@ public sealed class DevtoySession
         if (!DatabaseGate.TryEnter())
         {
             LogWarn("已有数据库操作进行中，请稍候");
-            return false;
+            return CodegenResult.Fail("已有数据库操作进行中，请稍候");
         }
 
         try
@@ -708,12 +708,12 @@ public sealed class DevtoySession
                 Log(line);
             }
 
-            return result.Success;
+            return result;
         }
         catch (Exception ex)
         {
             LogError("生成失败: " + ex.Message);
-            return false;
+            return CodegenResult.Fail(ex.Message);
         }
         finally
         {

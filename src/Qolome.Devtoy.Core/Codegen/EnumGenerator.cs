@@ -28,7 +28,7 @@ public sealed class EnumGenerator
         var enumPackage = string.IsNullOrWhiteSpace(enumPackagePath)
             ? settings.EnumPackage
             : enumPackagePath.Trim();
-        var enumClassName = CaseFormats.LowerHyphenToUpperCamel(item.ItemCode) + settings.EnumNameSuffix;
+        var enumClassName = CaseFormats.DictCodeToUpperCamel(item.ItemCode) + settings.EnumNameSuffix;
         var referenceCode = item.ReferenceCode;
         var interfaceName = SimpleName(settings.EnumInterface);
         var datetime = TimeZoneInfo.ConvertTime(DateTime.UtcNow, Zone)

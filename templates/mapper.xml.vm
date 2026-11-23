@@ -41,7 +41,10 @@
     <foreach collection="list" item="item">
         (
         #foreach($field in ${tableFields})
-        #{item.${field.propertyName},jdbcType=${field.metaInfo.jdbcType}}#if($foreach.hasNext),#end
+#if($velocityCount > 1)
+,
+#end
+        #{item.${field.propertyName},jdbcType=${field.metaInfo.jdbcType}}
         #end
         ),
     </foreach>

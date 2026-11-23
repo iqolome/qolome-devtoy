@@ -74,7 +74,7 @@ public sealed class DictCatalogService
             .Replace("%", "\\%", StringComparison.Ordinal)
             .Replace("_", "\\_", StringComparison.Ordinal);
 
-    /// <summary>按 item_code 查找字典项（生成枚举 / TS 用）。</summary>
+    /// <summary>按 item_code 查找字典项（生成枚举 / TS / 字段注释用）。</summary>
     public DictItemRecord? FindItemByCode(DataSourceSettings dataSource, string itemCode)
     {
         const string sql = """
@@ -87,6 +87,23 @@ public sealed class DictCatalogService
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@item_code", itemCode);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? ReadItemRecord(reader) : null;
+    }
+
+    /// <summary>按 item_id 查找字典项（字段注释 &lt;dict-item-id&gt; 用）。</summary>
+    public DictItemRecord? FindItemById(DataSourceSettings dataSource, long itemId)
+    {
+        const string sql = """
+            SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,
+                   data_reference_type, remark, enabled, create_time, modify_time
+            FROM qolome_dict_item
+            WHERE item_id = @item_id AND deleted = 0
+            LIMIT 1
+            """;
+        using var conn = MySqlConnectionFactory.Open(dataSource);
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@item_id", itemId);
         using var reader = cmd.ExecuteReader();
         return reader.Read() ? ReadItemRecord(reader) : null;
     }
