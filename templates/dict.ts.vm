@@ -1,0 +1,35 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${tsName}.ts
+ * Date: ${datetime}
+ */
+
+
+/**
+ * 字典项ID: ${itemId}
+ * 字典项编码: ${itemCode}
+ * 字典项名称: ${itemName}
+ * @author ${auth}
+ */
+export const ${itemEnumName} = {
+
+#foreach($val in ${vals})
+
+    /**
+     * $!{val.valName}
+     */
+    $!{val.valEnumName}:{
+        valId:"$!{val.valId}",
+        valValue: "$!{val.valValue}",
+        valCode: "$!{val.valCode}",
+        valName: "$!{val.valName}",
+        valEnum: "$!{val.valEnum}",
+        valScope: "$!{val.valScope}",
+        valDesc: "$!{val.valDesc}",
+        seq: $!{val.seq},
+        enabled: $!{val.enabled},
+        remark: `$!{val.remark}`,
+    },
+#end
+};

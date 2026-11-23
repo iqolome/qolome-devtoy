@@ -1,0 +1,112 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${enumClassName}.java
+ * Date: ${datetime}
+ */
+
+package ${enumPackagePath};
+
+#foreach($importPath in ${importList})
+import ${importPath};
+#end
+import com.qolome.common.dict.biz.util.BizEnums;
+
+/**
+ * <p> 字典项ID: ${itemId} </p>
+ * <p> 字典项编码: ${itemCode} </p>
+ * <p> 字典项名称: ${itemName} </p>
+ * @author ${auth}
+ * @version ${version}
+ * @since ${datetime}
+ */
+public enum ${enumClassName} #if(${enumInftInfo}) implements ${enumInftInfo.inftName}<${valueDataType}> #end {
+
+    #foreach($enumValue in ${enumValues})
+
+      /**
+       * ${enumValue.name}
+        #if($enumValue.valDesc)
+       * <p>描述: ${enumValue.valDesc} </p>
+        #end
+       #if($enumValue.remark)
+       * <p>备注:${enumValue.remark}</p>
+       #end
+       */
+     ${enumValue.fieldName}("${enumValue.code}","${enumValue.name}",#if(${valuetypeStrFlag}) "${enumValue.value}" #else ${enumValue.value} #end),
+    #end
+
+    ;
+
+    /**
+     * ${itemName}
+     * @param code 枚举编码
+     * @param name 名句名称
+     * @param value 枚举值
+     */
+    ${enumClassName}(String code, String name, ${valueDataType} value) {
+        this.code = code;
+        this.name = name;
+        this.value = value;
+    }
+
+   /**
+    * 枚举编码
+    */
+    private final String code;
+
+   /**
+    * 枚举名称
+    */
+    private final String name;
+
+
+   /**
+    * 枚举值
+    */
+    private final ${valueDataType} value;
+
+
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public ${valueDataType} getValue() {
+        return value;
+    }
+
+    @Override
+    public String toString() {
+        #if(${valuetypeStrFlag})
+        return value;
+
+        #else
+        return value.toString();
+        #end
+    }
+
+    /**
+     * 值转枚举
+     * @param value 值
+     * @return 枚举
+     */
+    public static ${enumClassName} value2Enum(${valueDataType} value) {
+        return BizEnums.value2Enum(${enumClassName}.class, value);
+    }
+
+    /**
+     * 编码转枚举
+     * @param code 编码
+     * @return 枚举
+     */
+    public static ${enumClassName} code2Enum(String code) {
+        return BizEnums.code2Enum(${enumClassName}.class, code);
+    }
+}

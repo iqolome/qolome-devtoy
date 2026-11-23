@@ -1,0 +1,63 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${entity}.java
+ * Date: ${datetime}
+ */
+
+package ${package.Parent}.dto.response;
+
+import com.qolome.common.dict.biz.enums.CodegenTemplateEnum;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * $!{table.comment}分页查询响应实体
+ *
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class ${entity}QueryPageResponseDto implements Serializable {
+
+## ----------  BEGIN 字段循环遍历  ----------
+#foreach($field in ${table.fields})
+## field.keyFlag 主键
+## field.fill 可填充
+## field.versionField 版本号字段
+#if(!($field.versionField||$field.logicDeleteField)&&$!field.comment != "")
+    /**
+     * ${field.comment}
+     */
+#end
+#if(!($field.versionField||$field.logicDeleteField))
+    private #if(${field.propertyType.equals("Long")})String#else${field.propertyType}#end ${field.propertyName};
+#end
+
+#end
+    /**
+     * 修改版本
+     */
+    private String modifyVersion;
+
+    /**
+     * 创建时间
+     */
+    private LocalDateTime createTime;
+
+    /**
+     * 修改时间
+     */
+    private LocalDateTime modifyTime;
+
+
+}

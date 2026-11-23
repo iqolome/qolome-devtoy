@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Qolome_Devtoy_App.Pages.DictPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox
+                x:Name="FilterCodeBox"
+                Width="180"
+                PlaceholderText="字典编码"
+                VerticalAlignment="Center"
+                KeyDown="OnFilterKeyDown" />
+            <TextBox
+                x:Name="FilterNameBox"
+                Width="180"
+                PlaceholderText="字典名称"
+                VerticalAlignment="Center"
+                KeyDown="OnFilterKeyDown" />
+            <Button x:Name="QueryBtn" Click="OnQuery">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Find" />
+                    </Viewbox>
+                    <TextBlock Text="查询" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="AddItemBtn" Click="OnAddItem">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Add" />
+                    </Viewbox>
+                    <TextBlock Text="新增字典" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+        <TextBlock
+            Grid.Row="1"
+            Opacity="0.7"
+            Text="需先在「数据源设置」配置 MySQL；点击表头列名可排序；拖动列边界可调整列宽。删除为逻辑删除，需二次确认。"
+            TextWrapping="WrapWholeWords" />
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid
+                Grid.Row="0"
+                x:Name="DictHeaderRow"
+                Margin="0,0,0,8"
+                HorizontalAlignment="Stretch">
+                <Grid
+                    x:Name="DictHeaderGrid"
+                    ColumnSpacing="8"
+                    HorizontalAlignment="Stretch"
+                    Opacity="0.9">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="80" />
+                        <ColumnDefinition Width="1.2*" MinWidth="72" />
+                        <ColumnDefinition Width="64" />
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="360" MinWidth="340" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="SortItemCode" Tag="ItemCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="编码" />
+                    <Button x:Name="SortItemName" Grid.Column="1" Tag="ItemName" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="名称" />
+                    <Button x:Name="SortReference" Grid.Column="2" Tag="ReferenceCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="类型" />
+                    <Button x:Name="SortEnum" Grid.Column="3" Tag="EnumFlag" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="枚举" />
+                    <Button x:Name="SortCreateTime" Grid.Column="4" Tag="CreateTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="创建日期" />
+                    <Button x:Name="SortModifyTime" Grid.Column="5" Tag="ModifyTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="修改日期" />
+                    <TextBlock Grid.Column="6" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+                <Border
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Stretch"
+                    Height="1"
+                    Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    IsHitTestVisible="False" />
+            </Grid>
+            <ListView
+                Grid.Row="1"
+                x:Name="DictList"
+                SelectionMode="None"
+                HorizontalAlignment="Stretch"
+                ScrollViewer.HorizontalScrollMode="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                        <Setter Property="Padding" Value="0,4" />
+                        <Setter Property="MinHeight" Value="36" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnSpacing="8" HorizontalAlignment="Stretch">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="80" />
+                            <ColumnDefinition Width="1.2*" MinWidth="72" />
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="44" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="360" MinWidth="340" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding ItemCode}" FontFamily="Consolas" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding ItemName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding ReferenceCode}" Opacity="0.75" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Text="{Binding EnumDisplay}" Opacity="0.75" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="{Binding CreateTimeDisplay}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="5" Text="{Binding ModifyTimeDisplay}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
+                        <StackPanel
+                            Grid.Column="6"
+                            Orientation="Horizontal"
+                            Spacing="4"
+                            VerticalAlignment="Center">
+                            <Button
+                                Tag="{Binding}"
+                                Click="OnGenerateItem"
+                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Viewbox
+                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                        VerticalAlignment="Center">
+                                        <SymbolIcon Symbol="Play" />
+                                    </Viewbox>
+                                    <TextBlock Text="生成" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                Tag="{Binding}"
+                                Click="OnShowValues"
+                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Viewbox
+                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                        VerticalAlignment="Center">
+                                        <SymbolIcon Symbol="List" />
+                                    </Viewbox>
+                                    <TextBlock Text="值列表" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                Tag="{Binding}"
+                                Click="OnEditItem"
+                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Viewbox
+                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                        VerticalAlignment="Center">
+                                        <SymbolIcon Symbol="Edit" />
+                                    </Viewbox>
+                                    <TextBlock Text="编辑" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                Tag="{Binding}"
+                                Click="OnDeleteItem"
+                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Viewbox
+                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                        VerticalAlignment="Center">
+                                        <SymbolIcon Symbol="Delete" />
+                                    </Viewbox>
+                                    <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+    </Grid>
+</Page>

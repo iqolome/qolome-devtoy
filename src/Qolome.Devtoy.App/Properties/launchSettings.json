@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Qolome.Devtoy.App (Package)": {
+      "commandName": "MsixPackage",
+      "environmentVariables": {
+        "WINAPPRUN_DEVTOOLS": "off"
+      }
+    },
+    "Qolome.Devtoy.App (Unpackaged)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "WINAPPRUN_DEVTOOLS": "off"
+      }
+    }
+  }
+}

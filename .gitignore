@@ -1,0 +1,92 @@
+# ===== Qolome Devtoy — 构建 / 发布产物（勿提交） =====
+dist/
+artifacts/
+
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+*.DotSettings.user
+_ReSharper*/
+
+# MSIX / 应用包
+AppPackages/
+BundleArtifacts/
+*.msix
+*.msixupload
+*.appx
+*.appxbundle
+*.appxupload
+*.appxrecipe
+*.build.appxrecipe
+*.pri
+*.xbf
+**/embed/
+**/intermediatexaml/
+
+# Publish
+publish/
+PublishScripts/
+*.pubxml
+!**/Properties/PublishProfiles/*.pubxml
+
+# 日志与测试
+[Ll]og/
+[Ll]ogs/
+*.log
+*.binlog
+crash.log
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+
+# SonarScanner for .NET 本地工作目录
+.sonarqube/
+.sonar/
+
+# .NET 临时
+Generated\ Files/
+*_wpftmp.csproj
+*.cache
+**/project.assets.json
+**/project.nuget.cache
+*.nuget.dgspec.json
+*.nuget.g.props
+*.nuget.g.targets
+**/XamlSaveStateFile.xml
+**/output.json
+**/input.json
+
+# 密钥与本地签名（勿提交）
+*.pfx
+*.p12
+*.snk
+signing.properties
+!config/signing.example.properties
+**/secrets/
+.env
+.env.*
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store

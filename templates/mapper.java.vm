@@ -1,0 +1,51 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${table.mapperName}.java
+ * Date: ${datetime}
+ */
+package ${package.Mapper};
+
+import ${package.Entity}.${entity};
+import ${superMapperClassPackage};
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Param;
+#if(${mapperAnnotationClass})
+import ${mapperAnnotationClass.name};
+#end
+
+/**
+ * <p>
+ * $!{table.comment} Mapper 接口
+ * </p>
+ *
+ * @author ${author}
+ * @since ${datetime}
+ */
+#if(${mapperAnnotationClass})
+@${mapperAnnotationClass.simpleName}
+#end
+#if(${kotlin})
+interface ${table.mapperName} : ${superMapperClass}<${entity}>
+#else
+public interface ${table.mapperName} extends ${superMapperClass}<${entity}> {
+
+        /**
+         * 批量插入${table.comment}
+         * @param list 更新${table.comment}列表
+         * @return 更新条数
+         */
+        int batchInsert(@Param("list") List<${entity}> list);
+
+        /**
+         * 批量更新${table.comment}
+         * @param list 更新${table.comment}列表
+         * @return 更新条数
+         */
+        int batchUpdate(List<${entity}> list);
+
+
+}
+#end

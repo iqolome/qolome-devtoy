@@ -1,0 +1,139 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${table.serviceImplName}.java
+ * Date: ${datetime}
+ */
+package ${package.ServiceImpl};
+
+import ${package.Parent}.${dtoConvertPackageName}.${entity}Convert;
+import ${package.Mapper}.${table.mapperName};
+import ${package.Entity}.${entity};
+#if(${dtoConvertGenEnabled})
+import ${package.Parent}.dto.request.${entity}CreateRequestDto;
+import ${package.Parent}.dto.request.${entity}DeleteRequestDto;
+import ${package.Parent}.dto.request.${entity}DetailRequestDto;
+import ${package.Parent}.dto.request.${entity}EditRequestDto;
+import ${package.Parent}.dto.request.${entity}QueryPageRequestDto;
+import ${package.Parent}.dto.request.${entity}QuerySimpleAllRequestDto;
+import ${package.Parent}.dto.response.${entity}DetailResponseDto;
+import ${package.Parent}.dto.response.${entity}QueryPageResponseDto;
+import ${package.Parent}.dto.response.${entity}QuerySimpleAllResponseDto;
+#end
+#if(${table.serviceInterface})
+import ${package.Service}.${table.serviceName};
+#end
+import com.qolome.starter.urpat.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+/**
+ * <p>
+ * $!{table.comment} 服务实现类
+ * </p>
+ *
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+#if(${kotlin})
+open class ${table.serviceImplName} : ${superServiceImplClass}<${table.mapperName}, ${entity}>()#if(${table.serviceInterface}), ${table.serviceName}#end {
+
+}
+#else
+public class ${table.serviceImplName}#if(${table.serviceInterface}) implements ${table.serviceName}#end {
+
+#if(${dtoConvertGenEnabled})
+    private final UserService userService;
+    private final ${entity}Convert ${entityLowerCamel}Convert;
+    private final ${table.mapperName} ${entityLowerCamel}Mapper;
+
+
+    /**
+     * ${table.comment}分页查询
+     * @param request 请求参数
+     * @return ${table.comment}分页列表
+     */
+    @Override
+    public PageResult<${entity}QueryPageResponseDto> page(${entity}QueryPageRequestDto request) {
+
+        ${entity} ${entityLowerCamel} = ${entityLowerCamel}Convert.queryPageReq2dao(request);
+
+        QueryWrapper<${entity}> ${entityLowerCamel}QueryWrapper = new QueryWrapper<>(${entityLowerCamel});
+
+        // 查询结果
+        Page<${entity}> ${entityLowerCamel}Page = ${entityLowerCamel}Mapper
+                .selectPage(Pages.page(request, ${entity}.getAllSortColumns()), ${entityLowerCamel}QueryWrapper);
+        return Pages.dao2Dto(${entityLowerCamel}Page, ${entityLowerCamel}Convert::dao2QueryPageRespDtos);
+    }
+
+    /**
+     * ${table.comment}简易查询所有
+     * @param request 请求
+     * @return 所有列表
+     */
+    @Override
+    public List<${entity}QuerySimpleAllResponseDto> simpleQueryAll(${entity}QuerySimpleAllRequestDto request) {
+        return ${entityLowerCamel}Convert.dao2QuerySimpleRespDtos(${entityLowerCamel}Mapper
+                .selectList(new QueryWrapper<>(${entityLowerCamel}Convert
+                        .simpleQueryReq2dao(request))));
+    }
+
+    /**
+     * ${table.comment}查询详情
+     *
+     * @param request 请求
+     * @return 详情
+     */
+    @Override
+    public ${entity}DetailResponseDto queryDetail(${entity}DetailRequestDto request) {
+        ${entity} ${entityLowerCamel} = ${entityLowerCamel}Mapper.selectById(${entityLowerCamel}Convert.detailReq2dao(request));
+
+        // TODO 数据未空检查 GlobalException.isTrueThrow(Objects.isNull(${entityLowerCamel}), XXXErrorEnum.XXX_INFO_ERROR);
+        ${entity}DetailResponseDto ${entityLowerCamel}ResponseDto = ${entityLowerCamel}Convert.dao2DetailRespDto(${entityLowerCamel});
+        userService.loadBaseInfo(${entityLowerCamel}, ${entityLowerCamel}ResponseDto);
+        return ${entityLowerCamel}ResponseDto;
+    }
+
+
+    /**
+     * ${table.comment}创建
+     * @param request 请求参数
+     */
+    @Override
+    @Transactional(rollbackFor = GlobalException.class)
+    public void create(${entity}CreateRequestDto request) {
+
+        int insert = ${entityLowerCamel}Mapper.insert(${entityLowerCamel}Convert.createReqDto2dao(request));
+        // TODO 数据插入检查 GlobalException.countNeThrow(1, update, CommonErrorEnum.XXX_SAVE_FAIL, XXXConstant.XXX);
+    }
+
+    /**
+     * ${table.comment}编辑
+     * @param request 请求参数
+     */
+    @Override
+    @Transactional(rollbackFor = GlobalException.class)
+    public void edit(${entity}EditRequestDto request) {
+        int update = ${entityLowerCamel}Mapper.updateById(${entityLowerCamel}Convert.editReqDto2dao(request));
+        // TODO 数据更新检查 GlobalException.countNeThrow(1, update, CommonErrorEnum.XXX_SAVE_FAIL, XXXConstant.XXX);
+    }
+
+
+    /**
+     * ${table.comment}删除
+     * @param request 请求参数
+     */
+    @Override
+    @Transactional(rollbackFor = GlobalException.class)
+    public void delete(${entity}DeleteRequestDto request) {
+        int delete = ${entityLowerCamel}Mapper.deleteById(${entityLowerCamel}Convert.deleteReqDto2dao(request));
+        // TODO 数据删除检查 GlobalException.countNeThrow(1, delete, CommonErrorEnum.XXX_DELETE_FAIL, XXXConstant.XXX);
+    }
+#end
+}
+#end

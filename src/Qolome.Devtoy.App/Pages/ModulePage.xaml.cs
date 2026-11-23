@@ -1,0 +1,867 @@
+using System.Diagnostics;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Qolome.Devtoy.Core.Models;
+using Qolome.Devtoy.Core.Services;
+using Qolome_Devtoy_App.Helpers;
+using Windows.Storage.Pickers;
+
+namespace Qolome_Devtoy_App.Pages;
+
+public sealed partial class ModulePage : Page
+{
+    private readonly DevtoySession _session = AppServices.Session;
+
+    private ResizableColumnLayout? _columnLayout;
+
+    private ResizableColumnLayout? _ignoredColumnLayout;
+
+    private bool _suppressCheckSync;
+
+    private bool _filterCodegenPrefsOnly;
+
+    private bool IsIgnoredTabActive =>
+        ReferenceEquals(ModuleTabs.SelectedItem, IgnoredTab);
+
+    public ModulePage()
+    {
+        InitializeComponent();
+        Loaded += OnPageLoaded;
+        Unloaded += (_, _) => _session.ModulesChanged -= OnModulesChanged;
+        _session.ModulesChanged += OnModulesChanged;
+    }
+
+    private void OnPageLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_columnLayout is null)
+        {
+            _columnLayout = ResizableColumnLayout.Attach(
+                ModuleHeaderGrid,
+                ModuleList,
+                [
+                    new ColumnSpec(0, 36, 40),
+                    new ColumnSpec(1.6, 80),
+                    new ColumnSpec(1, 72),
+                    new ColumnSpec(2.4, 120),
+                    new ColumnSpec(0.9, 56),
+                    new ColumnSpec(0.9, 56),
+                    new ColumnSpec(0, 72, 88),
+                    new ColumnSpec(0, 320, 340),
+                ]);
+        }
+
+        if (_ignoredColumnLayout is null)
+        {
+            _ignoredColumnLayout = ResizableColumnLayout.Attach(
+                IgnoredHeaderGrid,
+                IgnoredList,
+                [
+                    new ColumnSpec(0, 36, 40),
+                    new ColumnSpec(1.6, 80),
+                    new ColumnSpec(1, 72),
+                    new ColumnSpec(2.4, 120),
+                    new ColumnSpec(0.9, 56),
+                    new ColumnSpec(0.9, 56),
+                    new ColumnSpec(0, 180, 200),
+                ]);
+        }
+
+        Reload();
+        if (_session.Settings.WorkspaceRoots.Count > 0
+            && _session.Modules.Count == 0)
+        {
+            _ = UiBusy.RunAsync("正在扫描模块…", () => _session.RefreshModulesAsync());
+        }
+    }
+
+    private void OnModulesChanged()
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            Reload();
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(Reload);
+        }
+    }
+
+    private void Reload()
+    {
+        IEnumerable<ModuleEntry> activeQuery = _session.Modules.Where(m => !m.IsIgnored);
+        if (_filterCodegenPrefsOnly)
+        {
+            activeQuery = activeQuery.Where(m => m.HasCodegenPrefs);
+        }
+
+        var active = activeQuery.ToList();
+        var ignored = _session.Modules.Where(m => m.IsIgnored).ToList();
+        ModuleList.ItemsSource = active;
+        ModuleList.SelectedItems.Clear();
+        IgnoredList.ItemsSource = ignored;
+        IgnoredList.SelectedItems.Clear();
+        IgnoredTab.Header = ignored.Count > 0 ? $"忽略列表 ({ignored.Count})" : "忽略列表";
+        FilterCodegenBtnText.Text = _filterCodegenPrefsOnly ? "显示全部模块" : "查询生成配置";
+        UpdateBulkActionButtons();
+        SyncHeaderSelectAll();
+        SyncIgnoredHeaderSelectAll();
+    }
+
+    private void OnFilterCodegenPrefs(object sender, RoutedEventArgs e)
+    {
+        _filterCodegenPrefsOnly = !_filterCodegenPrefsOnly;
+        Reload();
+        if (_filterCodegenPrefsOnly)
+        {
+            _session.Log($"已筛选有代码生成配置的模块：{ModuleList.Items?.Count ?? 0} 个");
+        }
+    }
+
+    private async void OnEditCodegenPrefs(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        var modelBox = new TextBox
+        {
+            Text = entry.CodegenModelName ?? "",
+            PlaceholderText = "Java ModelName / package 模块段",
+        };
+        var daoBox = new CheckBox { Content = "Dao（Entity / Mapper / XML）", IsChecked = entry.CodegenDao };
+        var serviceBox = new CheckBox { Content = "Service", IsChecked = entry.CodegenService };
+        var controllerBox = new CheckBox { Content = "Controller", IsChecked = entry.CodegenController };
+
+        var form = new StackPanel { Spacing = 10, MinWidth = 420 };
+        form.Children.Add(new TextBlock
+        {
+            Text = entry.TargetModuleDisplay,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        form.Children.Add(new TextBlock
+        {
+            Text = entry.ModulePath,
+            Opacity = 0.75,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        form.Children.Add(Labeled("模块名", modelBox));
+        form.Children.Add(new TextBlock { Text = "默认生成项", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        form.Children.Add(daoBox);
+        form.Children.Add(serviceBox);
+        form.Children.Add(controllerBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = "代码生成配置",
+            Content = form,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存代码生成配置…",
+                () => _session.SaveModuleCodegenPrefsAsync(
+                    entry.ModulePath,
+                    modelBox.Text,
+                    daoBox.IsChecked == true,
+                    serviceBox.IsChecked == true,
+                    controllerBox.IsChecked == true))
+            .ConfigureAwait(true);
+    }
+
+    private void OnModuleTabChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateBulkActionButtons();
+        if (IsIgnoredTabActive)
+        {
+            SyncIgnoredHeaderSelectAll();
+            SyncVisibleIgnoredRowChecks();
+        }
+        else
+        {
+            SyncHeaderSelectAll();
+            SyncVisibleRowChecks();
+        }
+    }
+
+    private void UpdateBulkActionButtons()
+    {
+        var selected = GetSelectedModules().Count;
+        DeleteSelectedBtn.IsEnabled = selected > 0;
+        var currentCount = IsIgnoredTabActive
+            ? (IgnoredList.Items?.Count ?? 0)
+            : (ModuleList.Items?.Count ?? 0);
+        ClearAllBtn.IsEnabled = currentCount > 0;
+    }
+
+    private ListView ActiveList => IsIgnoredTabActive ? IgnoredList : ModuleList;
+
+    private List<ModuleEntry> GetSelectedModules() =>
+        ActiveList.SelectedItems?.OfType<ModuleEntry>().ToList() ?? new List<ModuleEntry>();
+
+    private List<ModuleEntry> GetCurrentTabModules() =>
+        ActiveList.Items?.OfType<ModuleEntry>().ToList() ?? new List<ModuleEntry>();
+
+    private async void OnPickWorkspace(object sender, RoutedEventArgs e)
+    {
+        var path = await PickFolderAsync();
+        if (path is null)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在添加并扫描工作区…", () => _session.AddWorkspaceAsync(path))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnRefresh(object sender, RoutedEventArgs e) =>
+        await UiBusy.RunAsync("正在刷新模块…", () => _session.RefreshModulesAsync())
+            .ConfigureAwait(true);
+
+    private async void OnAddExternal(object sender, RoutedEventArgs e)
+    {
+        var path = await PickFolderAsync();
+        if (path is null)
+        {
+            return;
+        }
+
+        var recognition = await UiBusy.RunBackgroundAsync(
+                "正在识别工程…",
+                () => ProjectRecognizer.Recognize(path))
+            .ConfigureAwait(true);
+        if (!await ShowModuleEditorAsync(path, recognition, isEdit: false, entry: null))
+        {
+            return;
+        }
+    }
+
+    private void OnModulePathDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        if (!TryOpenInExplorer(entry.ModulePath))
+        {
+            _session.LogError($"无法打开目录: {entry.ModulePath}");
+        }
+
+        e.Handled = true;
+    }
+
+    private static bool TryOpenInExplorer(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        path = Path.GetFullPath(path.Trim());
+        if (!Directory.Exists(path))
+        {
+            return false;
+        }
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = path,
+            UseShellExecute = true,
+        });
+        return true;
+    }
+
+    private async void OnEditModule(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        if (entry.IsSpecified)
+        {
+            var spec = _session.FindSpecifiedProject(entry.ModulePath);
+            if (spec is null)
+            {
+                _session.LogWarn("未找到指定工程配置");
+                return;
+            }
+
+            var recognition = new ProjectRecognition
+            {
+                ProjectRoot = entry.ModulePath,
+                AutoRecognized = !spec.Manual,
+                Types = new ProjectTypes
+                {
+                    Java = spec.Java,
+                    Web = spec.Web || spec.JavaScript,
+                    Flutter = spec.Flutter,
+                },
+                Version = spec.Version ?? entry.ProjectVersion,
+                KindHint = "已登记",
+            };
+            if (!await ShowModuleEditorAsync(entry.ModulePath, recognition, isEdit: true, entry))
+            {
+                return;
+            }
+        }
+        else
+        {
+            if (!await ShowWorkspaceModuleEditorAsync(entry))
+            {
+                return;
+            }
+        }
+
+        Reload();
+    }
+
+    private async void OnIgnoreModule(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在忽略模块…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, true))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnUnignoreModule(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在取消忽略…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, false))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnDeleteModule(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        if (!await ConfirmRemoveModulesAsync([entry]).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在删除模块…", () => _session.RemoveModulesAsync([entry]))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnDeleteSelected(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedModules();
+        if (selected.Count == 0)
+        {
+            return;
+        }
+
+        if (!await ConfirmRemoveModulesAsync(selected).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在删除选中模块…", () => _session.RemoveModulesAsync(selected))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnClearAll(object sender, RoutedEventArgs e)
+    {
+        var all = GetCurrentTabModules();
+        if (all.Count == 0)
+        {
+            return;
+        }
+
+        if (!await ConfirmRemoveModulesAsync(all, isClearAll: true).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync("正在清空列表…", () => _session.RemoveModulesAsync(all))
+            .ConfigureAwait(true);
+    }
+
+    private async Task<bool> ShowWorkspaceModuleEditorAsync(ModuleEntry entry)
+    {
+        var path = entry.ModulePath;
+        _session.Settings.ModuleOverrides.TryGetValue(path, out var ov);
+        var displayName = entry.CatalogDisplayName
+            ?? (ov?.DisplayName)
+            ?? entry.ProjectNameDisplay;
+        var version = ov?.Version ?? entry.ProjectVersion;
+        var types = new ProjectTypes
+        {
+            Java = ov?.Java ?? entry.ProjectTypes.Java,
+            Web = (ov?.Web ?? entry.ProjectTypes.Web) || (ov?.JavaScript == true),
+            Flutter = ov?.Flutter ?? entry.ProjectTypes.Flutter,
+        };
+        var (javaBox, webBox, flutterBox) = CreateTypeCheckBoxes(types);
+
+        var nameBox = new TextBox { Text = displayName, PlaceholderText = "显示名称（可选）" };
+        var versionBox = new TextBox { Text = version, PlaceholderText = "版本号" };
+        var pathText = new TextBlock { Text = path, TextWrapping = TextWrapping.WrapWholeWords, Opacity = 0.75 };
+
+        var form = new StackPanel { Spacing = 10, MinWidth = 420 };
+        form.Children.Add(new TextBlock { Text = "工作区扫描模块", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        form.Children.Add(pathText);
+        form.Children.Add(Labeled("显示名称", nameBox));
+        form.Children.Add(Labeled("版本号", versionBox));
+        form.Children.Add(new TextBlock { Text = "类型", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        form.Children.Add(javaBox);
+        form.Children.Add(webBox);
+        form.Children.Add(flutterBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = "修改模块",
+            Content = form,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return false;
+        }
+
+        if (!TryReadTypesFromCheckBoxes(javaBox, webBox, flutterBox, out var picked))
+        {
+            _session.LogWarn("请至少勾选一种类型：Java / Web / Flutter");
+            return false;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存模块…",
+                () => _session.UpdateWorkspaceModuleOverrideAsync(
+                    path,
+                    nameBox.Text.Trim(),
+                    versionBox.Text.Trim(),
+                    picked))
+            .ConfigureAwait(true);
+        return true;
+    }
+
+    private async Task<bool> ShowModuleEditorAsync(
+        string path,
+        ProjectRecognition recognition,
+        bool isEdit,
+        ModuleEntry? entry)
+    {
+        var (javaBox, webBox, flutterBox) = CreateTypeCheckBoxes(recognition.Types);
+        var versionBox = new TextBox
+        {
+            Header = "版本号",
+            Text = recognition.Version,
+            PlaceholderText = "1.0.0",
+        };
+        var pathText = new TextBlock
+        {
+            Text = path,
+            TextWrapping = TextWrapping.WrapWholeWords,
+            Opacity = 0.8,
+        };
+        var hint = new TextBlock
+        {
+            Text = recognition.AutoRecognized
+                ? $"已识别：{recognition.KindHint}"
+                : "未自动识别，请手动勾选工程类型并填写版本。",
+            TextWrapping = TextWrapping.WrapWholeWords,
+        };
+        var form = new StackPanel { Spacing = 10 };
+        form.Children.Add(new TextBlock { Text = "项目根目录", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        form.Children.Add(pathText);
+        form.Children.Add(hint);
+        form.Children.Add(new TextBlock { Text = "类型", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        form.Children.Add(javaBox);
+        form.Children.Add(webBox);
+        form.Children.Add(flutterBox);
+        form.Children.Add(versionBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = isEdit ? "修改指定工程" : "添加指定工程",
+            Content = form,
+            PrimaryButtonText = isEdit ? "保存" : "添加",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return false;
+        }
+
+        if (!TryReadTypesFromCheckBoxes(javaBox, webBox, flutterBox, out var picked))
+        {
+            _session.LogWarn("请至少勾选一种类型：Java / Web / Flutter");
+            return false;
+        }
+
+        var manual = !recognition.AutoRecognized
+            || picked.Java != recognition.Types.Java
+            || picked.Web != recognition.Types.Web
+            || picked.Flutter != recognition.Types.Flutter
+            || versionBox.Text.Trim() != recognition.Version.Trim();
+        var spec = new SpecifiedProjectEntry
+        {
+            Root = path,
+            Java = picked.Java,
+            Web = picked.Web,
+            Flutter = picked.Flutter,
+            Version = string.IsNullOrWhiteSpace(versionBox.Text) ? null : versionBox.Text.Trim(),
+            Manual = manual,
+        };
+
+        if (isEdit)
+        {
+            await UiBusy.RunAsync("正在保存指定工程…", () => _session.UpdateSpecifiedProjectAsync(spec))
+                .ConfigureAwait(true);
+        }
+        else
+        {
+            await UiBusy.RunAsync("正在添加指定工程…", () => _session.AddSpecifiedProjectAsync(spec))
+                .ConfigureAwait(true);
+        }
+
+        return true;
+    }
+
+    private static (CheckBox Java, CheckBox Web, CheckBox Flutter) CreateTypeCheckBoxes(ProjectTypes types)
+    {
+        return (
+            new CheckBox { Content = "Java", IsChecked = types.Java },
+            new CheckBox { Content = "Web", IsChecked = types.Web },
+            new CheckBox { Content = "Flutter", IsChecked = types.Flutter });
+    }
+
+    private static bool TryReadTypesFromCheckBoxes(
+        CheckBox javaBox,
+        CheckBox webBox,
+        CheckBox flutterBox,
+        out ProjectTypes types)
+    {
+        types = new ProjectTypes
+        {
+            Java = javaBox.IsChecked == true,
+            Web = webBox.IsChecked == true,
+            Flutter = flutterBox.IsChecked == true,
+        };
+        return types.Java || types.Web || types.Flutter;
+    }
+
+    private static UIElement Labeled(string label, TextBox field)
+    {
+        var grid = new Grid { ColumnSpacing = 12 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(field, 1);
+        grid.Children.Add(field);
+        return grid;
+    }
+
+    private static async Task<string?> PickFolderAsync()
+    {
+        var picker = new FolderPicker();
+        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var folder = await picker.PickSingleFolderAsync();
+        return folder?.Path;
+    }
+
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateBulkActionButtons();
+        SyncHeaderSelectAll();
+        SyncVisibleRowChecks();
+        LogSelection(ModuleList);
+    }
+
+    private void OnIgnoredSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateBulkActionButtons();
+        SyncIgnoredHeaderSelectAll();
+        SyncVisibleIgnoredRowChecks();
+        LogSelection(IgnoredList);
+    }
+
+    private void LogSelection(ListView list)
+    {
+        var selected = list.SelectedItems?.OfType<ModuleEntry>().ToList() ?? [];
+        if (selected.Count == 0)
+        {
+            return;
+        }
+
+        if (!IsIgnoredTabActive && list == ModuleList)
+        {
+            _session.SelectedModule = selected[^1];
+        }
+
+        if (selected.Count == 1)
+        {
+            var entry = selected[0];
+            _session.Log($"已选模块: {entry.ProjectNameDisplay} ({entry.VersionDisplay}, {entry.TypeDisplay})");
+        }
+        else
+        {
+            _session.Log($"已选 {selected.Count} 个模块");
+        }
+    }
+
+    private void OnSelectAllChanged(object sender, RoutedEventArgs e) =>
+        ApplySelectAll(HeaderSelectAll, ModuleList, sender);
+
+    private void OnIgnoredSelectAllChanged(object sender, RoutedEventArgs e) =>
+        ApplySelectAll(IgnoredHeaderSelectAll, IgnoredList, sender);
+
+    private void ApplySelectAll(CheckBox header, ListView list, object sender)
+    {
+        if (_suppressCheckSync || sender is not CheckBox box || !ReferenceEquals(box, header))
+        {
+            return;
+        }
+
+        if (box.IsChecked == true)
+        {
+            SelectAllInList(list);
+        }
+        else if (box.IsChecked == false)
+        {
+            list.SelectedItems.Clear();
+        }
+    }
+
+    private static void SelectAllInList(ListView list)
+    {
+        list.SelectedItems.Clear();
+        foreach (var item in list.Items)
+        {
+            list.SelectedItems.Add(item);
+        }
+    }
+
+    private void OnRowCheckLoaded(object sender, RoutedEventArgs e) =>
+        SyncRowCheckLoaded(ModuleList, sender);
+
+    private void OnIgnoredRowCheckLoaded(object sender, RoutedEventArgs e) =>
+        SyncRowCheckLoaded(IgnoredList, sender);
+
+    private void SyncRowCheckLoaded(ListView list, object sender)
+    {
+        if (sender is not CheckBox { Tag: ModuleEntry entry } box)
+        {
+            return;
+        }
+
+        _suppressCheckSync = true;
+        box.IsChecked = list.SelectedItems.Contains(entry);
+        _suppressCheckSync = false;
+    }
+
+    private void OnRowCheckChanged(object sender, RoutedEventArgs e) =>
+        SyncRowCheckChanged(ModuleList, sender);
+
+    private void OnIgnoredRowCheckChanged(object sender, RoutedEventArgs e) =>
+        SyncRowCheckChanged(IgnoredList, sender);
+
+    private void SyncRowCheckChanged(ListView list, object sender)
+    {
+        if (_suppressCheckSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        {
+            return;
+        }
+
+        if (box.IsChecked == true)
+        {
+            if (!list.SelectedItems.Contains(entry))
+            {
+                list.SelectedItems.Add(entry);
+            }
+        }
+        else
+        {
+            list.SelectedItems.Remove(entry);
+        }
+    }
+
+    private void SyncHeaderSelectAll() =>
+        SyncHeaderCheck(HeaderSelectAll, ModuleList);
+
+    private void SyncIgnoredHeaderSelectAll() =>
+        SyncHeaderCheck(IgnoredHeaderSelectAll, IgnoredList);
+
+    private void SyncHeaderCheck(CheckBox header, ListView list)
+    {
+        var total = list.Items?.Count ?? 0;
+        var selected = list.SelectedItems?.Count ?? 0;
+        _suppressCheckSync = true;
+        if (total == 0 || selected == 0)
+        {
+            header.IsChecked = false;
+        }
+        else if (selected >= total)
+        {
+            header.IsChecked = true;
+        }
+        else
+        {
+            header.IsChecked = null;
+        }
+
+        _suppressCheckSync = false;
+    }
+
+    private void SyncVisibleRowChecks() => SyncVisibleChecks(ModuleList);
+
+    private void SyncVisibleIgnoredRowChecks() => SyncVisibleChecks(IgnoredList);
+
+    private void SyncVisibleChecks(ListView list)
+    {
+        if (list.ItemsSource is null)
+        {
+            return;
+        }
+
+        _suppressCheckSync = true;
+        foreach (var item in list.Items)
+        {
+            if (item is not ModuleEntry entry
+                || list.ContainerFromItem(entry) is not ListViewItem container)
+            {
+                continue;
+            }
+
+            if (FindRowCheckBox(container) is { } box)
+            {
+                box.IsChecked = list.SelectedItems.Contains(entry);
+            }
+        }
+
+        _suppressCheckSync = false;
+    }
+
+    private static CheckBox? FindRowCheckBox(DependencyObject root)
+    {
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is CheckBox { Tag: ModuleEntry } box)
+            {
+                return box;
+            }
+
+            var nested = FindRowCheckBox(child);
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<bool> ConfirmRemoveModulesAsync(
+        IReadOnlyList<ModuleEntry> entries,
+        bool isClearAll = false)
+    {
+        var count = entries.Count;
+        var specified = entries.Count(e => e.IsSpecified);
+        var workspace = count - specified;
+        var scope = isClearAll ? "清空当前模块列表" : $"选中删除 {count} 个模块";
+        var detail = BuildRemoveDetail(specified, workspace);
+        var names = string.Join(
+            "\n",
+            entries.Take(8).Select(e => $"· {e.ProjectNameDisplay}"));
+        if (count > 8)
+        {
+            names += $"\n… 另有 {count - 8} 项";
+        }
+
+        var firstMessage = isClearAll
+            ? $"确定{scope}（共 {count} 项）？\n{detail}\n\n{names}"
+            : $"确定{scope}？\n{detail}\n\n{names}";
+
+        if (!await ConfirmDeleteAsync("删除模块", firstMessage, BuildSecondRemoveMessage(count, isClearAll))
+                .ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string BuildRemoveDetail(int specified, int workspace)
+    {
+        var parts = new List<string>();
+        if (specified > 0)
+        {
+            parts.Add($"指定工程 {specified} 个将从配置中移除");
+        }
+
+        if (workspace > 0)
+        {
+            parts.Add($"工作区模块 {workspace} 个仅从当前列表移除（不删磁盘，刷新后可再次出现）");
+        }
+
+        return string.Join("；", parts) + "。";
+    }
+
+    private static string BuildSecondRemoveMessage(int count, bool isClearAll)
+    {
+        var verb = isClearAll ? "清空" : "删除";
+        return $"再次确认{verb} {count} 个模块？不会删除磁盘上的工程目录。";
+    }
+
+    private async Task<bool> ConfirmDeleteAsync(string title, string firstMessage, string secondMessage)
+    {
+        var first = new ContentDialog
+        {
+            Title = title,
+            Content = firstMessage,
+            PrimaryButtonText = "继续",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+        };
+        if (await first.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return false;
+        }
+
+        var second = new ContentDialog
+        {
+            Title = "再次确认",
+            Content = secondMessage,
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+        };
+        return await second.ShowWithIconsAsync() == ContentDialogResult.Primary;
+    }
+}

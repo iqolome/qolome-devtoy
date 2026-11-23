@@ -1,0 +1,49 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${entity}.java
+ * Date: ${datetime}
+ */
+
+package ${package.Parent}.dto.request;
+
+import com.qolome.common.base.dto.request.PageRequestParameter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+
+import java.io.Serializable;
+
+/**
+ * $!{table.comment}分页查询请求实体
+ *
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Data
+@SuperBuilder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
+public class ${entity}QueryPageRequestDto extends PageRequestParameter implements Serializable {
+
+## ----------  BEGIN 字段循环遍历  ----------
+#foreach($field in ${table.fields})
+## field.keyFlag 主键
+## field.fill 可填充
+## field.versionField 版本号字段
+#if(!($field.versionField||$field.logicDeleteField)&&$!field.comment != "")
+    /**
+     * ${field.comment}
+     */
+#end
+#if(!($field.versionField||$field.logicDeleteField))
+    private #if(${field.propertyType.equals("Long")})String#else${field.propertyType}#end ${field.propertyName};
+#end
+
+#end
+
+}

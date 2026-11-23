@@ -1,0 +1,5 @@
+
+     * <p>字典项ID: ${qolomeDictItem.itemId}</p>
+     * <p>字典项编码: ${qolomeDictItem.itemCode}</p>
+     * <p>字典项名称: ${qolomeDictItem.itemName} {@link ${enumClassName}}</p>
+     *

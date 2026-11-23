@@ -1,0 +1,45 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${entity}.java
+ * Date: ${datetime}
+ */
+
+package ${package.Parent}.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+/**
+ * $!{table.comment}创建请求实体
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class ${entity}CreateRequestDto implements Serializable {
+
+## ----------  BEGIN 字段循环遍历  ----------
+#foreach($field in ${table.fields})
+## field.keyFlag 主键
+## field.fill 可填充
+## field.versionField 版本号字段
+#if(!($field.versionField||$field.logicDeleteField||$field.keyFlag)&&$!field.comment != "")
+    /**
+    * ${field.comment}
+    */
+#end
+#if(!($field.versionField||$field.logicDeleteField||$field.keyFlag))
+    private #if(${field.propertyType.equals("Long")})String#else${field.propertyType}#end ${field.propertyName};
+#end
+
+#end
+
+}

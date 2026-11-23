@@ -1,0 +1,82 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${table.serviceName}.java
+ * Date: ${datetime}
+ */
+package ${package.Service};
+
+#if(${dtoConvertGenEnabled})
+import com.qolome.common.base.dto.response.PageResult;
+import ${package.Parent}.dto.request.${entity}CreateRequestDto;
+import ${package.Parent}.dto.request.${entity}DeleteRequestDto;
+import ${package.Parent}.dto.request.${entity}DetailRequestDto;
+import ${package.Parent}.dto.request.${entity}EditRequestDto;
+import ${package.Parent}.dto.request.${entity}QueryPageRequestDto;
+import ${package.Parent}.dto.request.${entity}QuerySimpleAllRequestDto;
+import ${package.Parent}.dto.response.${entity}QuerySimpleAllResponseDto;
+import ${package.Parent}.dto.response.${entity}DetailResponseDto;
+import ${package.Parent}.dto.response.${entity}QueryPageResponseDto;
+#end
+
+import java.util.List;
+/**
+ * <p>
+ * $!{table.comment} 服务类
+ * </p>
+ *
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+#if(${kotlin})
+interface ${table.serviceName} : ${superServiceClass}<${entity}>
+#else
+public interface ${table.serviceName} {
+
+#if(${dtoConvertGenEnabled})
+    /**
+     * ${table.comment}分页查询
+     * @param request 请求参数
+     * @return ${table.comment}分页列表
+     */
+    public PageResult<${entity}QueryPageResponseDto> page(${entity}QueryPageRequestDto request);
+
+    /**
+     * ${table.comment}简易查询所有
+     * @param request 请求
+     * @return 所有列表
+     */
+    List<${entity}QuerySimpleAllResponseDto> simpleQueryAll(${entity}QuerySimpleAllRequestDto request) ;
+
+
+    /**
+     * ${table.comment}查询详情
+     *
+     * @param request 请求
+     * @return 详情
+     */
+    ${entity}DetailResponseDto queryDetail(${entity}DetailRequestDto request);
+
+
+    /**
+     * ${table.comment}创建
+     * @param request 请求参数
+     */
+    void create(${entity}CreateRequestDto request);
+
+    /**
+     * ${table.comment}编辑
+     * @param request 请求参数
+     */
+    void edit(${entity}EditRequestDto request);
+
+
+    /**
+     * ${table.comment}删除
+     * @param request 请求参数
+     */
+    void delete(${entity}DeleteRequestDto request);
+#end
+}
+#end

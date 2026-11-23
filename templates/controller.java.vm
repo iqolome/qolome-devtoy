@@ -1,0 +1,127 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${table.controllerName}.java
+ * Date: ${datetime}
+ */
+package ${package.Controller};
+
+
+import ${package.Parent}.constant.${moduleClassName}Constant;
+#if(${dtoConvertGenEnabled})
+import com.qolome.common.base.dto.response.PageResult;
+import ${package.Parent}.dto.request.${entity}CreateRequestDto;
+import ${package.Parent}.dto.request.${entity}DeleteRequestDto;
+import ${package.Parent}.dto.request.${entity}DetailRequestDto;
+import ${package.Parent}.dto.request.${entity}EditRequestDto;
+import ${package.Parent}.dto.request.${entity}QueryPageRequestDto;
+import ${package.Parent}.dto.request.${entity}QuerySimpleAllRequestDto;
+import ${package.Parent}.dto.response.${entity}DetailResponseDto;
+import ${package.Parent}.dto.response.${entity}QueryPageResponseDto;
+import ${package.Parent}.dto.response.${entity}QuerySimpleAllResponseDto;
+#end
+import ${package.Parent}.service.${entity}Service;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+#if(${dtoConvertGenEnabled})
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+#end
+import org.springframework.web.bind.annotation.RequestMapping;
+#if(${restControllerStyle})
+import org.springframework.web.bind.annotation.RestController;
+#else
+import org.springframework.stereotype.Controller;
+#end
+#if(${dtoConvertGenEnabled})
+import java.util.List;
+#end
+/**
+ * <p>
+ * $!{table.comment} 前端控制器
+ * </p>
+ *
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Slf4j
+#if(${restControllerStyle})
+@RestController
+#else
+@Controller
+#end
+@RequestMapping(#if(${package.ModuleName})${moduleClassName}Constant.API_PREFIX+#end"/#if(${controllerMappingHyphenStyle})${controllerMappingHyphen}#else${table.entityPath}#end")
+@RequiredArgsConstructor
+public class ${table.controllerName} {
+
+#if(${dtoConvertGenEnabled})
+    /**
+     * ${table.comment}服务
+     */
+    private final ${entity}Service ${entityLowerCamel}Service;
+
+    /**
+     * ${table.comment}分页查询
+     * @param request 请求参数
+     * @return ${table.comment}分页列表
+     */
+    @PostMapping("page")
+    public PageResult<${entity}QueryPageResponseDto> page(
+            @RequestBody ${entity}QueryPageRequestDto request) {
+        return ${entityLowerCamel}Service.page(request);
+    }
+
+    /**
+     * ${table.comment}简易查询所有
+     * @param request 请求
+     * @return 所有列表
+     */
+    @PostMapping("simpleQueryAll")
+    public List<${entity}QuerySimpleAllResponseDto> simpleQueryAll(@RequestBody ${entity}QuerySimpleAllRequestDto request) {
+        return ${entityLowerCamel}Service.simpleQueryAll(request);
+    }
+
+    /**
+     * ${table.comment}查询详情
+     *
+     * @param request 请求
+     * @return 详情
+     */
+    @PostMapping("detail")
+    public ${entity}DetailResponseDto queryDetail(@RequestBody @Validated ${entity}DetailRequestDto request) {
+        return ${entityLowerCamel}Service.queryDetail(request);
+    }
+
+    /**
+     * ${table.comment}创建
+     * @param request 请求参数
+     */
+    @PostMapping("create")
+    public void create(@RequestBody @Validated ${entity}CreateRequestDto request) {
+        ${entityLowerCamel}Service.create(request);
+    }
+
+    /**
+     * ${table.comment}编辑
+     *
+     * @param request 请求参数
+     */
+    @PostMapping("edit")
+    public void edit(@RequestBody @Validated ${entity}EditRequestDto request) {
+        ${entityLowerCamel}Service.edit(request);
+    }
+
+    /**
+     * ${table.comment}删除
+     * @param request 请求参数
+     */
+    @PostMapping("delete")
+    public void delete(@RequestBody @Validated ${entity}DeleteRequestDto request) {
+        ${entityLowerCamel}Service.delete(request);
+    }
+#end
+
+}
+

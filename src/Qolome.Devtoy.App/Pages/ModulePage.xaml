@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Qolome_Devtoy_App.Pages.ModulePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="PickWorkspaceBtn" Click="OnPickWorkspace">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Folder" />
+                    </Viewbox>
+                    <TextBlock Text="添加工作区" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="RefreshBtn" Click="OnRefresh">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Refresh" />
+                    </Viewbox>
+                    <TextBlock Text="刷新模块" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="AddExternalBtn" Click="OnAddExternal">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Add" />
+                    </Viewbox>
+                    <TextBlock Text="添加指定工程…" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="DeleteSelectedBtn" Click="OnDeleteSelected" IsEnabled="False">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Delete" />
+                    </Viewbox>
+                    <TextBlock Text="选中删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="ClearAllBtn" Click="OnClearAll">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Clear" />
+                    </Viewbox>
+                    <TextBlock Text="清空列表" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="FilterCodegenBtn" Click="OnFilterCodegenPrefs">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Find" />
+                    </Viewbox>
+                    <TextBlock x:Name="FilterCodegenBtnText" Text="查询生成配置" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <TabView
+            Grid.Row="1"
+            x:Name="ModuleTabs"
+            IsAddTabButtonVisible="False"
+            CanReorderTabs="False"
+            TabWidthMode="SizeToContent"
+            SelectionChanged="OnModuleTabChanged">
+            <TabView.TabItems>
+                <TabViewItem x:Name="ActiveTab" Header="项目列表" IsClosable="False">
+                    <Grid Padding="0,8,0,0" RowSpacing="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid
+                            Grid.Row="0"
+                            x:Name="ModuleHeaderRow"
+                            Margin="0,0,0,8"
+                            HorizontalAlignment="Stretch">
+                            <Grid
+                                x:Name="ModuleHeaderGrid"
+                                ColumnSpacing="8"
+                                HorizontalAlignment="Stretch">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="*" MinWidth="80" />
+                                    <ColumnDefinition Width="96" MinWidth="72" />
+                                    <ColumnDefinition Width="2*" MinWidth="120" />
+                                    <ColumnDefinition Width="72" MinWidth="56" />
+                                    <ColumnDefinition Width="72" MinWidth="56" />
+                                    <ColumnDefinition Width="88" MinWidth="72" />
+                                    <ColumnDefinition Width="340" MinWidth="320" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox
+                                    x:Name="HeaderSelectAll"
+                                    MinWidth="0"
+                                    IsThreeState="True"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="全选 / 取消全选"
+                                    Checked="OnSelectAllChanged"
+                                    Unchecked="OnSelectAllChanged" />
+                                <TextBlock Grid.Column="1" Text="项目名称" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="所属工作区" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="路径" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="类型" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="5" Text="版本号" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="模块名" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="7" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                            <Border
+                                VerticalAlignment="Bottom"
+                                HorizontalAlignment="Stretch"
+                                Height="1"
+                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                IsHitTestVisible="False" />
+                        </Grid>
+                        <ListView
+                            Grid.Row="1"
+                            x:Name="ModuleList"
+                            SelectionMode="Extended"
+                            SelectionChanged="OnSelectionChanged">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="0,4" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnSpacing="8" Padding="0,4" HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="*" MinWidth="80" />
+                                            <ColumnDefinition Width="96" MinWidth="72" />
+                                            <ColumnDefinition Width="2*" MinWidth="120" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="88" MinWidth="72" />
+                                            <ColumnDefinition Width="340" MinWidth="320" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            Tag="{Binding}"
+                                            Loaded="OnRowCheckLoaded"
+                                            Checked="OnRowCheckChanged"
+                                            Unchecked="OnRowCheckChanged" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{Binding ProjectNameDisplay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Text="{Binding WorkspaceDisplay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            Tag="{Binding}"
+                                            Text="{Binding ModulePath}"
+                                            FontFamily="Consolas"
+                                            FontSize="12"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center"
+                                            DoubleTapped="OnModulePathDoubleTapped"
+                                            ToolTipService.ToolTip="双击在资源管理器中打开此目录" />
+                                        <TextBlock Grid.Column="4" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="6"
+                                            Text="{Binding CodegenModelDisplay}"
+                                            FontFamily="Consolas"
+                                            VerticalAlignment="Center"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnEditModule"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Edit" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="修改" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnEditCodegenPrefs"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}"
+                                                ToolTipService.ToolTip="查看 / 编辑 Java 代码生成模块名与 Dao/Service/Controller 习惯">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Setting" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="生成配置" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnIgnoreModule"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}"
+                                                ToolTipService.ToolTip="移入忽略列表，不出现在代码生成 / 字典生成目标中">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="DisableUpdates" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="忽略" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnDeleteModule"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Delete" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </TabViewItem>
+
+                <TabViewItem x:Name="IgnoredTab" Header="忽略列表" IsClosable="False">
+                    <Grid Padding="0,8,0,0" RowSpacing="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid
+                            Grid.Row="0"
+                            x:Name="IgnoredHeaderRow"
+                            Margin="0,0,0,8"
+                            HorizontalAlignment="Stretch">
+                            <Grid
+                                x:Name="IgnoredHeaderGrid"
+                                ColumnSpacing="8"
+                                HorizontalAlignment="Stretch">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="*" MinWidth="80" />
+                                    <ColumnDefinition Width="96" MinWidth="72" />
+                                    <ColumnDefinition Width="2*" MinWidth="120" />
+                                    <ColumnDefinition Width="72" MinWidth="56" />
+                                    <ColumnDefinition Width="72" MinWidth="56" />
+                                    <ColumnDefinition Width="200" MinWidth="180" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox
+                                    x:Name="IgnoredHeaderSelectAll"
+                                    MinWidth="0"
+                                    IsThreeState="True"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="全选 / 取消全选"
+                                    Checked="OnIgnoredSelectAllChanged"
+                                    Unchecked="OnIgnoredSelectAllChanged" />
+                                <TextBlock Grid.Column="1" Text="项目名称" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="所属工作区" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="路径" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="类型" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="5" Text="版本号" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                            <Border
+                                VerticalAlignment="Bottom"
+                                HorizontalAlignment="Stretch"
+                                Height="1"
+                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                IsHitTestVisible="False" />
+                        </Grid>
+                        <ListView
+                            Grid.Row="1"
+                            x:Name="IgnoredList"
+                            SelectionMode="Extended"
+                            SelectionChanged="OnIgnoredSelectionChanged">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="0,4" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnSpacing="8" Padding="0,4" HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="*" MinWidth="80" />
+                                            <ColumnDefinition Width="96" MinWidth="72" />
+                                            <ColumnDefinition Width="2*" MinWidth="120" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="200" MinWidth="180" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            Tag="{Binding}"
+                                            Loaded="OnIgnoredRowCheckLoaded"
+                                            Checked="OnIgnoredRowCheckChanged"
+                                            Unchecked="OnIgnoredRowCheckChanged" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{Binding ProjectNameDisplay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Text="{Binding WorkspaceDisplay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            Tag="{Binding}"
+                                            Text="{Binding ModulePath}"
+                                            FontFamily="Consolas"
+                                            FontSize="12"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center"
+                                            DoubleTapped="OnModulePathDoubleTapped"
+                                            ToolTipService.ToolTip="双击在资源管理器中打开此目录" />
+                                        <TextBlock Grid.Column="4" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnUnignoreModule"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}"
+                                                ToolTipService.ToolTip="取消忽略后回到项目列表">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Undo" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="取消忽略" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnDeleteModule"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Delete" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </TabViewItem>
+            </TabView.TabItems>
+        </TabView>
+    </Grid>
+</Page>

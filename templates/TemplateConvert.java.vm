@@ -1,0 +1,96 @@
+/*
+ * $!{copyright}
+ * ProjectName: ${projectName}
+ * Title: ${table.serviceImplName}.java
+ * Date: ${datetime}
+ */
+package ${package.Parent}.${dtoConvertPackageName};
+
+import ${package.Parent}.dao.model.${entity};
+import ${package.Parent}.dto.request.${entity}CreateRequestDto;
+import ${package.Parent}.dto.request.${entity}DeleteRequestDto;
+import ${package.Parent}.dto.request.${entity}DetailRequestDto;
+import ${package.Parent}.dto.request.${entity}EditRequestDto;
+import ${package.Parent}.dto.request.${entity}QueryPageRequestDto;
+import ${package.Parent}.dto.request.${entity}QuerySimpleAllRequestDto;
+import ${package.Parent}.dto.response.${entity}DetailResponseDto;
+import ${package.Parent}.dto.response.${entity}QueryPageResponseDto;
+import ${package.Parent}.dto.response.${entity}QuerySimpleAllResponseDto;
+import org.mapstruct.Mapper;
+
+import java.util.List;
+
+/**
+ * $!{table.comment}
+ * @author ${author}
+ * @version ${version}
+ * @since ${datetime}
+ */
+@Mapper
+public interface ${entity}Convert {
+
+    /**
+     * $!{table.comment}分页查询转实体
+     * @param request $!{table.comment}分页查询请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} queryPageReq2dao(${entity}QueryPageRequestDto request);
+
+    /**
+     * $!{table.comment}实体列表转分页响应列表
+     * @param ${entityLowerCamel}s 实体列表
+     * @return $!{table.comment}分页响应列表
+     */
+    List<${entity}QueryPageResponseDto> dao2QueryPageRespDtos(List<${entity}> ${entityLowerCamel}s);
+
+    /**
+     * $!{table.comment}实体列表转简易查询响应列表
+     * @param ${entityLowerCamel}s $!{table.comment}实体列表
+     * @return $!{table.comment}简易查询响应列表
+     */
+    List<${entity}QuerySimpleAllResponseDto> dao2QuerySimpleRespDtos(List<${entity}> ${entityLowerCamel}s);
+
+    /**
+     * $!{table.comment}简易查询请求转实体
+     * @param request $!{table.comment}简易查询请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} simpleQueryReq2dao(${entity}QuerySimpleAllRequestDto request);
+
+    /**
+     * $!{table.comment}详情查询请求转实体
+     * @param request $!{table.comment}详情查询请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} detailReq2dao(${entity}DetailRequestDto request);
+
+    /**
+     * $!{table.comment}实体转详情查询响应
+     * @param ${entityLowerCamel} $!{table.comment}实体
+     * @return $!{table.comment}详情查询响应
+     */
+    ${entity}DetailResponseDto dao2DetailRespDto(${entity} ${entityLowerCamel});
+
+    /**
+     * $!{table.comment}详情查询请求转实体
+     * @param request $!{table.comment}详情查询请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} createReqDto2dao(${entity}CreateRequestDto request);
+
+    /**
+     * $!{table.comment}编辑请求转实体
+     * @param request $!{table.comment}编辑请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} editReqDto2dao(${entity}EditRequestDto request);
+
+    /**
+     * $!{table.comment}删除请求转实体
+     * @param request  $!{table.comment}删除请求
+     * @return $!{table.comment}实体
+     */
+    ${entity} deleteReqDto2dao(${entity}DeleteRequestDto request);
+
+
+}

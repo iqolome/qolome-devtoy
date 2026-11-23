@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>1.0.0</Version>
+    <Company>忻州市尖锋达科技有限公司</Company>
+    <Product>Qolome Devtoy</Product>
+    <Copyright>Copyright © 2026 Xinzhou jfonda Technology Co., Ltd.</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="3.0.0" />
+    <PackageReference Include="NVelocity" Version="1.2.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,5 @@
+# 仓库根目录 .gitignore 已覆盖常见构建产物。
+# 此处仅补充 WinUI 生成文件（若从子目录单独打开项目时生效）。
+*.xbf
+**/embed/
+**/intermediatexaml/
