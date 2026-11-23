@@ -15,10 +15,7 @@ public sealed class EnumGenerator
 
     public string Generate(
         CodegenSettings settings,
-        string projectPath,
-        string projectName,
-        string auth,
-        string version,
+        EnumProjectContext project,
         string? enumPackagePath,
         DictItemRecord item,
         IReadOnlyList<DictValueRow> values)
@@ -40,9 +37,9 @@ public sealed class EnumGenerator
         var model = new
         {
             copyright = settings.Copyright,
-            projectName,
+            projectName = project.ProjectName,
             datetime,
-            version,
+            version = project.Version,
             enumClassName,
             itemId = item.ItemId.ToString(),
             itemCode = item.ItemCode,
@@ -57,7 +54,7 @@ public sealed class EnumGenerator
                 valDesc = v.ValDesc,
                 remark = v.Remark,
             })),
-            auth,
+            auth = project.Auth,
             enumPackagePath = enumPackage,
             enumInftInfo = new { inftName = interfaceName, packageName = settings.EnumInterface },
             valueDataType = referenceCode,
@@ -65,7 +62,7 @@ public sealed class EnumGenerator
         };
 
         var output = Path.Combine(
-            projectPath,
+            project.ProjectPath,
             "src",
             "main",
             "java",

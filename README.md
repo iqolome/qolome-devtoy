@@ -7,6 +7,13 @@
 
 独立 Windows 开发者工具（**WinUI 3 / .NET 10**），对齐 `cloud-workspace/qolome-codegen` IDEA 插件能力，目标：**更独立、更现代 UI、更好性能**（纯 C# 代码生成，不依赖 JVM）。
 
+## Sonar检测信息
+
+[![Quality gate](https://sonar.qolome.com:8081/api/project_badges/quality_gate?project=app%3Aqolome-devtoy&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
+[![可维护性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可靠性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![重复行](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=duplicated_lines_density&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
+[![可靠性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可维护性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![技术债务](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_remediation_effort&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
+
+
 ## 关于
 
 | | |

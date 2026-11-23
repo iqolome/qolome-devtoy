@@ -38,14 +38,27 @@ public sealed class ModuleEntry
     public bool HasCodegenPrefs { get; init; }
 
     public string CodegenModelDisplay =>
-        string.IsNullOrWhiteSpace(CodegenModelName) ? "—" : CodegenModelName!;
+        string.IsNullOrWhiteSpace(CodegenModelName) ? "—" : CodegenModelName;
 
     /// <summary>工作区目录名；指定工程显示「指定工程」。</summary>
-    public string WorkspaceDisplay => IsSpecified
-        ? "指定工程"
-        : string.IsNullOrWhiteSpace(WorkspaceRoot)
-            ? "—"
-            : Path.GetFileName(WorkspaceRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    public string WorkspaceDisplay
+    {
+        get
+        {
+            if (IsSpecified)
+            {
+                return "指定工程";
+            }
+
+            if (string.IsNullOrWhiteSpace(WorkspaceRoot))
+            {
+                return "—";
+            }
+
+            return Path.GetFileName(
+                WorkspaceRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        }
+    }
 
     /// <summary>项目名称：模块最终所在文件夹名（可被 CatalogDisplayName 覆盖）。</summary>
     public string ProjectNameDisplay
@@ -54,7 +67,7 @@ public sealed class ModuleEntry
         {
             if (!string.IsNullOrWhiteSpace(CatalogDisplayName))
             {
-                return CatalogDisplayName!;
+                return CatalogDisplayName;
             }
 
             return FolderNameOf(ModulePath);

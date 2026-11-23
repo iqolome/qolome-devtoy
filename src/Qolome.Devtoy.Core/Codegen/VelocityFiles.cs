@@ -14,7 +14,8 @@ public sealed class VelocityFiles
 {
     private static readonly Regex ForeachPattern = new(
         @"#foreach\s*\(\s*\$(\w+)\s+in\s+(\$\{?[\w.]+\}?)\s*\)",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(2));
 
     private readonly object _gate = new();
     private VelocityEngine? _engine;
@@ -153,7 +154,10 @@ public sealed class VelocityFiles
             var copy = new Hashtable();
             foreach (DictionaryEntry entry in dict)
             {
-                copy[entry.Key!] = entry.Value;
+                if (entry.Key is not null)
+                {
+                    copy[entry.Key] = entry.Value;
+                }
             }
 
             return copy;

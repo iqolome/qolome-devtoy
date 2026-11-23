@@ -51,14 +51,13 @@ public sealed partial class TemplatePage : Page
             return;
         }
 
-        if (_dirty && _current is not null
-            && !string.Equals(_current.FileName, info.FileName, StringComparison.OrdinalIgnoreCase))
+        if (_dirty
+            && _current is not null
+            && !string.Equals(_current.FileName, info.FileName, StringComparison.OrdinalIgnoreCase)
+            && !await ConfirmDiscardAsync().ConfigureAwait(true))
         {
-            if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-            {
-                TemplateList.SelectedItem = _current;
-                return;
-            }
+            TemplateList.SelectedItem = _current;
+            return;
         }
 
         LoadTemplate(info);

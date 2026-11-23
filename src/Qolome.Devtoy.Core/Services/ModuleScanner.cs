@@ -120,13 +120,10 @@ public sealed class ModuleScanner
             return;
         }
 
-        if (backend)
+        // packaging=pom / 无源码 Gradle 聚合工程不登记，但仍下钻识别有代码的子模块
+        if (backend && ProjectTypes.ShouldRegisterBackendModule(dir))
         {
-            // packaging=pom / 无源码 Gradle 聚合工程不登记，但仍下钻识别有代码的子模块
-            if (ProjectTypes.ShouldRegisterBackendModule(dir))
-            {
-                list.Add(CreateEntry(workspaceRoot, dir));
-            }
+            list.Add(CreateEntry(workspaceRoot, dir));
         }
 
         if (depth >= MaxDepth)

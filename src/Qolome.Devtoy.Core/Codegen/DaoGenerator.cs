@@ -45,14 +45,13 @@ public sealed class DaoGenerator
             cancellationToken.ThrowIfCancellationRequested();
             var meta = _tableReader.Read(dataSource, tableName);
             var context = BuildContext(settings, target, meta);
-            written.AddRange(WriteArtifacts(settings, target, meta, context, generateEntityMapper));
+            written.AddRange(WriteArtifacts(target, meta, context, generateEntityMapper));
         }
 
         return written;
     }
 
     private IEnumerable<string> WriteArtifacts(
-        CodegenSettings settings,
         DaoTarget target,
         TableMetadata meta,
         Hashtable context,

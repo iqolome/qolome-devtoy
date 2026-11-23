@@ -143,11 +143,15 @@ public sealed class DevtoySession
         ModulesChanged?.Invoke();
         var ignored = Modules.Count(m => m.IsIgnored);
         var wsCount = Settings.WorkspaceRoots.Count;
-        Log(wsCount == 0
-            ? $"已加载 {Modules.Count} 个模块（含 {specified.Count} 个指定工程"
-                + (ignored > 0 ? $"，忽略 {ignored}" : "") + "）"
-            : $"已扫描 {Modules.Count} 个模块（{wsCount} 个工作区，含 {specified.Count} 个指定工程"
-                + (ignored > 0 ? $"，忽略 {ignored}" : "") + "）");
+        var ignoreSuffix = ignored > 0 ? $"，忽略 {ignored}" : "";
+        if (wsCount == 0)
+        {
+            Log($"已加载 {Modules.Count} 个模块（含 {specified.Count} 个指定工程{ignoreSuffix}）");
+        }
+        else
+        {
+            Log($"已扫描 {Modules.Count} 个模块（{wsCount} 个工作区，含 {specified.Count} 个指定工程{ignoreSuffix}）");
+        }
     }
 
     private void SaveSettingsQuiet()
@@ -279,25 +283,14 @@ public sealed class DevtoySession
         var settingsChanged = false;
         foreach (var entry in entries)
         {
-            string path;
-            try
-            {
-                path = Path.GetFullPath(entry.ModulePath);
-            }
-            catch
+            if (!TryGetFullPath(entry.ModulePath, out var path))
             {
                 continue;
             }
 
-            if (entry.IsSpecified)
+            if (entry.IsSpecified && TryRemoveSpecifiedFromSettings(path))
             {
-                var before = Settings.SpecifiedProjects.Count;
-                Settings.SpecifiedProjects.RemoveAll(p =>
-                    string.Equals(Path.GetFullPath(p.Root), path, StringComparison.OrdinalIgnoreCase));
-                if (Settings.SpecifiedProjects.Count < before)
-                {
-                    settingsChanged = true;
-                }
+                settingsChanged = true;
             }
 
             if (RemoveIgnoredPath(path))
@@ -318,36 +311,48 @@ public sealed class DevtoySession
             SaveSettingsQuiet();
         }
 
-        Modules = Modules
-            .Where(m =>
-            {
-                try
-                {
-                    return !drop.Contains(Path.GetFullPath(m.ModulePath));
-                }
-                catch
-                {
-                    return true;
-                }
-            })
-            .ToList();
-        if (SelectedModule is not null)
-        {
-            try
-            {
-                if (drop.Contains(Path.GetFullPath(SelectedModule.ModulePath)))
-                {
-                    SelectedModule = null;
-                }
-            }
-            catch
-            {
-                // keep selection
-            }
-        }
-
+        Modules = Modules.Where(m => !IsPathInSet(m.ModulePath, drop)).ToList();
+        ClearSelectionIfDropped(drop);
         ModulesChanged?.Invoke();
         Log($"已从列表移除 {drop.Count} 个模块（未删除磁盘文件）");
+    }
+
+    private bool TryRemoveSpecifiedFromSettings(string path)
+    {
+        var before = Settings.SpecifiedProjects.Count;
+        Settings.SpecifiedProjects.RemoveAll(p =>
+            string.Equals(Path.GetFullPath(p.Root), path, StringComparison.OrdinalIgnoreCase));
+        return Settings.SpecifiedProjects.Count < before;
+    }
+
+    private void ClearSelectionIfDropped(HashSet<string> drop)
+    {
+        if (SelectedModule is null || !TryGetFullPath(SelectedModule.ModulePath, out var selected))
+        {
+            return;
+        }
+
+        if (drop.Contains(selected))
+        {
+            SelectedModule = null;
+        }
+    }
+
+    private static bool IsPathInSet(string modulePath, HashSet<string> drop) =>
+        TryGetFullPath(modulePath, out var path) && drop.Contains(path);
+
+    private static bool TryGetFullPath(string path, out string fullPath)
+    {
+        try
+        {
+            fullPath = Path.GetFullPath(path);
+            return true;
+        }
+        catch
+        {
+            fullPath = "";
+            return false;
+        }
     }
 
     public Task RemoveModulesAsync(IEnumerable<ModuleEntry> entries, CancellationToken cancellationToken = default)

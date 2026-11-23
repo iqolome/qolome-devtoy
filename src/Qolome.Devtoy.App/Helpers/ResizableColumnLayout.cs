@@ -251,7 +251,7 @@ public sealed class ResizableColumnLayout
 
     private void OnGripPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_dragIndex < 0 || sender is not UIElement grip || _header is null)
+        if (_dragIndex < 0 || sender is not UIElement || _header is null)
         {
             return;
         }

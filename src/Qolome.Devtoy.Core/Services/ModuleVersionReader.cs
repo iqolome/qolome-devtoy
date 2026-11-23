@@ -223,29 +223,44 @@ public static partial class ModuleVersionReader
             return fromProps;
         }
 
+        return ReadGradleVersionFromAncestors(moduleDir);
+    }
+
+    private static string ReadGradleVersionFromAncestors(string moduleDir)
+    {
         var current = Directory.GetParent(moduleDir);
         for (var i = 0; i < 8 && current is not null; i++, current = current.Parent)
         {
-            foreach (var name in new[] { "build.gradle.kts", "build.gradle" })
+            var fromBuild = ReadGradleVersionInAncestorBuild(current);
+            if (!string.IsNullOrWhiteSpace(fromBuild))
             {
-                var path = Path.Combine(current.FullName, name);
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var v = ReadGradleVersionInFile(path);
-                if (!string.IsNullOrWhiteSpace(v))
-                {
-                    return v;
-                }
+                return fromBuild;
             }
 
-            var props = Path.Combine(current.FullName, "gradle.properties");
-            var pv = ReadGradlePropertiesVersion(props);
+            var pv = ReadGradlePropertiesVersion(Path.Combine(current.FullName, "gradle.properties"));
             if (!string.IsNullOrWhiteSpace(pv))
             {
                 return pv;
+            }
+        }
+
+        return "";
+    }
+
+    private static string ReadGradleVersionInAncestorBuild(DirectoryInfo current)
+    {
+        foreach (var name in new[] { "build.gradle.kts", "build.gradle" })
+        {
+            var path = Path.Combine(current.FullName, name);
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var v = ReadGradleVersionInFile(path);
+            if (!string.IsNullOrWhiteSpace(v))
+            {
+                return v;
             }
         }
 

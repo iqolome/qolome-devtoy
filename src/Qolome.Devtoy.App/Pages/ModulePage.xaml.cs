@@ -240,7 +240,7 @@ public sealed partial class ModulePage : Page
                 "正在识别工程…",
                 () => ProjectRecognizer.Recognize(path))
             .ConfigureAwait(true);
-        if (!await ShowModuleEditorAsync(path, recognition, isEdit: false, entry: null))
+        if (!await ShowModuleEditorAsync(path, recognition, isEdit: false).ConfigureAwait(true))
         {
             return;
         }
@@ -311,7 +311,7 @@ public sealed partial class ModulePage : Page
                 Version = spec.Version ?? entry.ProjectVersion,
                 KindHint = "已登记",
             };
-            if (!await ShowModuleEditorAsync(entry.ModulePath, recognition, isEdit: true, entry))
+            if (!await ShowModuleEditorAsync(entry.ModulePath, recognition, isEdit: true).ConfigureAwait(true))
             {
                 return;
             }
@@ -464,8 +464,7 @@ public sealed partial class ModulePage : Page
     private async Task<bool> ShowModuleEditorAsync(
         string path,
         ProjectRecognition recognition,
-        bool isEdit,
-        ModuleEntry? entry)
+        bool isEdit)
     {
         var (javaBox, webBox, flutterBox) = CreateTypeCheckBoxes(recognition.Types);
         var versionBox = new TextBox

@@ -42,7 +42,7 @@ public static class ModuleCatalogFilter
         }
 
         var displayName = !string.IsNullOrWhiteSpace(ov?.DisplayName)
-            ? ov.DisplayName!.Trim()
+            ? ov.DisplayName.Trim()
             : legacyName;
 
         return BuildEntry(
@@ -95,7 +95,7 @@ public static class ModuleCatalogFilter
             IsIgnored = isIgnored,
             CodegenModelName = string.IsNullOrWhiteSpace(ov?.CodegenModelName)
                 ? null
-                : ov!.CodegenModelName!.Trim(),
+                : ov.CodegenModelName.Trim(),
             CodegenDao = ov?.CodegenDao ?? true,
             CodegenService = ov?.CodegenService ?? false,
             CodegenController = ov?.CodegenController ?? false,
