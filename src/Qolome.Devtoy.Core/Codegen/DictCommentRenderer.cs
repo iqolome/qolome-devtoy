@@ -101,7 +101,7 @@ public sealed class DictCommentRenderer
                 throw new InvalidOperationException(FormatDictError("字段注释中的 dict-item-id 非法: " + token, columnName, token));
             }
 
-            item = _catalog.FindItemById(_dataSource, itemId);
+            item = DictCatalogService.FindItemById(_dataSource, itemId);
         }
         else
         {

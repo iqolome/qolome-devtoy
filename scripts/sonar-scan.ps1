@@ -111,7 +111,9 @@ function Invoke-DotnetSonarScanner {
         /d:sonar.host.url="$hostUrl" `
         /d:sonar.token="$token" `
         /d:sonar.qualitygate.wait=true `
-        /d:sonar.exclusions="**/bin/**,**/obj/**,**/dist/**,**/*.g.cs,**/*.g.i.cs,**/Generated Files/**"
+        /d:sonar.exclusions="**/bin/**,**/obj/**,**/dist/**,**/*.g.cs,**/*.g.i.cs,**/Generated Files/**,**/scripts/**,**/docs/**" `
+        /d:sonar.coverage.exclusions="**/*" `
+        /d:sonar.python.version="3.11"
 
     if ($LASTEXITCODE -ne 0) {
         throw "sonarscanner begin 失败，退出码 $LASTEXITCODE"

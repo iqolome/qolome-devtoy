@@ -57,6 +57,26 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | 企业代码签名 PFX | 可选，见 [packaging/README.md](packaging/README.md) |
 | SonarScanner | 可选；全局工具 `dotnet-sonarscanner`，或 `SONAR_SCANNER_HOME` |
 
+### 内置数据库依赖版本
+
+数据源下拉对应 `DatabaseKind`（MySQL / PostgreSQL / Oracle / SQLite）。**当前运行时已接入 MySQL**；其余种类可拼 JDBC URL，连接与生成能力尚未接线。
+
+| 数据库 | 本工具 .NET 包 | 版本 | 默认端口 | 状态 |
+| --- | --- | --- | --- | --- |
+| MySQL | [MySqlConnector](https://www.nuget.org/packages/MySqlConnector) | `3.0.0`（见 `Qolome.Devtoy.Core.csproj`） | `3306` | 已接入：测试连接、字典、表列表、代码生成、初始化 SQL |
+| PostgreSQL | — | — | `5432` | 仅 JDBC URL；驱动待接入 |
+| Oracle | — | — | `1521` | 仅 JDBC URL；驱动待接入 |
+| SQLite | — | — | — | 仅 JDBC URL；驱动待接入 |
+
+对齐参考：`qolome-codegen` IDEA 插件内置 JDBC（`qolome-codegen-idea-plugin/build.gradle.kts`）：
+
+| 数据库 | Maven 坐标 | 版本 |
+| --- | --- | --- |
+| MySQL | `com.mysql:mysql-connector-j` | `9.1.0` |
+| PostgreSQL | `org.postgresql:postgresql` | `42.7.4` |
+| Oracle | `com.oracle.database.jdbc:ojdbc11` | `23.6.0.24.10` |
+| SQLite | `org.xerial:sqlite-jdbc` | `3.47.1.0` |
+
 ## 仓库结构
 
 | 路径 | 说明 |

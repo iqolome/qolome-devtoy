@@ -7,13 +7,26 @@ import argparse
 import json
 import os
 import re
-import sys
 from pathlib import Path
 
 import pymysql
 
-DICT_CODE_RE = re.compile(r"(<dict-code>)(.*?)(</dict-code>)", re.IGNORECASE | re.DOTALL)
+DICT_CODE_RE = re.compile(r"(<dict-code>)([^<]*)(</dict-code>)", re.IGNORECASE)
 SETTINGS = Path(os.environ.get("LOCALAPPDATA", "")) / "Qolome" / "Devtoy" / "settings.json"
+NUMERIC_TYPES = {
+    "tinyint",
+    "smallint",
+    "mediumint",
+    "int",
+    "integer",
+    "bigint",
+    "decimal",
+    "numeric",
+    "float",
+    "double",
+    "bit",
+}
+NO_DEFAULT_NULL_TYPES = {"text", "blob", "json", "geometry"}
 
 
 def load_ds() -> dict:
@@ -36,66 +49,108 @@ def fix_comment(comment: str) -> str:
     return DICT_CODE_RE.sub(repl, comment)
 
 
-def quote_default(value: str | None, data_type: str, column_type: str) -> str | None:
+def quote_default(value: str | None, data_type: str) -> str | None:
     if value is None:
         return None
     dt = (data_type or "").lower()
-    if value.upper() in {"CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()", "NOW()"}:
+    upper = value.upper()
+    if upper in {"CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()", "NOW()"}:
         return value
-    if dt in {"tinyint", "smallint", "mediumint", "int", "integer", "bigint", "decimal", "numeric", "float", "double", "bit"}:
-        return value
-    if dt in {"timestamp", "datetime", "date", "time", "year"} and value.upper() in {"CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()"}:
+    if dt in NUMERIC_TYPES:
         return value
     escaped = value.replace("\\", "\\\\").replace("'", "''")
     return f"'{escaped}'"
 
 
-def build_modify_sql(row: dict, new_comment: str) -> str:
-    col = row["COLUMN_NAME"]
-    table = row["TABLE_NAME"]
-    parts = [f"ALTER TABLE `{table}` MODIFY COLUMN `{col}` {row['COLUMN_TYPE']}"]
+def append_charset(parts: list[str], row: dict) -> None:
+    data_type = (row["DATA_TYPE"] or "").lower()
+    if not any(x in data_type for x in ("char", "text", "enum", "set")):
+        return
+    charset = row.get("CHARACTER_SET_NAME")
+    collation = row.get("COLLATION_NAME")
+    if charset and collation:
+        parts.append(f"CHARACTER SET {charset} COLLATE {collation}")
 
-    if row.get("CHARACTER_SET_NAME") and row.get("COLLATION_NAME"):
-        # 字符串类型：显式保留字符集，避免被会话默认值改掉
-        if any(x in (row["DATA_TYPE"] or "").lower() for x in ("char", "text", "enum", "set")):
-            parts.append(f"CHARACTER SET {row['CHARACTER_SET_NAME']} COLLATE {row['COLLATION_NAME']}")
 
-    if row["IS_NULLABLE"] == "NO":
-        parts.append("NOT NULL")
-    else:
-        parts.append("NULL")
+def append_nullability(parts: list[str], row: dict) -> None:
+    parts.append("NOT NULL" if row["IS_NULLABLE"] == "NO" else "NULL")
 
-    default = quote_default(row["COLUMN_DEFAULT"], row["DATA_TYPE"], row["COLUMN_TYPE"])
-    extra = (row["EXTRA"] or "").strip()
-    # auto_increment / on update 在 EXTRA 中
-    if default is not None and "auto_increment" not in extra.lower():
+
+def append_default(parts: list[str], row: dict, extra: str) -> None:
+    if "auto_increment" in extra.lower():
+        return
+    default = quote_default(row["COLUMN_DEFAULT"], row["DATA_TYPE"])
+    if default is not None:
         parts.append(f"DEFAULT {default}")
-    elif row["IS_NULLABLE"] == "YES" and row["COLUMN_DEFAULT"] is None and "auto_increment" not in extra.lower():
-        # 显式 DEFAULT NULL，避免部分类型隐式变化
-        if (row["DATA_TYPE"] or "").lower() not in {"text", "blob", "json", "geometry"}:
-            parts.append("DEFAULT NULL")
+        return
+    if row["IS_NULLABLE"] != "YES":
+        return
+    if (row["DATA_TYPE"] or "").lower() in NO_DEFAULT_NULL_TYPES:
+        return
+    parts.append("DEFAULT NULL")
 
-    if extra:
-        # EXTRA 可能含 auto_increment / DEFAULT_GENERATED / on update CURRENT_TIMESTAMP
-        # DEFAULT_GENERATED 时 COLUMN_DEFAULT 已处理表达式，跳过重复
-        cleaned = extra
-        if "DEFAULT_GENERATED" in cleaned.upper():
-            cleaned = re.sub(r"DEFAULT_GENERATED", "", cleaned, flags=re.I).strip()
-        if cleaned:
-            parts.append(cleaned)
 
+def append_extra(parts: list[str], extra: str) -> None:
+    if not extra:
+        return
+    cleaned = re.sub(r"DEFAULT_GENERATED", "", extra, flags=re.I).strip()
+    if cleaned:
+        parts.append(cleaned)
+
+
+def build_modify_sql(row: dict, new_comment: str) -> str:
+    parts = [
+        f"ALTER TABLE `{row['TABLE_NAME']}` MODIFY COLUMN `{row['COLUMN_NAME']}` {row['COLUMN_TYPE']}"
+    ]
+    extra = (row["EXTRA"] or "").strip()
+    append_charset(parts, row)
+    append_nullability(parts, row)
+    append_default(parts, row, extra)
+    append_extra(parts, extra)
     comment_escaped = new_comment.replace("\\", "\\\\").replace("'", "''")
     parts.append(f"COMMENT '{comment_escaped}'")
     return " ".join(parts)
+
+
+def collect_changes(cur, database: str) -> list[tuple[dict, str, str, str]]:
+    cur.execute(
+        """
+        SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE,
+               IS_NULLABLE, COLUMN_DEFAULT, EXTRA, COLUMN_COMMENT,
+               CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_KEY
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = %s
+          AND COLUMN_COMMENT LIKE %s
+        ORDER BY TABLE_NAME, ORDINAL_POSITION
+        """,
+        (database, "%<dict-code>%"),
+    )
+    changes: list[tuple[dict, str, str, str]] = []
+    for row in cur.fetchall():
+        old = row["COLUMN_COMMENT"] or ""
+        new = fix_comment(old)
+        if new != old:
+            changes.append((row, old, new, build_modify_sql(row, new)))
+    return changes
+
+
+def print_preview(rows_count: int, changes: list[tuple[dict, str, str, str]], ds: dict) -> None:
+    print(f"database={ds['database']} host={ds['host']}")
+    print(f"dict-code columns={rows_count} need_update={len(changes)}")
+    print("--- preview ---")
+    for row, old, new, _sql in changes:
+        print(f"{row['TABLE_NAME']}.{row['COLUMN_NAME']}")
+        print(f"  OLD: {old}")
+        print(f"  NEW: {new}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="实际执行 ALTER；默认仅预览")
     args = parser.parse_args()
-
     ds = load_ds()
-    conn = pymysql.connect(
+
+    with pymysql.connect(
         host=ds["host"],
         port=ds["port"],
         user=ds["user"],
@@ -104,60 +159,35 @@ def main() -> int:
         charset=ds["charset"],
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
-    )
-
-    try:
+    ) as conn:
         with conn.cursor() as cur:
+            # 先统计含 dict-code 的列数（含无需修改）
             cur.execute(
                 """
-                SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE,
-                       IS_NULLABLE, COLUMN_DEFAULT, EXTRA, COLUMN_COMMENT,
-                       CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_KEY
+                SELECT COUNT(*) AS cnt
                 FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = %s
-                  AND COLUMN_COMMENT LIKE %s
-                ORDER BY TABLE_NAME, ORDINAL_POSITION
+                WHERE TABLE_SCHEMA = %s AND COLUMN_COMMENT LIKE %s
                 """,
                 (ds["database"], "%<dict-code>%"),
             )
-            rows = cur.fetchall()
-
-            changes: list[tuple[dict, str, str, str]] = []
-            for row in rows:
-                old = row["COLUMN_COMMENT"] or ""
-                new = fix_comment(old)
-                if new != old:
-                    sql = build_modify_sql(row, new)
-                    changes.append((row, old, new, sql))
-
-            print(f"database={ds['database']} host={ds['host']}")
-            print(f"dict-code columns={len(rows)} need_update={len(changes)}")
-            print("--- preview ---")
-            for row, old, new, _sql in changes:
-                print(f"{row['TABLE_NAME']}.{row['COLUMN_NAME']}")
-                print(f"  OLD: {old}")
-                print(f"  NEW: {new}")
+            rows_count = int(cur.fetchone()["cnt"])
+            changes = collect_changes(cur, ds["database"])
+            print_preview(rows_count, changes, ds)
 
             if not changes:
                 print("nothing to update")
                 return 0
-
             if not args.apply:
                 print("dry-run only; re-run with --apply to execute")
                 return 0
 
             print("--- apply ---")
-            for row, old, new, sql in changes:
+            for row, _old, _new, sql in changes:
                 cur.execute(sql)
                 print(f"OK {row['TABLE_NAME']}.{row['COLUMN_NAME']}")
             conn.commit()
             print(f"committed {len(changes)} column comments")
-            return 0
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    return 0
 
 
 if __name__ == "__main__":

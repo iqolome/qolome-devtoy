@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SRC = ROOT / "docs" / "segoe-fluent-icons.source.txt"
 OUT = ROOT / "docs" / "segoe-fluent-icons.md"
 
-ROW = re.compile(r"^\|\s*\|\s*([0-9a-fA-F]{4})\s*\|\s*(.+?)\s*\|\s*$", re.M)
+ROW = re.compile(r"^\|\s*\|\s*([0-9a-fA-F]{4})\s*\|\s*([^|]+?)\s*\|\s*$", re.M)
 
 SHORTCUTS = [
     ("查找/查询", "Search"),

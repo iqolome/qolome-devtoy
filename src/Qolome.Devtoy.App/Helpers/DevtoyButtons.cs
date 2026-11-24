@@ -37,14 +37,14 @@ public static class DevtoyButtons
         return button;
     }
 
-    public static UIElement BuildContent(string label, Symbol symbol, double? fontSize = null) =>
+    public static StackPanel BuildContent(string label, Symbol symbol, double? fontSize = null) =>
         BuildContent(label, UiGlyphResources.CreateScaledSymbol(symbol, ResolveIconBox(fontSize)), fontSize);
 
     /// <summary>图标为 Segoe Fluent Icons 字形（如排序升降箭头）。</summary>
-    public static UIElement BuildContentWithGlyph(string label, string glyph, double? fontSize = null) =>
+    public static StackPanel BuildContentWithGlyph(string label, string glyph, double? fontSize = null) =>
         BuildContent(label, UiGlyphResources.CreateScaledFontIcon(glyph, ResolveIconBox(fontSize)), fontSize);
 
-    private static UIElement BuildContent(string label, UIElement icon, double? fontSize)
+    private static StackPanel BuildContent(string label, UIElement icon, double? fontSize)
     {
         var textSize = fontSize ?? UiGlyphResources.FontSize;
         var text = new TextBlock

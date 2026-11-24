@@ -92,7 +92,7 @@ public sealed class DictCatalogService
     }
 
     /// <summary>按 item_id 查找字典项（字段注释 &lt;dict-item-id&gt; 用）。</summary>
-    public DictItemRecord? FindItemById(DataSourceSettings dataSource, long itemId)
+    public static DictItemRecord? FindItemById(DataSourceSettings dataSource, long itemId)
     {
         const string sql = """
             SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,

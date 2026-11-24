@@ -715,10 +715,17 @@ public sealed partial class DictPage : Page
     private void SetSortHeader(Button button, string key, string label)
     {
         var active = string.Equals(_sortKey, key, StringComparison.Ordinal);
-        // Segoe Fluent Icons: ChevronUp / ChevronDown；未激活用 Sort
-        button.Content = active
-            ? DevtoyButtons.BuildContentWithGlyph(label, _sortAscending ? "\uE70E" : "\uE70D")
-            : DevtoyButtons.BuildContent(label, Symbol.Sort);
+        if (active)
+        {
+            // Segoe Fluent Icons: ChevronUp / ChevronDown
+            var glyph = _sortAscending ? "\uE70E" : "\uE70D";
+            button.Content = DevtoyButtons.BuildContentWithGlyph(label, glyph);
+        }
+        else
+        {
+            button.Content = DevtoyButtons.BuildContent(label, Symbol.Sort);
+        }
+
         button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
