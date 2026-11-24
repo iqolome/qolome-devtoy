@@ -1,7 +1,7 @@
 namespace Qolome.Devtoy.Core.Services;
 
+using System.Data.Common;
 using System.Text;
-using MySqlConnector;
 using Qolome.Devtoy.Core.Models;
 
 /// <summary>
@@ -47,7 +47,7 @@ public sealed class SchemaInitService
     {
         EnsureSupported(dataSource);
 
-        using var conn = MySqlConnectionFactory.Open(dataSource);
+        using var conn = DbConnectionFactory.Open(dataSource);
         var existing = FindExistingTables(conn, RequiredTables);
         if (existing.Count > 0)
         {
@@ -63,7 +63,7 @@ public sealed class SchemaInitService
     public IReadOnlyList<string> ListExistingRequiredTables(DataSourceSettings dataSource)
     {
         EnsureSupported(dataSource);
-        using var conn = MySqlConnectionFactory.Open(dataSource);
+        using var conn = DbConnectionFactory.Open(dataSource);
         return FindExistingTables(conn, RequiredTables)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -122,7 +122,7 @@ public sealed class SchemaInitService
         return File.ReadAllText(path);
     }
 
-    private static HashSet<string> FindExistingTables(MySqlConnection conn, IReadOnlyList<string> tables)
+    private static HashSet<string> FindExistingTables(DbConnection conn, IReadOnlyList<string> tables)
     {
         var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         const string sql = """
@@ -134,8 +134,8 @@ public sealed class SchemaInitService
             """;
         foreach (var table in tables)
         {
-            using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@name", table);
+            using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
+            DbConnectionFactory.AddParam(cmd, "@name", table);
             var result = cmd.ExecuteScalar();
             if (result is string name && !string.IsNullOrWhiteSpace(name))
             {
@@ -146,7 +146,7 @@ public sealed class SchemaInitService
         return found;
     }
 
-    private static void ExecuteScript(MySqlConnection conn, string script)
+    private static void ExecuteScript(DbConnection conn, string script)
     {
         foreach (var batch in SplitSqlBatches(script))
         {
@@ -155,7 +155,7 @@ public sealed class SchemaInitService
                 continue;
             }
 
-            using var cmd = new MySqlCommand(batch, conn);
+            using var cmd = DbConnectionFactory.CreateCommand(conn, batch);
             cmd.CommandTimeout = 120;
             cmd.ExecuteNonQuery();
         }

@@ -22,7 +22,47 @@ public sealed partial class DataSourcePage : Page
     {
         InitializeComponent();
         DbKindBox.ItemsSource = Enum.GetNames(typeof(DatabaseKind));
+        DbKindBox.SelectionChanged += OnDbKindChanged;
         Loaded += (_, _) => Bind();
+    }
+
+    private void OnDbKindChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_binding || DbKindBox.SelectedItem is not string kind)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<DatabaseKind>(kind, out var parsed))
+        {
+            return;
+        }
+
+        PortBox.Text = parsed switch
+        {
+            DatabaseKind.PostgreSql => "5432",
+            DatabaseKind.Oracle => "1521",
+            DatabaseKind.Sqlite => "",
+            DatabaseKind.Odbc => "",
+            _ => "3306",
+        };
+
+        if (parsed == DatabaseKind.Odbc)
+        {
+            ParamsLabel.Text = "ODBC Driver";
+            ParamsBox.PlaceholderText = "Driver={PostgreSQL Unicode} 或 DSN=MyDsn";
+            DatabaseLabel.Text = "Database / DSN";
+            JdbcUrlBox.PlaceholderText = "完整 ODBC 连接串（URL 模式）";
+            JdbcLabel.Text = "ODBC 连接串";
+        }
+        else
+        {
+            ParamsLabel.Text = "连接参数";
+            ParamsBox.PlaceholderText = "useSSL=false&serverTimezone=Asia/Shanghai";
+            DatabaseLabel.Text = "数据库名称";
+            JdbcUrlBox.PlaceholderText = "jdbc:mysql://127.0.0.1:3306/qolome";
+            JdbcLabel.Text = "JDBC 连接";
+        }
     }
 
     private void Bind()

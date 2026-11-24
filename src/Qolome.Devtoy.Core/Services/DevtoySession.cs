@@ -32,8 +32,41 @@ public sealed class DevtoySession
 
     public event Action? ModulesChanged;
 
+    /// <summary>模块扫描 / 列表变更进行中（供项目管理页展示 loading，不阻塞导航）。</summary>
+    public event Action? ModulesBusyChanged;
+
     /// <summary>控制台显隐、主题设置等界面偏好变更（已写入 settings.json）。</summary>
     public event Action? UiPreferencesChanged;
+
+    private readonly object _modulesBusyGate = new();
+
+    private readonly SemaphoreSlim _modulesScanLock = new(1, 1);
+
+    private int _modulesBusyDepth;
+
+    private string _modulesBusyMessage = "正在处理模块…";
+
+    public bool IsModulesBusy
+    {
+        get
+        {
+            lock (_modulesBusyGate)
+            {
+                return _modulesBusyDepth > 0;
+            }
+        }
+    }
+
+    public string ModulesBusyMessage
+    {
+        get
+        {
+            lock (_modulesBusyGate)
+            {
+                return _modulesBusyMessage;
+            }
+        }
+    }
 
     public DevtoySession()
     {
@@ -58,35 +91,46 @@ public sealed class DevtoySession
         }
         else
         {
-            Log("就绪。请在「模块管理」添加工作区；模块列表按磁盘实时扫描，不单独落库。");
+            Log("就绪。请在「项目管理」添加工作区；项目列表按磁盘实时扫描，已有项目配置只追加不覆盖。");
         }
     }
 
-    /// <summary>叠加添加工作区（不覆盖已有）；已存在则仅刷新。</summary>
-    public Task AddWorkspaceAsync(string path, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 叠加添加工作区（不覆盖已有工作区与 ModuleOverrides）；
+    /// 扫描仅发现新项目，已存在路径的功能启用/生成配置保持不变。
+    /// </summary>
+    public async Task AddWorkspaceAsync(string path, CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(path))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        path = Path.GetFullPath(path);
-        var exists = Settings.WorkspaceRoots.Any(r =>
-            string.Equals(Path.GetFullPath(r), path, StringComparison.OrdinalIgnoreCase));
-        if (!exists)
+        EnterModulesBusy("正在添加并扫描工作区…");
+        try
         {
-            Settings.WorkspaceRoots.Add(path);
-            Settings.NormalizeWorkspaceRoots();
-            SyncWorkspaceRootProperty();
-            SaveSettingsQuiet();
-            Log($"已添加工作区: {path}（共 {Settings.WorkspaceRoots.Count} 个）");
-        }
-        else
-        {
-            Log($"工作区已在列表中，重新扫描: {path}");
-        }
+            path = Path.GetFullPath(path);
+            var exists = Settings.WorkspaceRoots.Any(r =>
+                string.Equals(Path.GetFullPath(r), path, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+            {
+                Settings.WorkspaceRoots.Add(path);
+                Settings.NormalizeWorkspaceRoots();
+                SyncWorkspaceRootProperty();
+                SaveSettingsQuiet();
+                Log($"已添加工作区: {path}（共 {Settings.WorkspaceRoots.Count} 个；已有项目配置不覆盖）");
+            }
+            else
+            {
+                Log($"工作区已在列表中，重新扫描（不覆盖已有项目配置）: {path}");
+            }
 
-        return RefreshModulesAsync(cancellationToken);
+            await ScanModulesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitModulesBusy();
+        }
     }
 
     /// <summary>兼容旧调用：等价于 <see cref="AddWorkspaceAsync"/>。</summary>
@@ -101,17 +145,84 @@ public sealed class DevtoySession
         Settings.WorkspaceRoot = WorkspaceRoot;
     }
 
-    /// <summary>后台扫描模块；调用方可叠加 UI 遮罩。</summary>
-    public Task RefreshModulesAsync(CancellationToken cancellationToken = default) =>
-        Task.Run(
-            () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                RefreshModulesCore();
-            },
-            cancellationToken);
+    /// <summary>后台扫描模块；通过 <see cref="IsModulesBusy"/> 通知 UI 展示页面 loading。</summary>
+    public async Task RefreshModulesAsync(
+        CancellationToken cancellationToken = default,
+        string? busyMessage = null)
+    {
+        EnterModulesBusy(busyMessage ?? "正在扫描模块…");
+        try
+        {
+            await ScanModulesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitModulesBusy();
+        }
+    }
 
     public void RefreshModules() => RefreshModulesCore();
+
+    private async Task ScanModulesAsync(CancellationToken cancellationToken)
+    {
+        await _modulesScanLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await Task.Run(
+                    () =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        RefreshModulesCore();
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _modulesScanLock.Release();
+        }
+    }
+
+    private void EnterModulesBusy(string message)
+    {
+        lock (_modulesBusyGate)
+        {
+            _modulesBusyDepth++;
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                _modulesBusyMessage = message.Trim();
+            }
+        }
+
+        ModulesBusyChanged?.Invoke();
+    }
+
+    private void ExitModulesBusy()
+    {
+        lock (_modulesBusyGate)
+        {
+            if (_modulesBusyDepth > 0)
+            {
+                _modulesBusyDepth--;
+            }
+        }
+
+        ModulesBusyChanged?.Invoke();
+    }
+
+    /// <summary>在模块忙状态包裹下执行工作（项目管理页用页面 loading）。</summary>
+    public async Task RunModulesWorkAsync(string message, Func<Task> work)
+    {
+        EnterModulesBusy(message);
+        try
+        {
+            await work().ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitModulesBusy();
+        }
+    }
 
     private void RefreshModulesCore()
     {
@@ -481,6 +592,74 @@ public sealed class DevtoySession
         Log($"已保存代码生成配置: {modulePath}");
     }
 
+    /// <summary>保存项目功能启用标志（代码生成 / 枚举 / TS 字典）。</summary>
+    public void SaveModuleFeatureFlags(
+        string modulePath,
+        bool? enableCodegen = null,
+        bool? enableEnum = null,
+        bool? enableTsDict = null)
+    {
+        ModuleCatalogFilter.SaveFeatureFlags(Settings, modulePath, enableCodegen, enableEnum, enableTsDict);
+        SaveSettingsQuiet();
+        // 仅重套 override，避免整库重扫 + 列表重建风暴
+        Modules = ModuleCatalogFilter.Apply(Modules, Settings);
+        ModulesChanged?.Invoke();
+    }
+
+    public Task SaveModuleFeatureFlagsAsync(
+        string modulePath,
+        bool? enableCodegen = null,
+        bool? enableEnum = null,
+        bool? enableTsDict = null,
+        CancellationToken cancellationToken = default) =>
+        Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                SaveModuleFeatureFlags(modulePath, enableCodegen, enableEnum, enableTsDict);
+            },
+            cancellationToken);
+
+    public void SaveModuleEnumPath(string modulePath, string? enumPackagePath)
+    {
+        ModuleCatalogFilter.SaveEnumPath(Settings, modulePath, enumPackagePath);
+        SaveSettingsQuiet();
+        RefreshModulesCore();
+        Log($"已保存枚举路径: {modulePath}");
+    }
+
+    public Task SaveModuleEnumPathAsync(
+        string modulePath,
+        string? enumPackagePath,
+        CancellationToken cancellationToken = default) =>
+        Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                SaveModuleEnumPath(modulePath, enumPackagePath);
+            },
+            cancellationToken);
+
+    public void SaveModuleTsDictPath(string modulePath, string? tsDictPath)
+    {
+        ModuleCatalogFilter.SaveTsDictPath(Settings, modulePath, tsDictPath);
+        SaveSettingsQuiet();
+        RefreshModulesCore();
+        Log($"已保存字典路径: {modulePath}");
+    }
+
+    public Task SaveModuleTsDictPathAsync(
+        string modulePath,
+        string? tsDictPath,
+        CancellationToken cancellationToken = default) =>
+        Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                SaveModuleTsDictPath(modulePath, tsDictPath);
+            },
+            cancellationToken);
+
     public Task SaveModuleCodegenPrefsAsync(
         string modulePath,
         string? modelName,
@@ -644,6 +823,35 @@ public sealed class DevtoySession
             .ConfigureAwait(false);
     }
 
+    /// <summary>按各目标模块已启用的枚举/字典功能，分别生成到对应项目。</summary>
+    public async Task GenerateDictForItemToModulesAsync(
+        DictItemRecord item,
+        IReadOnlyList<ModuleEntry> modules,
+        CancellationToken cancellationToken = default)
+    {
+        if (modules.Count == 0)
+        {
+            LogWarn("请至少选择一个目标项目");
+            return;
+        }
+
+        foreach (var module in modules)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var javaEnum = module.ProjectTypes.Java && module.EnableEnum;
+            var tsDict = module.ProjectTypes.Web && module.EnableTsDict;
+            if (!javaEnum && !tsDict)
+            {
+                LogWarn($"跳过（未启用枚举/字典）: {module.TargetModuleDisplay}");
+                continue;
+            }
+
+            Log($"生成 {item.ItemCode} -> {module.TargetModuleDisplay}（enum={javaEnum}, ts={tsDict}）");
+            await GenerateDictForItemAsync(item, module, javaEnum, tsDict, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     private async Task<T> RunDictAsync<T>(
         Func<T> action,
         Action<T> onSuccess,
@@ -724,11 +932,6 @@ public sealed class DevtoySession
     public async Task<string> TestDatabaseAsync(CancellationToken cancellationToken = default)
     {
         var ds = Settings.DataSource;
-        if (ds.DatabaseKind != DatabaseKind.MySql)
-        {
-            return "当前仅支持 MySQL 连接测试，其它类型后续补齐。";
-        }
-
         if (!DatabaseGate.TryEnter())
         {
             return "已有数据库操作进行中，请稍候";
@@ -739,11 +942,11 @@ public sealed class DevtoySession
             return await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var url = JdbcUrlBuilder.Resolve(ds);
-                var cs = JdbcUrlBuilder.ToMySqlConnectionString(url, ds.Username, ds.Password);
-                using var conn = new MySqlConnector.MySqlConnection(cs);
-                conn.Open();
-                return "数据库连接成功。\n" + url;
+                var display = ds.DatabaseKind == DatabaseKind.Odbc
+                    ? AdoConnectionStrings.ToOdbc(ds)
+                    : JdbcUrlBuilder.Resolve(ds);
+                using var conn = DbConnectionFactory.Open(ds);
+                return $"数据库连接成功（{ds.DatabaseKind}）。\n{display}";
             }, cancellationToken);
         }
         catch (Exception ex)

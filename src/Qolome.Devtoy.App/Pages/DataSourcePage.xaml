@@ -92,14 +92,16 @@
                     Grid.Row="6"
                     Grid.Column="0"
                     Text="连接参数"
-                    VerticalAlignment="Center" />
+                    VerticalAlignment="Center"
+                    ToolTipService.ToolTip="MySQL 等 JDBC 参数；ODBC 时可填 Driver={...} 或完整连接串片段" />
                 <TextBox
                     x:Name="ParamsBox"
                     Grid.Row="6"
                     Grid.Column="1"
                     AcceptsReturn="True"
                     TextWrapping="Wrap"
-                    MaxHeight="80" />
+                    MaxHeight="80"
+                    PlaceholderText="useSSL=false&amp;… 或 ODBC: Driver={PostgreSQL Unicode}" />
 
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="用户名" VerticalAlignment="Center" />
                 <TextBox x:Name="UserBox" Grid.Row="7" Grid.Column="1" />

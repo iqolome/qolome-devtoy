@@ -22,9 +22,19 @@ public static class ModuleCatalogFilter
         return list;
     }
 
-    /// <summary>可供代码生成 / 字典生成选择的模块（排除已忽略）。</summary>
+    /// <summary>未忽略的模块（兼容旧调用）。</summary>
     public static IEnumerable<ModuleEntry> ForCodegen(IEnumerable<ModuleEntry> modules) =>
         modules.Where(m => !m.IsIgnored);
+
+    /// <summary>Java 代码生成目标：未忽略且启用代码生成。</summary>
+    public static IEnumerable<ModuleEntry> ForJavaCodegen(IEnumerable<ModuleEntry> modules) =>
+        modules.Where(m => !m.IsIgnored && m.ProjectTypes.Java && m.EnableCodegen);
+
+    /// <summary>字典/枚举生成目标：未忽略且启用枚举或 TS 字典。</summary>
+    public static IEnumerable<ModuleEntry> ForDictTargets(IEnumerable<ModuleEntry> modules) =>
+        modules.Where(m =>
+            !m.IsIgnored
+            && ((m.ProjectTypes.Java && m.EnableEnum) || (m.ProjectTypes.Web && m.EnableTsDict)));
 
     private static ModuleEntry ApplyOverride(ModuleEntry entry, DevtoySettings settings, bool isIgnored)
     {
@@ -100,6 +110,15 @@ public static class ModuleCatalogFilter
             CodegenService = ov?.CodegenService ?? false,
             CodegenController = ov?.CodegenController ?? false,
             HasCodegenPrefs = hasCodegen,
+            EnableCodegen = ov?.EnableCodegen == true,
+            EnableEnum = ov?.EnableEnum == true,
+            EnableTsDict = ov?.EnableTsDict == true,
+            EnumPackagePath = string.IsNullOrWhiteSpace(ov?.EnumPackagePath)
+                ? null
+                : ov.EnumPackagePath.Trim(),
+            TsDictPath = string.IsNullOrWhiteSpace(ov?.TsDictPath)
+                ? null
+                : ov.TsDictPath.Trim(),
         };
     }
 
@@ -146,11 +165,7 @@ public static class ModuleCatalogFilter
         ProjectTypes types)
     {
         modulePath = Path.GetFullPath(modulePath);
-        if (!settings.ModuleOverrides.TryGetValue(modulePath, out var ov))
-        {
-            ov = new ModuleCatalogOverride();
-            settings.ModuleOverrides[modulePath] = ov;
-        }
+        var ov = GetOrCreateOverride(settings, modulePath);
 
         ov.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
         ov.Version = string.IsNullOrWhiteSpace(version) ? null : version.Trim();
@@ -159,10 +174,7 @@ public static class ModuleCatalogFilter
         ov.Flutter = types.Flutter;
         ov.JavaScript = null;
 
-        if (IsOverrideEmpty(ov))
-        {
-            settings.ModuleOverrides.Remove(modulePath);
-        }
+        CleanupOverride(settings, modulePath, ov);
 
         if (!string.IsNullOrWhiteSpace(displayName))
         {
@@ -183,17 +195,91 @@ public static class ModuleCatalogFilter
         bool controller)
     {
         modulePath = Path.GetFullPath(modulePath);
-        if (!settings.ModuleOverrides.TryGetValue(modulePath, out var ov))
-        {
-            ov = new ModuleCatalogOverride();
-            settings.ModuleOverrides[modulePath] = ov;
-        }
+        var ov = GetOrCreateOverride(settings, modulePath);
 
         ov.CodegenModelName = string.IsNullOrWhiteSpace(modelName) ? null : modelName.Trim();
         ov.CodegenDao = dao;
         ov.CodegenService = service;
         ov.CodegenController = controller;
 
+        CleanupOverride(settings, modulePath, ov);
+    }
+
+    /// <summary>保存功能启用标志；不覆盖已有其它 override 字段。</summary>
+    public static void SaveFeatureFlags(
+        DevtoySettings settings,
+        string modulePath,
+        bool? enableCodegen = null,
+        bool? enableEnum = null,
+        bool? enableTsDict = null)
+    {
+        modulePath = Path.GetFullPath(modulePath);
+        var ov = GetOrCreateOverride(settings, modulePath);
+
+        if (enableCodegen is not null)
+        {
+            ov.EnableCodegen = enableCodegen.Value ? true : null;
+        }
+
+        if (enableEnum is not null)
+        {
+            ov.EnableEnum = enableEnum.Value ? true : null;
+        }
+
+        if (enableTsDict is not null)
+        {
+            ov.EnableTsDict = enableTsDict.Value ? true : null;
+        }
+
+        CleanupOverride(settings, modulePath, ov);
+    }
+
+    public static void SaveEnumPath(DevtoySettings settings, string modulePath, string? enumPackagePath)
+    {
+        modulePath = Path.GetFullPath(modulePath);
+        var ov = GetOrCreateOverride(settings, modulePath);
+        ov.EnumPackagePath = string.IsNullOrWhiteSpace(enumPackagePath) ? null : enumPackagePath.Trim();
+        CleanupOverride(settings, modulePath, ov);
+    }
+
+    public static void SaveTsDictPath(DevtoySettings settings, string modulePath, string? tsDictPath)
+    {
+        modulePath = Path.GetFullPath(modulePath);
+        var ov = GetOrCreateOverride(settings, modulePath);
+        ov.TsDictPath = string.IsNullOrWhiteSpace(tsDictPath) ? null : tsDictPath.Trim();
+        CleanupOverride(settings, modulePath, ov);
+    }
+
+    /// <summary>按模块覆盖合并枚举/字典路径到 CodegenSettings 副本。</summary>
+    public static Codegen.CodegenSettings MergeCodegenSettings(DevtoySettings settings, ModuleEntry module)
+    {
+        var codegen = settings.ToCodegenSettings();
+        if (!string.IsNullOrWhiteSpace(module.EnumPackagePath))
+        {
+            codegen.EnumPackage = module.EnumPackagePath.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(module.TsDictPath))
+        {
+            codegen.TsDictPath = module.TsDictPath.Trim();
+        }
+
+        return codegen;
+    }
+
+    private static ModuleCatalogOverride GetOrCreateOverride(DevtoySettings settings, string modulePath)
+    {
+        if (!settings.ModuleOverrides.TryGetValue(modulePath, out var ov))
+        {
+            ov = new ModuleCatalogOverride();
+            settings.ModuleOverrides[modulePath] = ov;
+        }
+
+        return ov;
+    }
+
+    private static void CleanupOverride(DevtoySettings settings, string modulePath, ModuleCatalogOverride ov)
+    {
         if (IsOverrideEmpty(ov))
         {
             settings.ModuleOverrides.Remove(modulePath);
@@ -210,7 +296,12 @@ public static class ModuleCatalogFilter
         && string.IsNullOrWhiteSpace(ov.CodegenModelName)
         && ov.CodegenDao is null
         && ov.CodegenService is null
-        && ov.CodegenController is null;
+        && ov.CodegenController is null
+        && ov.EnableCodegen is not true
+        && ov.EnableEnum is not true
+        && ov.EnableTsDict is not true
+        && string.IsNullOrWhiteSpace(ov.EnumPackagePath)
+        && string.IsNullOrWhiteSpace(ov.TsDictPath);
 
     private static string SafeFullPath(string path)
     {

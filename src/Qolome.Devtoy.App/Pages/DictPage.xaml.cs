@@ -89,49 +89,43 @@ public sealed partial class DictPage : Page
             return;
         }
 
-        var modules = ModuleCatalogFilter.ForCodegen(_session.Modules).ToList();
+        var modules = ModuleCatalogFilter.ForDictTargets(_session.Modules).ToList();
         if (modules.Count == 0)
         {
-            _session.LogWarn("无可用模块（可能均已忽略），请先在「模块管理」刷新、取消忽略或添加指定工程");
+            _session.LogWarn("无可用目标项目：请先在「项目管理」为 Java 启用「生成枚举」或为 Web 启用「生成字典」");
             return;
         }
 
-        var moduleCombo = new ComboBox
+        var list = new ListView
         {
+            SelectionMode = ListViewSelectionMode.Multiple,
             ItemsSource = modules,
             DisplayMemberPath = nameof(ModuleEntry.TargetModuleDisplay),
+            Height = 280,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
-        if (_session.SelectedModule is { IsIgnored: false })
+        foreach (var m in modules)
         {
-            moduleCombo.SelectedItem = modules
-                .FirstOrDefault(m => m.ModulePath == _session.SelectedModule.ModulePath);
-        }
-
-        var enumBox = new CheckBox { Content = "Java Enum" };
-        var tsBox = new CheckBox { Content = "TS 字典" };
-        void SyncTypes()
-        {
-            if (moduleCombo.SelectedItem is not ModuleEntry entry)
+            if (_session.SelectedModule is not null
+                && string.Equals(m.ModulePath, _session.SelectedModule.ModulePath, StringComparison.OrdinalIgnoreCase))
             {
-                enumBox.IsChecked = false;
-                tsBox.IsChecked = false;
-                return;
+                list.SelectedItems.Add(m);
             }
-
-            enumBox.IsChecked = entry.ProjectTypes.Java;
-            tsBox.IsChecked = entry.ProjectTypes.SupportsTypeScript;
         }
 
-        moduleCombo.SelectionChanged += (_, _) => SyncTypes();
-        SyncTypes();
+        if (list.SelectedItems.Count == 0 && modules.Count > 0)
+        {
+            list.SelectedItems.Add(modules[0]);
+        }
 
-        var form = new StackPanel { Spacing = 10 };
-        form.Children.Add(new TextBlock { Text = "目标模块", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        form.Children.Add(moduleCombo);
-        form.Children.Add(new TextBlock { Text = "生成类型" });
-        form.Children.Add(enumBox);
-        form.Children.Add(tsBox);
+        var form = new StackPanel { Spacing = 10, MinWidth = 420 };
+        form.Children.Add(new TextBlock
+        {
+            Text = "目标项目（可多选；按各项目已启用的枚举/字典分别生成）",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        form.Children.Add(list);
 
         var dialog = new ContentDialog
         {
@@ -148,19 +142,16 @@ public sealed partial class DictPage : Page
             return;
         }
 
-        if (moduleCombo.SelectedItem is not ModuleEntry module)
+        var selected = list.SelectedItems.OfType<ModuleEntry>().ToList();
+        if (selected.Count == 0)
         {
-            _session.LogWarn("请选择目标模块");
+            _session.LogWarn("请至少选择一个目标项目");
             return;
         }
 
         await RunBusyAsync("正在生成字典代码…", async () =>
         {
-            await _session.GenerateDictForItemAsync(
-                item,
-                module,
-                enumBox.IsChecked == true,
-                tsBox.IsChecked == true).ConfigureAwait(true);
+            await _session.GenerateDictForItemToModulesAsync(item, selected).ConfigureAwait(true);
         }).ConfigureAwait(true);
     }
 

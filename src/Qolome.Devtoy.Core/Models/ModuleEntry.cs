@@ -16,6 +16,10 @@ public sealed class ModuleEntry
 
     public string TypeDisplay => ProjectTypes.ToString();
 
+    public bool IsJavaType => ProjectTypes.Java;
+
+    public bool IsWebType => ProjectTypes.Web;
+
     /// <summary>用户「添加指定工程」注册的根目录。</summary>
     public bool IsSpecified { get; init; }
 
@@ -36,6 +40,21 @@ public sealed class ModuleEntry
 
     /// <summary>是否已保存过代码生成习惯配置。</summary>
     public bool HasCodegenPrefs { get; init; }
+
+    /// <summary>Java：启用代码生成。</summary>
+    public bool EnableCodegen { get; init; }
+
+    /// <summary>Java：启用生成枚举。</summary>
+    public bool EnableEnum { get; init; }
+
+    /// <summary>Web：启用生成 TS 字典。</summary>
+    public bool EnableTsDict { get; init; }
+
+    /// <summary>模块级枚举包路径覆盖（空则用全局）。</summary>
+    public string? EnumPackagePath { get; init; }
+
+    /// <summary>模块级 TS 字典路径覆盖（空则用全局）。</summary>
+    public string? TsDictPath { get; init; }
 
     public string CodegenModelDisplay =>
         string.IsNullOrWhiteSpace(CodegenModelName) ? "—" : CodegenModelName;

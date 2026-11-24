@@ -19,6 +19,8 @@ public sealed partial class ModulePage : Page
 
     private bool _suppressCheckSync;
 
+    private bool _suppressFeatureSync;
+
     private bool _filterCodegenPrefsOnly;
 
     private bool IsIgnoredTabActive =>
@@ -28,11 +30,58 @@ public sealed partial class ModulePage : Page
     {
         InitializeComponent();
         Loaded += OnPageLoaded;
-        Unloaded += (_, _) => _session.ModulesChanged -= OnModulesChanged;
+        Unloaded += OnPageUnloaded;
         _session.ModulesChanged += OnModulesChanged;
+        _session.ModulesBusyChanged += OnModulesBusyChanged;
+    }
+
+    private void OnPageUnloaded(object sender, RoutedEventArgs e)
+    {
+        _session.ModulesChanged -= OnModulesChanged;
+        _session.ModulesBusyChanged -= OnModulesBusyChanged;
     }
 
     private void OnPageLoaded(object sender, RoutedEventArgs e)
+    {
+        SyncModulesBusyOverlay();
+        Reload();
+
+        // 启动时可能已在后台扫描：只展示页面 loading，不套全局 Busy，避免感觉「进不去/卡死」
+        if (_session.Settings.WorkspaceRoots.Count > 0
+            && _session.Modules.Count == 0
+            && !_session.IsModulesBusy)
+        {
+            _ = _session.RefreshModulesAsync();
+        }
+
+        // 延后挂载列宽，避免与首帧列表生成互相触发布局死循环
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, AttachColumnLayouts);
+    }
+
+    private void OnModulesBusyChanged()
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            SyncModulesBusyOverlay();
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(SyncModulesBusyOverlay);
+        }
+    }
+
+    private void SyncModulesBusyOverlay()
+    {
+        var busy = _session.IsModulesBusy;
+        ModulesBusyOverlay.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        ModulesBusyMessageText.Text = string.IsNullOrWhiteSpace(_session.ModulesBusyMessage)
+            ? "正在处理模块…"
+            : _session.ModulesBusyMessage;
+        ModuleContentRoot.IsHitTestVisible = !busy;
+        ModuleContentRoot.Opacity = busy ? 0.55 : 1;
+    }
+
+    private void AttachColumnLayouts()
     {
         if (_columnLayout is null)
         {
@@ -41,13 +90,14 @@ public sealed partial class ModulePage : Page
                 ModuleList,
                 [
                     new ColumnSpec(0, 36, 40),
-                    new ColumnSpec(1.6, 80),
-                    new ColumnSpec(1, 72),
-                    new ColumnSpec(2.4, 120),
-                    new ColumnSpec(0.9, 56),
-                    new ColumnSpec(0.9, 56),
-                    new ColumnSpec(0, 72, 88),
-                    new ColumnSpec(0, 320, 340),
+                    new ColumnSpec(1.4, 72),
+                    new ColumnSpec(0.8, 64),
+                    new ColumnSpec(1.8, 96),
+                    new ColumnSpec(0.7, 48),
+                    new ColumnSpec(0.7, 48),
+                    new ColumnSpec(0, 120, 140),
+                    new ColumnSpec(0, 64, 72),
+                    new ColumnSpec(0, 200, 240),
                 ]);
         }
 
@@ -63,15 +113,8 @@ public sealed partial class ModulePage : Page
                     new ColumnSpec(2.4, 120),
                     new ColumnSpec(0.9, 56),
                     new ColumnSpec(0.9, 56),
-                    new ColumnSpec(0, 180, 200),
+                    new ColumnSpec(0, 160, 180),
                 ]);
-        }
-
-        Reload();
-        if (_session.Settings.WorkspaceRoots.Count > 0
-            && _session.Modules.Count == 0)
-        {
-            _ = UiBusy.RunAsync("正在扫描模块…", () => _session.RefreshModulesAsync());
         }
     }
 
@@ -89,23 +132,39 @@ public sealed partial class ModulePage : Page
 
     private void Reload()
     {
-        IEnumerable<ModuleEntry> activeQuery = _session.Modules.Where(m => !m.IsIgnored);
-        if (_filterCodegenPrefsOnly)
+        _suppressFeatureSync = true;
+        _suppressCheckSync = true;
+        try
         {
-            activeQuery = activeQuery.Where(m => m.HasCodegenPrefs);
-        }
+            IEnumerable<ModuleEntry> activeQuery = _session.Modules.Where(m => !m.IsIgnored);
+            if (_filterCodegenPrefsOnly)
+            {
+                activeQuery = activeQuery.Where(m => m.HasCodegenPrefs);
+            }
 
-        var active = activeQuery.ToList();
-        var ignored = _session.Modules.Where(m => m.IsIgnored).ToList();
-        ModuleList.ItemsSource = active;
-        ModuleList.SelectedItems.Clear();
-        IgnoredList.ItemsSource = ignored;
-        IgnoredList.SelectedItems.Clear();
-        IgnoredTab.Header = ignored.Count > 0 ? $"忽略列表 ({ignored.Count})" : "忽略列表";
-        FilterCodegenBtnText.Text = _filterCodegenPrefsOnly ? "显示全部模块" : "查询生成配置";
-        UpdateBulkActionButtons();
-        SyncHeaderSelectAll();
-        SyncIgnoredHeaderSelectAll();
+            var active = activeQuery.ToList();
+            var ignored = _session.Modules.Where(m => m.IsIgnored).ToList();
+            ModuleList.ItemsSource = active;
+            ModuleList.SelectedItems.Clear();
+            IgnoredList.ItemsSource = ignored;
+            IgnoredList.SelectedItems.Clear();
+            IgnoredTab.Header = ignored.Count > 0 ? $"忽略列表 ({ignored.Count})" : "忽略列表";
+            FilterCodegenBtnText.Text = _filterCodegenPrefsOnly ? "显示全部模块" : "查询生成配置";
+            UpdateBulkActionButtons();
+            SyncHeaderSelectAll();
+            SyncIgnoredHeaderSelectAll();
+        }
+        finally
+        {
+            // 等列表项生成/绑定完成后再允许功能勾选写回，避免进入页面时误触发保存风暴
+            DispatcherQueue.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () =>
+                {
+                    _suppressFeatureSync = false;
+                    _suppressCheckSync = false;
+                });
+        }
     }
 
     private void OnFilterCodegenPrefs(object sender, RoutedEventArgs e)
@@ -116,6 +175,64 @@ public sealed partial class ModulePage : Page
         {
             _session.Log($"已筛选有代码生成配置的模块：{ModuleList.Items?.Count ?? 0} 个");
         }
+    }
+
+    /// <summary>用 Click；Reload 期间由 _suppressFeatureSync 挡住绑定/回收误触发。</summary>
+    private async void OnEnableCodegenClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        {
+            return;
+        }
+
+        var enabled = box.IsChecked == true;
+        if (enabled == entry.EnableCodegen)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存功能启用…",
+                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableCodegen: enabled))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnEnableEnumClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        {
+            return;
+        }
+
+        var enabled = box.IsChecked == true;
+        if (enabled == entry.EnableEnum)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存功能启用…",
+                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableEnum: enabled))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnEnableTsDictClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        {
+            return;
+        }
+
+        var enabled = box.IsChecked == true;
+        if (enabled == entry.EnableTsDict)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存功能启用…",
+                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableTsDict: enabled))
+            .ConfigureAwait(true);
     }
 
     private async void OnEditCodegenPrefs(object sender, RoutedEventArgs e)
@@ -155,7 +272,7 @@ public sealed partial class ModulePage : Page
 
         var dialog = new ContentDialog
         {
-            Title = "代码生成配置",
+            Title = "Java 生成配置",
             Content = form,
             PrimaryButtonText = "保存",
             CloseButtonText = "取消",
@@ -176,6 +293,104 @@ public sealed partial class ModulePage : Page
                     daoBox.IsChecked == true,
                     serviceBox.IsChecked == true,
                     controllerBox.IsChecked == true))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnEditEnumPath(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        var globalDefault = _session.Settings.ResolveEnumPackagePath();
+        var pathBox = new TextBox
+        {
+            Text = entry.EnumPackagePath ?? "",
+            PlaceholderText = "留空则用全局: " + globalDefault,
+        };
+        var form = new StackPanel { Spacing = 10, MinWidth = 420 };
+        form.Children.Add(new TextBlock
+        {
+            Text = entry.TargetModuleDisplay,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        form.Children.Add(Labeled("枚举包路径", pathBox));
+        form.Children.Add(new TextBlock
+        {
+            Text = "全局默认: " + globalDefault,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+
+        var dialog = new ContentDialog
+        {
+            Title = "枚举路径",
+            Content = form,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存枚举路径…",
+                () => _session.SaveModuleEnumPathAsync(entry.ModulePath, pathBox.Text))
+            .ConfigureAwait(true);
+    }
+
+    private async void OnEditTsDictPath(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModuleEntry entry })
+        {
+            return;
+        }
+
+        var globalDefault = _session.Settings.ResolveTsDictPath();
+        var pathBox = new TextBox
+        {
+            Text = entry.TsDictPath ?? "",
+            PlaceholderText = "留空则用全局: " + globalDefault,
+        };
+        var form = new StackPanel { Spacing = 10, MinWidth = 420 };
+        form.Children.Add(new TextBlock
+        {
+            Text = entry.TargetModuleDisplay,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+        form.Children.Add(Labeled("TS 字典相对路径", pathBox));
+        form.Children.Add(new TextBlock
+        {
+            Text = "全局默认: " + globalDefault,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.WrapWholeWords,
+        });
+
+        var dialog = new ContentDialog
+        {
+            Title = "字典路径",
+            Content = form,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowWithIconsAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        await UiBusy.RunAsync(
+                "正在保存字典路径…",
+                () => _session.SaveModuleTsDictPathAsync(entry.ModulePath, pathBox.Text))
             .ConfigureAwait(true);
     }
 
@@ -214,19 +429,29 @@ public sealed partial class ModulePage : Page
 
     private async void OnPickWorkspace(object sender, RoutedEventArgs e)
     {
+        if (_session.IsModulesBusy)
+        {
+            return;
+        }
+
         var path = await PickFolderAsync();
         if (path is null)
         {
             return;
         }
 
-        await UiBusy.RunAsync("正在添加并扫描工作区…", () => _session.AddWorkspaceAsync(path))
-            .ConfigureAwait(true);
+        await _session.AddWorkspaceAsync(path).ConfigureAwait(true);
     }
 
-    private async void OnRefresh(object sender, RoutedEventArgs e) =>
-        await UiBusy.RunAsync("正在刷新模块…", () => _session.RefreshModulesAsync())
-            .ConfigureAwait(true);
+    private async void OnRefresh(object sender, RoutedEventArgs e)
+    {
+        if (_session.IsModulesBusy)
+        {
+            return;
+        }
+
+        await _session.RefreshModulesAsync(busyMessage: "正在刷新项目…").ConfigureAwait(true);
+    }
 
     private async void OnAddExternal(object sender, RoutedEventArgs e)
     {
@@ -334,7 +559,8 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        await UiBusy.RunAsync("正在忽略模块…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, true))
+        await _session
+            .RunModulesWorkAsync("正在忽略模块…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, true))
             .ConfigureAwait(true);
     }
 
@@ -345,7 +571,8 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        await UiBusy.RunAsync("正在取消忽略…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, false))
+        await _session
+            .RunModulesWorkAsync("正在取消忽略…", () => _session.SetModuleIgnoredAsync(entry.ModulePath, false))
             .ConfigureAwait(true);
     }
 
@@ -361,7 +588,8 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        await UiBusy.RunAsync("正在删除模块…", () => _session.RemoveModulesAsync([entry]))
+        await _session
+            .RunModulesWorkAsync("正在删除模块…", () => _session.RemoveModulesAsync([entry]))
             .ConfigureAwait(true);
     }
 
@@ -378,7 +606,8 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        await UiBusy.RunAsync("正在删除选中模块…", () => _session.RemoveModulesAsync(selected))
+        await _session
+            .RunModulesWorkAsync("正在删除选中模块…", () => _session.RemoveModulesAsync(selected))
             .ConfigureAwait(true);
     }
 
@@ -395,7 +624,8 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        await UiBusy.RunAsync("正在清空列表…", () => _session.RemoveModulesAsync(all))
+        await _session
+            .RunModulesWorkAsync("正在清空列表…", () => _session.RemoveModulesAsync(all))
             .ConfigureAwait(true);
     }
 
@@ -763,13 +993,14 @@ public sealed partial class ModulePage : Page
         _suppressCheckSync = false;
     }
 
+    /// <summary>行首选择框：无 Content；功能启用框带文字，避免误同步。</summary>
     private static CheckBox? FindRowCheckBox(DependencyObject root)
     {
         var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
         {
             var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is CheckBox { Tag: ModuleEntry } box)
+            if (child is CheckBox { Tag: ModuleEntry, Content: null } box)
             {
                 return box;
             }

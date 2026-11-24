@@ -114,7 +114,7 @@ public sealed class DevtoySettings
 
     public Dictionary<string, string> ModuleDisplayNames { get; set; } = new();
 
-    /// <summary>已忽略的模块路径：仍显示在模块管理，但不出现在代码生成 / 字典生成目标中。</summary>
+    /// <summary>已忽略的模块路径：仍显示在项目管理，但不出现在代码生成 / 字典生成目标中。</summary>
     public List<string> IgnoredModulePaths { get; set; } = new();
 
     public Dictionary<string, ModuleCatalogOverride> ModuleOverrides { get; set; } = new();
@@ -195,6 +195,8 @@ public enum DatabaseKind
     PostgreSql,
     Oracle,
     Sqlite,
+    /// <summary>通过本机 ODBC 驱动接入任意数据源（DSN / Driver 连接串）。</summary>
+    Odbc,
 }
 
 public sealed class DataSourceSettings

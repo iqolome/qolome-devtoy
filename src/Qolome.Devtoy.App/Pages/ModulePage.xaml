@@ -6,7 +6,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
-    <Grid Padding="16" RowSpacing="12">
+    <Grid>
+        <Grid
+            x:Name="ModuleContentRoot"
+            Padding="16"
+            RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -25,7 +29,7 @@
                     <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
                         <SymbolIcon Symbol="Refresh" />
                     </Viewbox>
-                    <TextBlock Text="刷新模块" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                    <TextBlock Text="刷新项目" Style="{StaticResource DevtoyGlyphTextStyle}" />
                 </StackPanel>
             </Button>
             <Button x:Name="AddExternalBtn" Click="OnAddExternal">
@@ -87,13 +91,14 @@
                                 HorizontalAlignment="Stretch">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="*" MinWidth="80" />
-                                    <ColumnDefinition Width="96" MinWidth="72" />
-                                    <ColumnDefinition Width="2*" MinWidth="120" />
-                                    <ColumnDefinition Width="72" MinWidth="56" />
-                                    <ColumnDefinition Width="72" MinWidth="56" />
-                                    <ColumnDefinition Width="88" MinWidth="72" />
-                                    <ColumnDefinition Width="340" MinWidth="320" />
+                                    <ColumnDefinition Width="*" MinWidth="72" />
+                                    <ColumnDefinition Width="96" MinWidth="64" />
+                                    <ColumnDefinition Width="2*" MinWidth="96" />
+                                    <ColumnDefinition Width="72" MinWidth="48" />
+                                    <ColumnDefinition Width="72" MinWidth="48" />
+                                    <ColumnDefinition Width="140" MinWidth="120" />
+                                    <ColumnDefinition Width="72" MinWidth="64" />
+                                    <ColumnDefinition Width="240" MinWidth="200" />
                                 </Grid.ColumnDefinitions>
                                 <CheckBox
                                     x:Name="HeaderSelectAll"
@@ -108,8 +113,9 @@
                                 <TextBlock Grid.Column="3" Text="路径" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="4" Text="类型" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="5" Text="版本号" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="6" Text="模块名" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="7" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="功能启用" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="7" Text="模块名" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="8" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </Grid>
                             <Border
                                 VerticalAlignment="Bottom"
@@ -135,13 +141,14 @@
                                     <Grid ColumnSpacing="8" Padding="0,4" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="40" />
-                                            <ColumnDefinition Width="*" MinWidth="80" />
-                                            <ColumnDefinition Width="96" MinWidth="72" />
-                                            <ColumnDefinition Width="2*" MinWidth="120" />
-                                            <ColumnDefinition Width="72" MinWidth="56" />
-                                            <ColumnDefinition Width="72" MinWidth="56" />
-                                            <ColumnDefinition Width="88" MinWidth="72" />
-                                            <ColumnDefinition Width="340" MinWidth="320" />
+                                            <ColumnDefinition Width="*" MinWidth="72" />
+                                            <ColumnDefinition Width="96" MinWidth="64" />
+                                            <ColumnDefinition Width="2*" MinWidth="96" />
+                                            <ColumnDefinition Width="72" MinWidth="48" />
+                                            <ColumnDefinition Width="72" MinWidth="48" />
+                                            <ColumnDefinition Width="140" MinWidth="120" />
+                                            <ColumnDefinition Width="72" MinWidth="64" />
+                                            <ColumnDefinition Width="240" MinWidth="200" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox
                                             MinWidth="0"
@@ -172,13 +179,40 @@
                                             ToolTipService.ToolTip="双击在资源管理器中打开此目录" />
                                         <TextBlock Grid.Column="4" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="5" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
-                                        <TextBlock
+                                        <StackPanel
                                             Grid.Column="6"
+                                            Orientation="Horizontal"
+                                            Spacing="4"
+                                            VerticalAlignment="Center">
+                                            <CheckBox
+                                                Content="代码生成"
+                                                MinWidth="0"
+                                                Tag="{Binding}"
+                                                Visibility="{Binding IsJavaType, Converter={StaticResource BoolToVis}}"
+                                                IsChecked="{Binding EnableCodegen, Mode=OneWay}"
+                                                Click="OnEnableCodegenClick" />
+                                            <CheckBox
+                                                Content="生成枚举"
+                                                MinWidth="0"
+                                                Tag="{Binding}"
+                                                Visibility="{Binding IsJavaType, Converter={StaticResource BoolToVis}}"
+                                                IsChecked="{Binding EnableEnum, Mode=OneWay}"
+                                                Click="OnEnableEnumClick" />
+                                            <CheckBox
+                                                Content="生成字典"
+                                                MinWidth="0"
+                                                Tag="{Binding}"
+                                                Visibility="{Binding IsWebType, Converter={StaticResource BoolToVis}}"
+                                                IsChecked="{Binding EnableTsDict, Mode=OneWay}"
+                                                Click="OnEnableTsDictClick" />
+                                        </StackPanel>
+                                        <TextBlock
+                                            Grid.Column="7"
                                             Text="{Binding CodegenModelDisplay}"
                                             FontFamily="Consolas"
                                             VerticalAlignment="Center"
                                             TextTrimming="CharacterEllipsis" />
-                                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                             <Button
                                                 Tag="{Binding}"
                                                 Click="OnEditModule"
@@ -197,7 +231,8 @@
                                                 Tag="{Binding}"
                                                 Click="OnEditCodegenPrefs"
                                                 Style="{StaticResource DevtoyRowActionButtonStyle}"
-                                                ToolTipService.ToolTip="查看 / 编辑 Java 代码生成模块名与 Dao/Service/Controller 习惯">
+                                                IsEnabled="{Binding EnableCodegen}"
+                                                ToolTipService.ToolTip="Java 代码生成：模块名与 Dao/Service/Controller 习惯">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <Viewbox
                                                         Width="{StaticResource DevtoyGlyphIconBox}"
@@ -206,6 +241,38 @@
                                                         <SymbolIcon Symbol="Setting" />
                                                     </Viewbox>
                                                     <TextBlock Text="生成配置" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnEditEnumPath"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}"
+                                                IsEnabled="{Binding EnableEnum}"
+                                                ToolTipService.ToolTip="编辑本项目枚举包路径（空则用全局配置）">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Font" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="枚举路径" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Tag="{Binding}"
+                                                Click="OnEditTsDictPath"
+                                                Style="{StaticResource DevtoyRowActionButtonStyle}"
+                                                IsEnabled="{Binding EnableTsDict}"
+                                                ToolTipService.ToolTip="编辑本项目 TS 字典相对路径（空则用全局配置）">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Viewbox
+                                                        Width="{StaticResource DevtoyGlyphIconBox}"
+                                                        Height="{StaticResource DevtoyGlyphIconBox}"
+                                                        VerticalAlignment="Center">
+                                                        <SymbolIcon Symbol="Document" />
+                                                    </Viewbox>
+                                                    <TextBlock Text="字典路径" Style="{StaticResource DevtoyGlyphTextStyle}" />
                                                 </StackPanel>
                                             </Button>
                                             <Button
@@ -383,5 +450,32 @@
                 </TabViewItem>
             </TabView.TabItems>
         </TabView>
+        </Grid>
+
+        <!-- 模块扫描/处理中：可进入本页，仅遮罩防误操作，不卡死导航 -->
+        <Grid
+            x:Name="ModulesBusyOverlay"
+            Visibility="Collapsed"
+            Background="#88000000"
+            Canvas.ZIndex="100">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12"
+                Padding="24">
+                <ProgressRing
+                    Width="40"
+                    Height="40"
+                    IsActive="True"
+                    IsIndeterminate="True" />
+                <TextBlock
+                    x:Name="ModulesBusyMessageText"
+                    Text="正在处理模块…"
+                    FontSize="14"
+                    Foreground="White"
+                    HorizontalAlignment="Center"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Page>

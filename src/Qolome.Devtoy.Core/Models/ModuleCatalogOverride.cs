@@ -25,4 +25,19 @@ public sealed class ModuleCatalogOverride
     public bool? CodegenService { get; set; }
 
     public bool? CodegenController { get; set; }
+
+    /// <summary>Java：启用代码生成（出现在 Java 代码生成目标列表）。</summary>
+    public bool? EnableCodegen { get; set; }
+
+    /// <summary>Java：启用生成枚举。</summary>
+    public bool? EnableEnum { get; set; }
+
+    /// <summary>Web：启用生成 TS 字典。</summary>
+    public bool? EnableTsDict { get; set; }
+
+    /// <summary>模块级枚举包路径；空则用全局 EnumPackagePath。</summary>
+    public string? EnumPackagePath { get; set; }
+
+    /// <summary>模块级 TS 字典相对路径；空则用全局 TsDictPath。</summary>
+    public string? TsDictPath { get; set; }
 }

@@ -27,6 +27,9 @@ public static class JdbcUrlBuilder
             DatabaseKind.Sqlite => string.IsNullOrWhiteSpace(database)
                 ? "jdbc:sqlite::memory:"
                 : $"jdbc:sqlite:{database}",
+            DatabaseKind.Odbc => string.IsNullOrWhiteSpace(database)
+                ? "odbc:DSN="
+                : "odbc:" + database.Trim(),
             _ => $"jdbc:mysql://{host}:{port}/{database}",
         };
     }
@@ -90,6 +93,7 @@ public static class JdbcUrlBuilder
             DatabaseKind.PostgreSql => "5432",
             DatabaseKind.Oracle => "1521",
             DatabaseKind.Sqlite => "",
+            DatabaseKind.Odbc => "",
             _ => "3306",
         };
 }

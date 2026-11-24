@@ -50,18 +50,18 @@ public sealed partial class GeneratePage : Page
 
     private void ReloadModules()
     {
-        _javaModules = ModuleCatalogFilter.ForCodegen(_session.Modules)
-            .Where(m => m.ProjectTypes.Java)
-            .ToList();
+        // 仅展示已启用「代码生成」的 Java 项目
+        _javaModules = ModuleCatalogFilter.ForJavaCodegen(_session.Modules).ToList();
 
         var selected = _session.SelectedModule;
         if (selected is null
             || !selected.ProjectTypes.Java
+            || !selected.EnableCodegen
             || selected.IsIgnored
             || _javaModules.All(m => m.ModulePath != selected.ModulePath))
         {
             if (selected is not null
-                && (!selected.ProjectTypes.Java || selected.IsIgnored))
+                && (!selected.ProjectTypes.Java || !selected.EnableCodegen || selected.IsIgnored))
             {
                 _session.SelectedModule = null;
             }

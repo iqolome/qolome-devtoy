@@ -52,30 +52,26 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | --- | --- |
 | OS | Windows 10 1809+ / Windows 11（x64） |
 | [.NET SDK 10](https://dotnet.microsoft.com/download) | 与 `Qolome.Devtoy.*` 的 `net10.0` 一致 |
-| MySQL | 字典 / 表生成需可连通的开发库（见 **数据源设置**） |
+| 数据库 | 字典 / 表生成：内置 MySQL / PostgreSQL / Oracle / SQLite 驱动，另支持 **ODBC**（见 **数据源设置**） |
 | Inno Setup 6 | 可选，制作安装包 |
 | 企业代码签名 PFX | 可选，见 [packaging/README.md](packaging/README.md) |
 | SonarScanner | 可选；全局工具 `dotnet-sonarscanner`，或 `SONAR_SCANNER_HOME` |
 
 ### 内置数据库依赖版本
 
-数据源下拉对应 `DatabaseKind`（MySQL / PostgreSQL / Oracle / SQLite）。**当前运行时已接入 MySQL**；其余种类可拼 JDBC URL，连接与生成能力尚未接线。
+数据源 `DatabaseKind`：MySQL / PostgreSQL / Oracle / SQLite / **Odbc**。统一经 `DbConnectionFactory` 打开 ADO.NET 连接；ODBC 使用本机已安装的 ODBC 驱动（DSN 或 `Driver={...}` 连接串）。
 
 | 数据库 | 本工具 .NET 包 | 版本 | 默认端口 | 状态 |
 | --- | --- | --- | --- | --- |
-| MySQL | [MySqlConnector](https://www.nuget.org/packages/MySqlConnector) | `3.0.0`（见 `Qolome.Devtoy.Core.csproj`） | `3306` | 已接入：测试连接、字典、表列表、代码生成、初始化 SQL |
-| PostgreSQL | — | — | `5432` | 仅 JDBC URL；驱动待接入 |
-| Oracle | — | — | `1521` | 仅 JDBC URL；驱动待接入 |
-| SQLite | — | — | — | 仅 JDBC URL；驱动待接入 |
+| MySQL | [MySqlConnector](https://www.nuget.org/packages/MySqlConnector) | `3.0.0` | `3306` | 测试连接、字典、表列表、代码生成、初始化 SQL |
+| PostgreSQL | [Npgsql](https://www.nuget.org/packages/Npgsql) | `9.0.3` | `5432` | 测试连接、表列表、表结构读取 |
+| Oracle | [Oracle.ManagedDataAccess.Core](https://www.nuget.org/packages/Oracle.ManagedDataAccess.Core) | `23.7.0` | `1521` | 测试连接、表列表、表结构读取 |
+| SQLite | [Microsoft.Data.Sqlite](https://www.nuget.org/packages/Microsoft.Data.Sqlite) | `9.0.0` | — | 测试连接、表列表、表结构读取 |
+| ODBC | [System.Data.Odbc](https://www.nuget.org/packages/System.Data.Odbc) | `9.0.0` | — | 测试连接；表列表走 `information_schema`（依赖目标驱动） |
 
-对齐参考：`qolome-codegen` IDEA 插件内置 JDBC（`qolome-codegen-idea-plugin/build.gradle.kts`）：
+对齐参考：`qolome-codegen` IDEA 插件 JDBC（`build.gradle.kts`）：`mysql-connector-j:9.1.0` / `postgresql:42.7.4` / `ojdbc11:23.6.0.24.10` / `sqlite-jdbc:3.47.1.0`。
 
-| 数据库 | Maven 坐标 | 版本 |
-| --- | --- | --- |
-| MySQL | `com.mysql:mysql-connector-j` | `9.1.0` |
-| PostgreSQL | `org.postgresql:postgresql` | `42.7.4` |
-| Oracle | `com.oracle.database.jdbc:ojdbc11` | `23.6.0.24.10` |
-| SQLite | `org.xerial:sqlite-jdbc` | `3.47.1.0` |
+说明：字典表 CRUD 与「初始化」DDL 仍按 MySQL 方言编写；其它库可先测连、列库表与生成实体，字典管理建议继续用 MySQL 开发库。
 
 ## 仓库结构
 
@@ -100,7 +96,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | --- | --- |
 | **Java代码生成** | 可搜索 Java 目标模块；填写 / 保存 **模块名** 与 Dao·Service·Controller **习惯**；查询库表（含表注释）、勾选后生成；生成中按钮 loading 禁点，完成后弹框提示 |
 | **字典管理** | 加载 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（二次确认）、字典值维护；可生成 Java 枚举 / TS 字典 |
-| **模块管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；忽略列表（仍显示但不参与生成）；**生成配置**（模块名 + 勾选习惯）；查询有生成配置的模块；双击路径打开资源管理器 |
+| **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；**功能启用**（Java：代码生成/枚举；Web：字典）；启用后操作列出现对应配置；忽略列表；已有项目配置只追加不覆盖；双击路径打开资源管理器 |
 | **配置 · 主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
 | **配置 · 代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
 | **配置 · 数据源** | JDBC URL / 分项、MySQL 测试连接；**生成初始化 SQL** / **初始化**（表已存在则报错中止） |
@@ -127,7 +123,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | 修改日期 / 修改人 | `modify_time` / `modifier_id` | `FieldFill.INSERT_UPDATE` |
 | 主键生成类型 | `ASSIGN_ID` | 对齐 MyBatis-Plus `IdType`：`AUTO` / `NONE` / `INPUT` / `ASSIGN_ID` / `ASSIGN_UUID` |
 
-模块级覆盖：在 **模块管理 → 生成配置** 中为单个 Java 模块设置模块名与 Dao/Service/Controller 勾选习惯；生成页可 **保存习惯** 写回。
+项目级覆盖：在 **项目管理** 启用功能后，可编辑 Java 生成配置 / 枚举路径 / 字典路径；生成页仅列出已启用「代码生成」的 Java 项目；字典生成可多选已启用枚举/字典的项目。
 
 ### 模块扫描约定
 

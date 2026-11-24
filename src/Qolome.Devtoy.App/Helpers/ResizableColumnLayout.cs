@@ -18,6 +18,7 @@ public sealed class ResizableColumnLayout
     private ListViewBase? _list;
     private Grid? _gripOverlay;
     private bool _measured;
+    private bool _applying;
     private int _dragIndex = -1;
     private double _dragStartX;
     private double[] _dragSnapshot = [];
@@ -109,15 +110,25 @@ public sealed class ResizableColumnLayout
         }
     }
 
-    private void OnMeasureHostSizeChanged(object sender, SizeChangedEventArgs e) => TryMeasure();
-
-    private void TryMeasure()
+    private void OnMeasureHostSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_measureHost is null || _measureHost.ActualWidth <= 0)
+        // 自身 ApplyAll 引发的细微宽度抖动忽略，避免 SizeChanged↔ApplyAll 死循环卡死 UI
+        if (_applying || Math.Abs(e.NewSize.Width - e.PreviousSize.Width) < 0.5)
         {
             return;
         }
 
+        TryMeasure();
+    }
+
+    private void TryMeasure()
+    {
+        if (_applying || _measureHost is null || _measureHost.ActualWidth <= 0)
+        {
+            return;
+        }
+
+        var before = _widths.ToArray();
         if (!_measured)
         {
             DistributeInitial(_measureHost.ActualWidth);
@@ -128,7 +139,30 @@ public sealed class ResizableColumnLayout
             BalanceToWidth(_measureHost.ActualWidth);
         }
 
+        if (_measured && WidthsEqual(before, _widths) && _dragIndex < 0)
+        {
+            return;
+        }
+
         ApplyAll();
+    }
+
+    private static bool WidthsEqual(double[] a, double[] b)
+    {
+        if (a.Length != b.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < a.Length; i++)
+        {
+            if (Math.Abs(a[i] - b[i]) > 0.5)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void DistributeInitial(double totalWidth)
@@ -174,7 +208,8 @@ public sealed class ResizableColumnLayout
         var gaps = _columnSpacing * Math.Max(0, columnCount - 1);
         var available = Math.Max(0, totalWidth - gaps);
         var sum = _widths.Sum();
-        if (sum <= 0 || Math.Abs(sum - available) < 0.5)
+        // 滞后阈值：避免滚动条出现/消失导致 available 在临界值附近抖动引发死循环
+        if (sum <= 0 || Math.Abs(sum - available) < 24)
         {
             return;
         }
@@ -335,13 +370,26 @@ public sealed class ResizableColumnLayout
 
     private void ApplyAll()
     {
-        if (_header is not null)
+        if (_applying)
         {
-            ApplyToGrid(_header);
+            return;
         }
 
-        SyncGripColumns();
-        RefreshAllRows();
+        _applying = true;
+        try
+        {
+            if (_header is not null)
+            {
+                ApplyToGrid(_header);
+            }
+
+            SyncGripColumns();
+            RefreshAllRows();
+        }
+        finally
+        {
+            _applying = false;
+        }
     }
 
     private void SyncGripColumns()
@@ -352,14 +400,29 @@ public sealed class ResizableColumnLayout
         }
 
         _gripOverlay.ColumnSpacing = _header.ColumnSpacing;
-        _gripOverlay.ColumnDefinitions.Clear();
-        foreach (var cd in _header.ColumnDefinitions)
+        while (_gripOverlay.ColumnDefinitions.Count < _header.ColumnDefinitions.Count)
         {
-            _gripOverlay.ColumnDefinitions.Add(new ColumnDefinition
+            _gripOverlay.ColumnDefinitions.Add(new ColumnDefinition());
+        }
+
+        while (_gripOverlay.ColumnDefinitions.Count > _header.ColumnDefinitions.Count)
+        {
+            _gripOverlay.ColumnDefinitions.RemoveAt(_gripOverlay.ColumnDefinitions.Count - 1);
+        }
+
+        for (var i = 0; i < _header.ColumnDefinitions.Count; i++)
+        {
+            var src = _header.ColumnDefinitions[i];
+            var dst = _gripOverlay.ColumnDefinitions[i];
+            if (dst.Width != src.Width)
             {
-                Width = cd.Width,
-                MinWidth = cd.MinWidth,
-            });
+                dst.Width = src.Width;
+            }
+
+            if (Math.Abs(dst.MinWidth - src.MinWidth) > 0.1)
+            {
+                dst.MinWidth = src.MinWidth;
+            }
         }
     }
 

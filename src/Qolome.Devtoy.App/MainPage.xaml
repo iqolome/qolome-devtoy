@@ -31,7 +31,7 @@
                         <SymbolIcon Symbol="Library" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="模块管理" Tag="Module">
+                <NavigationViewItem Content="项目管理" Tag="Module">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Folder" />
                     </NavigationViewItem.Icon>

@@ -74,7 +74,8 @@ public sealed class CodegenEngine
             ? modelName.Trim()
             : (targetModule.CodegenModelName?.Trim() ?? "");
         var author = settings.FormatAuthorHtml();
-        var codegenSettings = settings.ToCodegenSettings();
+        // 按模块覆盖合并枚举包 / TS 字典路径，不改写全局 settings
+        var codegenSettings = ModuleCatalogFilter.MergeCodegenSettings(settings, targetModule);
         var basePackage = settings.ResolveBasePackage();
         return new RunContext(
             version,
@@ -90,6 +91,8 @@ public sealed class CodegenEngine
                 $"module={targetModule.ModulePath}",
                 $"modelName={resolvedModelName}",
                 $"basePackage={basePackage}",
+                $"enumPackage={codegenSettings.EnumPackage}",
+                $"tsDictPath={codegenSettings.TsDictPath}",
                 $"author={author}",
                 $"jdbc={JdbcUrlBuilder.Resolve(settings.DataSource)}",
             });
@@ -110,11 +113,6 @@ public sealed class CodegenEngine
         if (tableNames.Count == 0)
         {
             throw new InvalidOperationException("生成 Dao 时请勾选至少一张表");
-        }
-
-        if (settings.DataSource.DatabaseKind != DatabaseKind.MySql)
-        {
-            throw new InvalidOperationException("当前仅支持 MySQL 表代码生成");
         }
 
         var generateEntityMapper = taskSet.Contains(TaskDao)
