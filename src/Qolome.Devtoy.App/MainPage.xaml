@@ -47,6 +47,11 @@
                                 <SymbolIcon Symbol="Folder" />
                             </NavigationViewItem.Icon>
                         </NavigationViewItem>
+                        <NavigationViewItem Content="图标库" Tag="IconLibrary">
+                            <NavigationViewItem.Icon>
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8F1;" />
+                            </NavigationViewItem.Icon>
+                        </NavigationViewItem>
                     </NavigationViewItem.MenuItems>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -142,11 +147,6 @@
                 <NavigationViewItem Content="关于" Tag="About">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE82F;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="图标库" Tag="IconLibrary">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8F1;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

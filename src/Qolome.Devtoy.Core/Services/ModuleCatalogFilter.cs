@@ -57,6 +57,7 @@ public static class ModuleCatalogFilter
 
         return BuildEntry(
             entry,
+            settings,
             types,
             version,
             isSpecified: false,
@@ -70,6 +71,7 @@ public static class ModuleCatalogFilter
         settings.ModuleOverrides.TryGetValue(Path.GetFullPath(entry.ModulePath), out var ov);
         return BuildEntry(
             entry,
+            settings,
             entry.ProjectTypes,
             entry.ProjectVersion,
             isSpecified: true,
@@ -80,6 +82,7 @@ public static class ModuleCatalogFilter
 
     private static ModuleEntry BuildEntry(
         ModuleEntry entry,
+        DevtoySettings settings,
         ProjectTypes types,
         string version,
         bool isSpecified,
@@ -92,6 +95,22 @@ public static class ModuleCatalogFilter
             || ov.CodegenDao is not null
             || ov.CodegenService is not null
             || ov.CodegenController is not null);
+
+        DateTime? createTime = null;
+        DateTime? modifyTime = null;
+        try
+        {
+            var path = Path.GetFullPath(entry.ModulePath);
+            if (settings.ModuleTimes.TryGetValue(path, out var times))
+            {
+                createTime = times.CreateTime;
+                modifyTime = times.ModifyTime;
+            }
+        }
+        catch
+        {
+            // ignore bad path
+        }
 
         return new ModuleEntry
         {
@@ -120,6 +139,8 @@ public static class ModuleCatalogFilter
             TsDictPath = string.IsNullOrWhiteSpace(ov?.TsDictPath)
                 ? null
                 : ov.TsDictPath.Trim(),
+            CreateTime = createTime,
+            ModifyTime = modifyTime,
         };
     }
 

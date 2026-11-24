@@ -38,11 +38,11 @@ public sealed class SqlDumpService
     public static string ToPortableSql(InventorySnapshot snapshot)
     {
         var sql = new StringBuilder();
-        sql.AppendLine("-- qolome-nets SQL dump");
+        sql.AppendLine("-- Qolome DevToy network asset SQL dump");
         sql.AppendLine("-- format: 2");
-        sql.AppendLine("-- dialect: sqlite+mysql");
+        sql.AppendLine("-- target: remote business database (MySQL)");
         sql.AppendLine($"-- exported: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z");
-        sql.AppendLine("-- 仅含双方都支持的 DELETE / INSERT，可在 SQLite 与 MySQL 中导入。");
+        sql.AppendLine("-- DELETE + INSERT；导入到「数据源设置」远程业务库。");
         sql.AppendLine();
         sql.AppendLine("BEGIN;");
         sql.AppendLine($"DELETE FROM `{NetsTableNames.NetworkTopology}`;");

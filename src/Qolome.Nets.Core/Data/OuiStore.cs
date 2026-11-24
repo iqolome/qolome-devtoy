@@ -169,10 +169,7 @@ public static class OuiStore
             meta?.BundledAtUtc,
             meta?.Note,
             batchKey).ConfigureAwait(false);
-        if (AppConfigStore.Current.Database.Provider == target.Provider)
-        {
-            await ReloadAsync().ConfigureAwait(false);
-        }
+        await ReloadAsync().ConfigureAwait(false);
     }
 
     public static string Describe()

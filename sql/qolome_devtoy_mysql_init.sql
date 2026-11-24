@@ -3,7 +3,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS=0;
 
-CREATE TABLE `devtoy_qolome_dict_item` (
+CREATE TABLE `qolome_dict_item` (
   `item_id` bigint NOT NULL COMMENT '项ID',
   `item_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '项编码',
   `item_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '项名称',
@@ -24,7 +24,7 @@ CREATE TABLE `devtoy_qolome_dict_item` (
   UNIQUE KEY `iteam_code` (`item_code`) USING BTREE COMMENT '编码索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='数据字典项表';
 
-CREATE TABLE `devtoy_qolome_dict_val` (
+CREATE TABLE `qolome_dict_val` (
   `val_id` bigint NOT NULL COMMENT '值ID',
   `item_id` bigint DEFAULT NULL COMMENT '域ID',
   `val_value` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '值编码',

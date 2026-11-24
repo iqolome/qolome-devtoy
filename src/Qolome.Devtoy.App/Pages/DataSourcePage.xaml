@@ -9,7 +9,7 @@
             <TextBlock
                 TextWrapping="Wrap"
                 Opacity="0.75"
-                Text="应用配置与网络资产日常读写落在本地 SQLite（%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db）。此处为全局唯一远程库（MySQL / PostgreSQL / Oracle / ODBC），供代码生成、字典与「网络设置」本地↔远程覆盖同步共用，网络模块不再单独配置数据库。" />
+                Text="本机 SQLite（%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db）仅保存少量应用配置。此处配置的远程库为唯一业务库：网络库存、拓扑、OUI、字典与代码生成均使用该库（网络业务日常读写当前支持 MySQL）。" />
             <Grid x:Name="FormGrid" ColumnSpacing="16" RowSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />

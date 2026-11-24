@@ -1063,10 +1063,9 @@ public partial class TopologyViewModel : ObservableObject
         try
         {
             await _store.SaveAsync(Document);
-            // 仅落本地库；与远程是否一致需再点右上角云同步。
-            _cloudSynced = false;
+            _cloudSynced = true;
             IsDirty = false;
-            Status = $"已保存到本地：{Document.Nodes.Count} 个节点，{Document.Links.Count} 条连线。点击右上角可同步到云端。";
+            Status = $"已保存到远程库：{Document.Nodes.Count} 个节点，{Document.Links.Count} 条连线。";
             RefreshCloudSync();
         }
         catch
@@ -1094,18 +1093,10 @@ public partial class TopologyViewModel : ObservableObject
         RefreshCloudSync();
         try
         {
-            Document.EnvironmentId = SelectedEnvironment.Id;
-            Document.ShowGrid = ShowGrid;
-            Document.SnapToGrid = SnapToGrid;
-            TopologyMetrics.CopyTo(Document);
-            await _store.PushToRemoteAsync(Document);
-            _cloudSynced = true;
-            IsDirty = false;
-            Status = $"云端同步成功：{Document.Nodes.Count} 个节点，{Document.Links.Count} 条连线。";
+            await SaveAsync();
         }
         catch (Exception ex)
         {
-            _cloudSynced = false;
             Status = ex.Message;
         }
         finally
@@ -1121,10 +1112,10 @@ public partial class TopologyViewModel : ObservableObject
     {
         if (_cloudBusy)
         {
-            CloudSyncText = "同步中";
+            CloudSyncText = "保存中";
             CloudSyncGlyph = "\uE895";
             CloudSyncBrush = SyncingBrush;
-            CloudSyncHint = "正在将本地拓扑同步到远程数据源…";
+            CloudSyncHint = "正在写入远程业务库…";
             CloudSyncBusy = true;
             CloudSyncEnabled = false;
             CloudIconVisibility = Visibility.Collapsed;
@@ -1139,19 +1130,19 @@ public partial class TopologyViewModel : ObservableObject
 
         if (!IsDirty && _cloudSynced)
         {
-            CloudSyncText = "云端已同步";
+            CloudSyncText = "已存远程";
             CloudSyncGlyph = "\uE753";
             CloudSyncBrush = SyncedBrush;
-            CloudSyncHint = "本地与远程拓扑已一致。修改并保存后可再次点击同步。";
+            CloudSyncHint = "拓扑已写入「数据源设置」中的远程库。";
             return;
         }
 
-        CloudSyncText = IsDirty ? "有未保存更改" : "未同步到云端";
+        CloudSyncText = IsDirty ? "有未保存更改" : "未保存";
         CloudSyncGlyph = "\uE753";
         CloudSyncBrush = UnsyncedBrush;
         CloudSyncHint = IsDirty
-            ? "先点「保存」写入本地，再点此按钮同步到远程；或直接点此按钮将自动先保存再同步。"
-            : "本地已保存，点击将 SQLite 中的拓扑推送到「数据源设置」远程库。";
+            ? "点击保存（或本按钮）将拓扑写入远程业务库。"
+            : "点击将当前拓扑写入远程业务库。";
     }
 
     private void ApplyCurrentStyle(TopologyLinkDto link, string kind)

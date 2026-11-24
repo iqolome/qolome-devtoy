@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -23,8 +24,6 @@ public sealed partial class ModulePage : Page
 
     private bool _suppressFeatureSync;
 
-    private bool _filterCodegenPrefsOnly;
-
     private string _filterName = "";
 
     private string _filterType = "all";
@@ -40,12 +39,17 @@ public sealed partial class ModulePage : Page
 
     private DispatcherQueueTimer? _filterNameDebounce;
 
+    private string _sortKey = "ProjectName";
+
+    private bool _sortAscending = true;
+
     private bool IsIgnoredTabActive =>
         ReferenceEquals(ModuleTabs.SelectedItem, IgnoredTab);
 
     public ModulePage()
     {
         InitializeComponent();
+        UpdateSortHeaders();
         Loaded += OnPageLoaded;
         Unloaded += OnPageUnloaded;
         _session.ModulesChanged += OnModulesChanged;
@@ -121,6 +125,8 @@ public sealed partial class ModulePage : Page
                     new ColumnSpec(0.7, 48),
                     new ColumnSpec(0.7, 48),
                     new ColumnSpec(0, 100, 120),
+                    new ColumnSpec(0, 110, 132),
+                    new ColumnSpec(0, 110, 132),
                     new ColumnSpec(0, 200, 240),
                 ]);
         }
@@ -137,6 +143,8 @@ public sealed partial class ModulePage : Page
                     new ColumnSpec(2.4, 120),
                     new ColumnSpec(0.9, 56),
                     new ColumnSpec(0.9, 56),
+                    new ColumnSpec(0, 110, 132),
+                    new ColumnSpec(0, 110, 132),
                     new ColumnSpec(0, 160, 180),
                 ]);
         }
@@ -160,24 +168,18 @@ public sealed partial class ModulePage : Page
         _suppressCheckSync = true;
         try
         {
-            IEnumerable<ModuleEntry> activeQuery = _session.Modules.Where(m => !m.IsIgnored);
-            if (_filterCodegenPrefsOnly)
-            {
-                activeQuery = activeQuery.Where(m => m.HasCodegenPrefs);
-            }
-
-            activeQuery = ApplyListFilters(activeQuery);
-            var active = activeQuery.ToList();
-            var ignored = ApplyListFilters(_session.Modules.Where(m => m.IsIgnored)).ToList();
+            IEnumerable<ModuleEntry> activeQuery = ApplyListFilters(_session.Modules.Where(m => !m.IsIgnored));
+            var active = ApplySort(activeQuery).ToList();
+            var ignored = ApplySort(ApplyListFilters(_session.Modules.Where(m => m.IsIgnored))).ToList();
             ModuleList.ItemsSource = active;
             ModuleList.SelectedItems.Clear();
             IgnoredList.ItemsSource = ignored;
             IgnoredList.SelectedItems.Clear();
             IgnoredTab.Header = ignored.Count > 0 ? $"忽略列表 ({ignored.Count})" : "忽略列表";
-            FilterCodegenBtnText.Text = _filterCodegenPrefsOnly ? "显示全部模块" : "查询生成配置";
             UpdateBulkActionButtons();
             SyncHeaderSelectAll();
             SyncIgnoredHeaderSelectAll();
+            UpdateSortHeaders();
         }
         finally
         {
@@ -220,6 +222,85 @@ public sealed partial class ModulePage : Page
         };
 
         return source;
+    }
+
+    private void OnSortColumn(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string key })
+        {
+            return;
+        }
+
+        if (string.Equals(_sortKey, key, StringComparison.Ordinal))
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortKey = key;
+            _sortAscending = true;
+        }
+
+        Reload();
+    }
+
+    private IEnumerable<ModuleEntry> ApplySort(IEnumerable<ModuleEntry> source)
+    {
+        var list = source as IList<ModuleEntry> ?? source.ToList();
+        IEnumerable<ModuleEntry> sorted = _sortKey switch
+        {
+            "Workspace" => SortBy(list, m => m.WorkspaceDisplay),
+            "ModulePath" => SortBy(list, m => m.ModulePath),
+            "Type" => SortBy(list, m => m.TypeDisplay),
+            "Version" => SortBy(list, m => m.ProjectVersion),
+            "CreateTime" => SortBy(list, m => m.CreateTime ?? DateTime.MinValue),
+            "ModifyTime" => SortBy(list, m => m.ModifyTime ?? DateTime.MinValue),
+            _ => SortBy(list, m => m.ProjectNameDisplay),
+        };
+        return sorted;
+    }
+
+    private IEnumerable<ModuleEntry> SortBy<TKey>(IEnumerable<ModuleEntry> source, Func<ModuleEntry, TKey> keySelector)
+        where TKey : IComparable<TKey>
+    {
+        return _sortAscending
+            ? source.OrderBy(keySelector)
+            : source.OrderByDescending(keySelector);
+    }
+
+    private void UpdateSortHeaders()
+    {
+        SetSortHeader(SortProjectName, "ProjectName", "项目名称");
+        SetSortHeader(SortWorkspace, "Workspace", "所属工作区");
+        SetSortHeader(SortPath, "ModulePath", "路径");
+        SetSortHeader(SortType, "Type", "类型");
+        SetSortHeader(SortVersion, "Version", "版本号");
+        SetSortHeader(SortCreateTime, "CreateTime", "创建时间");
+        SetSortHeader(SortModifyTime, "ModifyTime", "修改时间");
+
+        SetSortHeader(IgnoredSortProjectName, "ProjectName", "项目名称");
+        SetSortHeader(IgnoredSortWorkspace, "Workspace", "所属工作区");
+        SetSortHeader(IgnoredSortPath, "ModulePath", "路径");
+        SetSortHeader(IgnoredSortType, "Type", "类型");
+        SetSortHeader(IgnoredSortVersion, "Version", "版本号");
+        SetSortHeader(IgnoredSortCreateTime, "CreateTime", "创建时间");
+        SetSortHeader(IgnoredSortModifyTime, "ModifyTime", "修改时间");
+    }
+
+    private void SetSortHeader(Button button, string key, string label)
+    {
+        var active = string.Equals(_sortKey, key, StringComparison.Ordinal);
+        if (active)
+        {
+            var glyph = _sortAscending ? "\uE70E" : "\uE70D";
+            button.Content = DevtoyButtons.BuildContentWithGlyph(label, glyph);
+        }
+        else
+        {
+            button.Content = DevtoyButtons.BuildContent(label, Symbol.Sort);
+        }
+
+        button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
     private void OnListFilterChanged(object sender, TextChangedEventArgs e)
@@ -292,16 +373,6 @@ public sealed partial class ModulePage : Page
         }
 
         return fallback;
-    }
-
-    private void OnFilterCodegenPrefs(object sender, RoutedEventArgs e)
-    {
-        _filterCodegenPrefsOnly = !_filterCodegenPrefsOnly;
-        Reload();
-        if (_filterCodegenPrefsOnly)
-        {
-            _session.Log($"已筛选有代码生成配置的模块：{ModuleList.Items?.Count ?? 0} 个");
-        }
     }
 
     private enum ModuleTagKind

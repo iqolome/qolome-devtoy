@@ -59,6 +59,16 @@ public sealed class ModuleEntry
     /// <summary>模块级 TS 字典路径覆盖（空则用全局）。</summary>
     public string? TsDictPath { get; init; }
 
+    /// <summary>本机库首次登记时间（仅已持久化的模块偏好行）。</summary>
+    public DateTime? CreateTime { get; init; }
+
+    /// <summary>本机库最近修改时间。</summary>
+    public DateTime? ModifyTime { get; init; }
+
+    public string CreateTimeDisplay => FormatTimestamp(CreateTime);
+
+    public string ModifyTimeDisplay => FormatTimestamp(ModifyTime);
+
     public string CodegenModelDisplay =>
         string.IsNullOrWhiteSpace(CodegenModelName) ? "—" : CodegenModelName;
 
@@ -109,4 +119,9 @@ public sealed class ModuleEntry
         var name = Path.GetFileName(trimmed);
         return string.IsNullOrWhiteSpace(name) ? trimmed : name;
     }
+
+    private static string FormatTimestamp(DateTime? value) =>
+        value.HasValue
+            ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            : "—";
 }

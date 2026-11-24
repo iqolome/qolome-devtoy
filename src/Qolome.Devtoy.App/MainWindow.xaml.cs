@@ -41,7 +41,8 @@ public sealed partial class MainWindow : Window
                 AppServices.Session.LogWarn(warn);
             }
 
-            AppServices.Session.Log($"网络工具本地库：{DevtoyPaths.LocalDbPath}");
+            AppServices.Session.Log($"配置库（SQLite）：{DevtoyPaths.LocalDbPath}");
+            AppServices.Session.Log($"业务库：{AppDatabase.DescribeConnection()}");
         }
         catch (Exception ex)
         {

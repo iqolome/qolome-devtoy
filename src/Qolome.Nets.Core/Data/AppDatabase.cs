@@ -17,13 +17,40 @@ public static class AppDatabase
 
     public static string? StartupWarning { get; set; }
 
-    /// <summary>日常连接固定为本地 SQLite；远程 MySQL 仅用于同步。</summary>
-    public static bool IsMySql => false;
+    /// <summary>业务库是否为 MySQL（唯一受支持的日常 EF 业务方言）。</summary>
+    public static bool IsMySql
+    {
+        get
+        {
+            try
+            {
+                return RequireBusinessConfig().IsMySql;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
-    public static string ProviderDisplayName => "SQLite";
+    public static string ProviderDisplayName
+    {
+        get
+        {
+            try
+            {
+                var db = RequireBusinessConfig();
+                return db.IsMySql ? "MySQL" : db.Provider;
+            }
+            catch
+            {
+                return "未配置";
+            }
+        }
+    }
 
-    /// <summary>日常读写固定走本地 SQLite（远程仅用于同步）。</summary>
-    public static NetsDbContext CreateContext() => CreateContext(NetsDataSourceBridge.LocalSqliteConfig());
+    /// <summary>业务读写：走「数据源设置」远程库（当前 EF 支持 MySQL）。</summary>
+    public static NetsDbContext CreateContext() => CreateContext(RequireBusinessConfig());
 
     public static NetsDbContext CreateContext(DatabaseConfig database)
     {
@@ -33,25 +60,72 @@ public static class AppDatabase
         return new NetsDbContext(options.Options);
     }
 
+    public static DatabaseConfig RequireBusinessConfig()
+    {
+        var ds = NetsRuntime.RequireRemoteDataSource();
+        return NetsDataSourceBridge.ToBusinessDatabaseConfig(ds);
+    }
+
+    public static bool TryGetBusinessConfig(out DatabaseConfig config, out string? error)
+    {
+        if (!NetsRuntime.TryGetRemoteDataSource(out var ds, out error))
+        {
+            config = null!;
+            return false;
+        }
+
+        try
+        {
+            config = NetsDataSourceBridge.ToBusinessDatabaseConfig(ds);
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            config = null!;
+            error = ex.Message;
+            return false;
+        }
+    }
+
     public static async Task InitializeAsync()
     {
         await PrepareRuntimeAsync().ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(StartupWarning))
+        {
+            return;
+        }
+
         await LoadStartupDataAsync().ConfigureAwait(false);
     }
 
     public static async Task PrepareRuntimeAsync()
     {
         AppConfigStore.Load();
-        var database = NetsDataSourceBridge.LocalSqliteConfig();
-        AppConfigStore.Current.Database = database;
         Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(DeviceTypeIconStore.CustomDirectory);
-        ApplySqlitePath(database);
-        await PrepareSchemaAsync(database).ConfigureAwait(false);
+        ApplySqlitePath(NetsDataSourceBridge.LocalSqliteConfig());
+
+        if (!TryGetBusinessConfig(out var business, out var error))
+        {
+            StartupWarning = error ?? "未配置业务数据源。";
+            return;
+        }
+
+        AppConfigStore.Current.Database = business;
+        AppConfigStore.Save(AppConfigStore.Current);
+        StartupWarning = null;
+        await PrepareSchemaAsync(business).ConfigureAwait(false);
     }
 
     public static async Task LoadStartupDataAsync(params Func<Task>[] extras)
     {
+        if (!TryGetBusinessConfig(out _, out var error))
+        {
+            StartupWarning = error ?? StartupWarning;
+            return;
+        }
+
         var tasks = new List<Task>
         {
             SeedFromNewContextAsync(),
@@ -95,7 +169,15 @@ public static class AppDatabase
         await EnsureNetworkTopologyTableAsync(db, ContextIsMySql(db), swallow: false);
     }
 
-    public static string DescribeConnection() => DescribeConnection(AppConfigStore.Current.Database);
+    public static string DescribeConnection()
+    {
+        if (TryGetBusinessConfig(out var config, out var error))
+        {
+            return DescribeConnection(config);
+        }
+
+        return error ?? "未配置业务数据源";
+    }
 
     public static string DescribeConnection(DatabaseConfig database)
     {

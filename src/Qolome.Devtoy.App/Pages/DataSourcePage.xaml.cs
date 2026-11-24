@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Devtoy.Core.Models;
 using Qolome.Devtoy.Core.Services;
+using Qolome.Nets.Core.Data;
 using Qolome_Devtoy_App.Helpers;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -139,10 +140,37 @@ public sealed partial class DataSourcePage : Page
         ds.Password = PasswordBox.Password;
     }
 
-    private void OnSave(object sender, RoutedEventArgs e)
+    private async void OnSave(object sender, RoutedEventArgs e)
     {
         ApplyToModel();
         _session.SaveSettings();
+        try
+        {
+            await UiBusy.RunAsync(
+                    "正在准备业务库 Schema…",
+                    async () =>
+                    {
+                        await AppDatabase.PrepareRuntimeAsync().ConfigureAwait(false);
+                        if (string.IsNullOrWhiteSpace(AppDatabase.StartupWarning))
+                        {
+                            await AppDatabase.LoadStartupDataAsync().ConfigureAwait(false);
+                        }
+                    })
+                .ConfigureAwait(true);
+            if (!string.IsNullOrWhiteSpace(AppDatabase.StartupWarning))
+            {
+                _session.LogWarn(AppDatabase.StartupWarning);
+            }
+            else
+            {
+                _session.Log("业务库已就绪：" + AppDatabase.DescribeConnection());
+            }
+        }
+        catch (Exception ex)
+        {
+            _session.LogWarn("业务库准备失败：" + ex.Message);
+            await ShowErrorAsync("保存数据源", ex.Message).ConfigureAwait(true);
+        }
     }
 
     private async void OnTest(object sender, RoutedEventArgs e)

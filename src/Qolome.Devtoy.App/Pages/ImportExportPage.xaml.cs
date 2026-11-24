@@ -1,12 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Devtoy.Core.Services;
-using Qolome.Nets.App;
-using Qolome.Nets.App.ViewModels;
 using Qolome_Devtoy_App.Helpers;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
-using DevtoyApp = Qolome_Devtoy_App.App;
 
 namespace Qolome_Devtoy_App.Pages;
 
@@ -14,41 +11,16 @@ public sealed partial class ImportExportPage : Page
 {
     private readonly DevtoySession _session = AppServices.Session;
 
-    public InventoryImportExportViewModel Nets { get; } = new();
-
     public ImportExportPage()
     {
         InitializeComponent();
-        Loaded += (_, _) => RefreshDataSourceHint();
+        Loaded += (_, _) =>
+            ConfigPathText.Text = "配置库：" + DevtoyPaths.LocalDbPath;
     }
 
-    private void RefreshDataSourceHint()
+    private async void OnExportConfigSql(object sender, RoutedEventArgs e)
     {
-        var ds = _session.Settings.DataSource;
-        DataSourceHintText.Text =
-            $"当前数据源：{ds.DatabaseKind} {ds.Username}@{ds.Host}:{ds.Port}/{ds.Database}";
-    }
-
-    private async void ImportNetsSql_Click(object sender, RoutedEventArgs e)
-    {
-        if (!await PromptDialogs.ConfirmAsync(
-                XamlRoot,
-                "导入网络资产 SQL",
-                "将按脚本清空并写入本地 SQLite 中的库存表（环境、分组、类型、设备、拓扑等）。确定继续？"))
-        {
-            return;
-        }
-
-        if (Nets.ImportSqlCommand.CanExecute(null))
-        {
-            await Nets.ImportSqlCommand.ExecuteAsync(null);
-        }
-    }
-
-    private async void OnExportDictSql(object sender, RoutedEventArgs e)
-    {
-        RefreshDataSourceHint();
-        var path = await PickSaveSqlAsync($"qolome-devtoy-dict-{DateTime.Now:yyyyMMdd-HHmm}")
+        var path = await PickSaveSqlAsync($"qolome-devtoy-config-{DateTime.Now:yyyyMMdd-HHmm}")
             .ConfigureAwait(true);
         if (path is null)
         {
@@ -57,21 +29,20 @@ public sealed partial class ImportExportPage : Page
 
         try
         {
-            await UiBusy.RunAsync("正在导出字典 SQL…", () => _session.ExportDictSqlAsync(path))
+            await UiBusy.RunAsync("正在导出配置 SQL…", () => _session.ExportConfigSqlAsync(path))
                 .ConfigureAwait(true);
-            DictStatusText.Text = "已导出：" + path;
+            StatusText.Text = "已导出：" + path;
         }
         catch (Exception ex)
         {
-            DictStatusText.Text = ex.Message;
-            await ShowErrorAsync("导出字典 SQL", ex.Message).ConfigureAwait(true);
+            StatusText.Text = ex.Message;
+            await ShowErrorAsync("导出配置 SQL", ex.Message).ConfigureAwait(true);
         }
     }
 
-    private async void OnImportDictSql(object sender, RoutedEventArgs e)
+    private async void OnImportConfigSql(object sender, RoutedEventArgs e)
     {
-        RefreshDataSourceHint();
-        if (!await ConfirmDictImportAsync().ConfigureAwait(true))
+        if (!await ConfirmImportAsync().ConfigureAwait(true))
         {
             return;
         }
@@ -85,23 +56,23 @@ public sealed partial class ImportExportPage : Page
         try
         {
             var affected = await UiBusy
-                .RunAsync("正在导入字典 SQL…", () => _session.ImportDictSqlAsync(path))
+                .RunAsync("正在导入配置 SQL…", () => _session.ImportConfigSqlAsync(path))
                 .ConfigureAwait(true);
-            DictStatusText.Text = $"已导入（影响 {affected}）：{path}";
+            StatusText.Text = $"已导入（影响 {affected}）：{path}";
         }
         catch (Exception ex)
         {
-            DictStatusText.Text = ex.Message;
-            await ShowErrorAsync("导入字典 SQL", ex.Message).ConfigureAwait(true);
+            StatusText.Text = ex.Message;
+            await ShowErrorAsync("导入配置 SQL", ex.Message).ConfigureAwait(true);
         }
     }
 
-    private async Task<bool> ConfirmDictImportAsync()
+    private async Task<bool> ConfirmImportAsync()
     {
         var dialog = new ContentDialog
         {
-            Title = "导入字典 SQL",
-            Content = "将按脚本覆盖当前数据源中的字典表（先 DELETE 再执行 INSERT）。确定继续？",
+            Title = "导入配置 SQL",
+            Content = "将覆盖本机 SQLite 中的配置表（devtoy_doc），不会修改远程业务库。确定继续？",
             PrimaryButtonText = "导入",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
@@ -130,7 +101,7 @@ public sealed partial class ImportExportPage : Page
             SuggestedFileName = suggestedName,
         };
         picker.FileTypeChoices.Add("SQL 脚本", [".sql"]);
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(DevtoyApp.CurrentWindow));
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.CurrentWindow));
         var file = await picker.PickSaveFileAsync();
         return file?.Path;
     }
@@ -142,7 +113,7 @@ public sealed partial class ImportExportPage : Page
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
         };
         picker.FileTypeFilter.Add(".sql");
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(DevtoyApp.CurrentWindow));
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.CurrentWindow));
         var file = await picker.PickSingleFileAsync();
         return file?.Path;
     }

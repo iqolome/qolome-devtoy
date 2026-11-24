@@ -1,20 +1,12 @@
-using System.Data.Common;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Qolome.Devtoy.Core.Models;
-using Qolome.Devtoy.Core.Services;
 using Qolome.Nets.Core.Models;
 
 namespace Qolome.Nets.Core.Data;
 
 /// <summary>
-/// 拓扑存储：
-/// <list type="bullet">
-/// <item>打开：本地 SQLite（及 JSON 缓存）→ 没有则拉远程 → 都没有则空白</item>
-/// <item>保存：只写本地 SQLite + JSON 缓存</item>
-/// <item>云同步：把当前环境拓扑从本地推到「数据源设置」远程库</item>
-/// </list>
+/// 拓扑存储：权威数据在远程业务库 <c>devtoy_network_topology</c>（经 <see cref="AppDatabase.CreateContext"/>）。
 /// </summary>
 public sealed class TopologyStore
 {
@@ -26,41 +18,19 @@ public sealed class TopologyStore
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public static string DirectoryPath => Path.Combine(
-        AppDatabase.DataDirectory,
-        "topology");
-
     public async Task<TopologyDocument> LoadAsync(int environmentId, IReadOnlySet<int> validDeviceIds)
     {
-        var local = await LoadLocalAsync(environmentId).ConfigureAwait(false);
-        if (local.Exists)
-        {
-            var document = local.Document!;
-            document.EnvironmentId = environmentId;
-            Normalize(document, validDeviceIds);
-            return document;
-        }
-
-        var remote = await TryReadRemoteAsync(environmentId).ConfigureAwait(false);
-        if (remote.Exists)
-        {
-            var document = remote.Document!;
-            document.EnvironmentId = environmentId;
-            Normalize(document, validDeviceIds);
-            await SaveLocalAsync(document).ConfigureAwait(false);
-            return document;
-        }
-
-        var blank = new TopologyDocument { EnvironmentId = environmentId };
-        Normalize(blank, validDeviceIds);
-        return blank;
+        var side = await ReadDbAsync(environmentId).ConfigureAwait(false);
+        var document = side.Exists
+            ? side.Document!
+            : new TopologyDocument { EnvironmentId = environmentId };
+        document.EnvironmentId = environmentId;
+        Normalize(document, validDeviceIds);
+        return document;
     }
 
-    /// <summary>仅保存到本地 SQLite + JSON 缓存，不推远程。</summary>
-    public Task SaveAsync(TopologyDocument document) => SaveLocalAsync(document);
-
-    /// <summary>将本地已保存的拓扑推送到远程数据源；成功后可用于「云端已同步」状态。</summary>
-    public async Task PushToRemoteAsync(TopologyDocument document)
+    /// <summary>保存到远程业务库。</summary>
+    public async Task SaveAsync(TopologyDocument document)
     {
         if (document.EnvironmentId <= 0)
         {
@@ -68,15 +38,11 @@ public sealed class TopologyStore
         }
 
         Normalize(document, null);
-        if (!IsUsable(document.UpdatedAtUtc))
-        {
-            document.UpdatedAtUtc = DateTime.UtcNow;
-        }
-
-        await SaveLocalAsync(document).ConfigureAwait(false);
-        await WriteRemoteAsync(document).ConfigureAwait(false);
+        document.UpdatedAtUtc = DateTime.UtcNow;
+        await WriteDbAsync(document).ConfigureAwait(false);
     }
 
+    /// <summary>远程库中的拓扑是否不早于给定时间戳。</summary>
     public async Task<bool> IsRemoteCurrentAsync(int environmentId, DateTime? localUpdatedAt)
     {
         if (environmentId <= 0 || !IsUsable(localUpdatedAt))
@@ -84,7 +50,7 @@ public sealed class TopologyStore
             return false;
         }
 
-        var remote = await TryReadRemoteAsync(environmentId).ConfigureAwait(false);
+        var remote = await ReadDbAsync(environmentId).ConfigureAwait(false);
         if (!remote.Exists)
         {
             return false;
@@ -95,11 +61,8 @@ public sealed class TopologyStore
 
     public static void DeleteLocal(int environmentId)
     {
-        var path = FilePath(environmentId);
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
+        // 兼容旧调用：业务拓扑已不落本地文件；删除远程行由 InventoryService 处理。
+        _ = environmentId;
     }
 
     public static void Normalize(TopologyDocument document, IReadOnlySet<int>? validDeviceIds)
@@ -244,76 +207,7 @@ public sealed class TopologyStore
         document.Links = links;
     }
 
-    private static async Task<TopologySide> LoadLocalAsync(int environmentId)
-    {
-        var file = await ReadFileAsync(environmentId).ConfigureAwait(false);
-        var db = await ReadLocalDbAsync(environmentId).ConfigureAwait(false);
-        if (!db.Exists && !file.Exists)
-        {
-            return TopologySide.Missing;
-        }
-
-        if (!db.Exists)
-        {
-            await WriteLocalDbAsync(file.Document!).ConfigureAwait(false);
-            return file;
-        }
-
-        if (!file.Exists)
-        {
-            await WriteFileAsync(db.Document!).ConfigureAwait(false);
-            return db;
-        }
-
-        if (db.Timestamp >= file.Timestamp)
-        {
-            if (db.Timestamp > file.Timestamp)
-            {
-                await WriteFileAsync(db.Document!).ConfigureAwait(false);
-            }
-
-            return db;
-        }
-
-        await WriteLocalDbAsync(file.Document!).ConfigureAwait(false);
-        return file;
-    }
-
-    private async Task SaveLocalAsync(TopologyDocument document)
-    {
-        if (document.EnvironmentId <= 0)
-        {
-            throw new ScanException("请先选择网络环境。");
-        }
-
-        Normalize(document, null);
-        if (!IsUsable(document.UpdatedAtUtc))
-        {
-            document.UpdatedAtUtc = DateTime.UtcNow;
-        }
-
-        await WriteLocalDbAsync(document).ConfigureAwait(false);
-        await WriteFileAsync(document).ConfigureAwait(false);
-    }
-
-    private static async Task<TopologySide> ReadFileAsync(int environmentId)
-    {
-        var path = FilePath(environmentId);
-        if (!File.Exists(path))
-        {
-            return TopologySide.Missing;
-        }
-
-        var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-        var document = JsonSerializer.Deserialize<TopologyDocument>(json, JsonOptions)
-            ?? new TopologyDocument { EnvironmentId = environmentId };
-        document.EnvironmentId = environmentId;
-        var timestamp = ResolveTimestamp(document.UpdatedAtUtc, File.GetLastWriteTimeUtc(path));
-        document.UpdatedAtUtc = timestamp;
-        return new TopologySide(true, timestamp, document);
-    }
-
-    private static async Task<TopologySide> ReadLocalDbAsync(int environmentId)
+    private static async Task<TopologySide> ReadDbAsync(int environmentId)
     {
         try
         {
@@ -323,78 +217,39 @@ public sealed class TopologyStore
                 .ConfigureAwait(false);
             return ParseRow(environmentId, row);
         }
-        catch
+        catch (Exception ex)
         {
-            return TopologySide.Missing;
+            throw new ScanException(DbExceptionFormatter.Format(ex, "读取拓扑"));
         }
     }
 
-    private static async Task WriteLocalDbAsync(TopologyDocument document)
+    private static async Task WriteDbAsync(TopologyDocument document)
     {
-        await AppDatabase.EnsureTopologyStorageAsync().ConfigureAwait(false);
-        await using var db = AppDatabase.CreateContext();
-        await UpsertDbRowAsync(db, document).ConfigureAwait(false);
-    }
-
-    private static async Task WriteFileAsync(TopologyDocument document)
-    {
-        Directory.CreateDirectory(DirectoryPath);
-        var json = JsonSerializer.Serialize(document, JsonOptions);
-        await File.WriteAllTextAsync(FilePath(document.EnvironmentId), json).ConfigureAwait(false);
-    }
-
-    private static async Task<TopologySide> TryReadRemoteAsync(int environmentId)
-    {
-        DataSourceSettings? remote;
         try
         {
-            remote = NetsRuntime.GetRemoteDataSource?.Invoke();
-        }
-        catch
-        {
-            return TopologySide.Missing;
-        }
-
-        if (remote is null)
-        {
-            return TopologySide.Missing;
-        }
-
-        try
-        {
-            return remote.DatabaseKind switch
+            await AppDatabase.EnsureTopologyStorageAsync().ConfigureAwait(false);
+            await using var db = AppDatabase.CreateContext();
+            var json = JsonSerializer.Serialize(document, JsonOptions);
+            var timestamp = ResolveTimestamp(document.UpdatedAtUtc, DateTime.UtcNow);
+            var row = await db.Topologies
+                .FirstOrDefaultAsync(x => x.NetworkEnvironmentId == document.EnvironmentId)
+                .ConfigureAwait(false);
+            if (row is null)
             {
-                DatabaseKind.MySql => await ReadRemoteMySqlAsync(remote, environmentId).ConfigureAwait(false),
-                DatabaseKind.PostgreSql => await ReadRemotePostgreSqlAsync(remote, environmentId).ConfigureAwait(false),
-                _ => TopologySide.Missing,
-            };
-        }
-        catch
-        {
-            return TopologySide.Missing;
-        }
-    }
-
-    private static async Task WriteRemoteAsync(TopologyDocument document)
-    {
-        var remote = NetsRuntime.GetRemoteDataSource?.Invoke()
-            ?? throw new ScanException("未配置远程数据源，请先在「配置管理 → 数据源设置」中配置。");
-
-        try
-        {
-            switch (remote.DatabaseKind)
-            {
-                case DatabaseKind.MySql:
-                    await WriteRemoteMySqlAsync(remote, document).ConfigureAwait(false);
-                    return;
-                case DatabaseKind.PostgreSql:
-                    await WriteRemotePostgreSqlAsync(remote, document).ConfigureAwait(false);
-                    return;
-                case DatabaseKind.Sqlite:
-                    throw new ScanException("远程目标不能为本地 SQLite。");
-                default:
-                    throw new ScanException($"拓扑云同步暂不支持 {remote.DatabaseKind}，请使用 MySQL 或 PostgreSQL。");
+                db.Topologies.Add(new NetworkTopology
+                {
+                    NetworkEnvironmentId = document.EnvironmentId,
+                    Json = json,
+                    UpdatedAtUtc = timestamp
+                });
             }
+            else
+            {
+                row.Json = json;
+                row.UpdatedAtUtc = timestamp;
+            }
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
         }
         catch (ScanException)
         {
@@ -402,89 +257,8 @@ public sealed class TopologyStore
         }
         catch (Exception ex)
         {
-            throw new ScanException(DbExceptionFormatter.Format(ex, "拓扑云同步"));
+            throw new ScanException(DbExceptionFormatter.Format(ex, "保存拓扑"));
         }
-    }
-
-    private static async Task<TopologySide> ReadRemoteMySqlAsync(DataSourceSettings remote, int environmentId)
-    {
-        var config = NetsDataSourceBridge.ToDatabaseConfig(remote);
-        await AppDatabase.PrepareSchemaAsync(config).ConfigureAwait(false);
-        await using var db = AppDatabase.CreateContext(config);
-        var row = await db.Topologies.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.NetworkEnvironmentId == environmentId)
-            .ConfigureAwait(false);
-        return ParseRow(environmentId, row);
-    }
-
-    private static async Task WriteRemoteMySqlAsync(DataSourceSettings remote, TopologyDocument document)
-    {
-        var config = NetsDataSourceBridge.ToDatabaseConfig(remote);
-        await AppDatabase.PrepareSchemaAsync(config).ConfigureAwait(false);
-        await using var db = AppDatabase.CreateContext(config);
-        await UpsertDbRowAsync(db, document).ConfigureAwait(false);
-    }
-
-    private static async Task<TopologySide> ReadRemotePostgreSqlAsync(DataSourceSettings remote, int environmentId)
-    {
-        await using DbConnection conn = DbConnectionFactory.Create(remote);
-        await conn.OpenAsync().ConfigureAwait(false);
-        if (conn is not Npgsql.NpgsqlConnection npg)
-        {
-            throw new InvalidOperationException("PostgreSQL 需要 Npgsql 连接。");
-        }
-
-        await NetsPostgreSqlInventorySync.EnsureSchemaAsync(npg).ConfigureAwait(false);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT "Json", "UpdatedAtUtc" FROM devtoy_network_topology
-            WHERE "NetworkEnvironmentId" = @id
-            """;
-        AddParam(cmd, "@id", environmentId);
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-        if (!await reader.ReadAsync().ConfigureAwait(false))
-        {
-            return TopologySide.Missing;
-        }
-
-        var json = reader.IsDBNull(0) ? "" : reader.GetString(0);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return TopologySide.Missing;
-        }
-
-        var updated = reader.IsDBNull(1) ? DateTime.MinValue : reader.GetDateTime(1);
-        var document = JsonSerializer.Deserialize<TopologyDocument>(json, JsonOptions)
-            ?? new TopologyDocument { EnvironmentId = environmentId };
-        document.EnvironmentId = environmentId;
-        var timestamp = ResolveTimestamp(updated, document.UpdatedAtUtc);
-        document.UpdatedAtUtc = timestamp;
-        return new TopologySide(true, timestamp, document);
-    }
-
-    private static async Task WriteRemotePostgreSqlAsync(DataSourceSettings remote, TopologyDocument document)
-    {
-        await using DbConnection conn = DbConnectionFactory.Create(remote);
-        await conn.OpenAsync().ConfigureAwait(false);
-        if (conn is not Npgsql.NpgsqlConnection npg)
-        {
-            throw new InvalidOperationException("PostgreSQL 需要 Npgsql 连接。");
-        }
-
-        await NetsPostgreSqlInventorySync.EnsureSchemaAsync(npg).ConfigureAwait(false);
-        var json = JsonSerializer.Serialize(document, JsonOptions);
-        var timestamp = ResolveTimestamp(document.UpdatedAtUtc, DateTime.UtcNow);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            INSERT INTO devtoy_network_topology ("NetworkEnvironmentId", "Json", "UpdatedAtUtc")
-            VALUES (@id, @json, @updated)
-            ON CONFLICT ("NetworkEnvironmentId") DO UPDATE
-            SET "Json" = EXCLUDED."Json", "UpdatedAtUtc" = EXCLUDED."UpdatedAtUtc"
-            """;
-        AddParam(cmd, "@id", document.EnvironmentId);
-        AddParam(cmd, "@json", json);
-        AddParam(cmd, "@updated", timestamp);
-        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
     private static TopologySide ParseRow(int environmentId, NetworkTopology? row)
@@ -500,39 +274,6 @@ public sealed class TopologyStore
         var timestamp = ResolveTimestamp(row.UpdatedAtUtc, document.UpdatedAtUtc);
         document.UpdatedAtUtc = timestamp;
         return new TopologySide(true, timestamp, document);
-    }
-
-    private static async Task UpsertDbRowAsync(NetsDbContext db, TopologyDocument document)
-    {
-        var json = JsonSerializer.Serialize(document, JsonOptions);
-        var timestamp = ResolveTimestamp(document.UpdatedAtUtc, DateTime.UtcNow);
-        var row = await db.Topologies
-            .FirstOrDefaultAsync(x => x.NetworkEnvironmentId == document.EnvironmentId)
-            .ConfigureAwait(false);
-        if (row is null)
-        {
-            db.Topologies.Add(new NetworkTopology
-            {
-                NetworkEnvironmentId = document.EnvironmentId,
-                Json = json,
-                UpdatedAtUtc = timestamp
-            });
-        }
-        else
-        {
-            row.Json = json;
-            row.UpdatedAtUtc = timestamp;
-        }
-
-        await db.SaveChangesAsync().ConfigureAwait(false);
-    }
-
-    private static void AddParam(DbCommand cmd, string name, object value)
-    {
-        var p = cmd.CreateParameter();
-        p.ParameterName = name;
-        p.Value = value;
-        cmd.Parameters.Add(p);
     }
 
     private static DateTime ResolveTimestamp(DateTime? preferred, DateTime? fallback)
@@ -592,9 +333,6 @@ public sealed class TopologyStore
 
         return id;
     }
-
-    private static string FilePath(int environmentId) =>
-        Path.Combine(DirectoryPath, $"env-{environmentId}.json");
 
     private readonly record struct TopologySide(bool Exists, DateTime Timestamp, TopologyDocument? Document)
     {

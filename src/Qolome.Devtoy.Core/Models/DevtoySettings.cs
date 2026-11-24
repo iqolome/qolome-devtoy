@@ -65,7 +65,10 @@ public sealed class DevtoySettings
     /// <summary>主界面底部是否显示日志控制台。</summary>
     public bool ShowConsole { get; set; } = true;
 
-    /// <summary>已添加的工作区根目录（可叠加多个；扫描时合并模块）。</summary>
+    /// <summary>
+    /// 已添加的工作区根目录（可叠加多个；扫描时合并模块）。
+    /// 持久化于本机 <c>devtoy_workspace</c>，不写入 settings JSON。
+    /// </summary>
     public List<string> WorkspaceRoots { get; set; } = new();
 
     /// <summary>兼容旧配置的单一工作区；加载后会合并进 <see cref="WorkspaceRoots"/>。</summary>
@@ -110,14 +113,20 @@ public sealed class DevtoySettings
         WorkspaceRoot = normalized.Count > 0 ? normalized[0] : "";
     }
 
+    /// <summary>指定工程；持久化于本机 <c>devtoy_module</c>（source=specified）。</summary>
     public List<SpecifiedProjectEntry> SpecifiedProjects { get; set; } = new();
 
+    /// <summary>兼容旧显示名；读写时与 <see cref="ModuleOverrides"/>.<c>DisplayName</c> / <c>devtoy_module.display_name</c> 合并。</summary>
     public Dictionary<string, string> ModuleDisplayNames { get; set; } = new();
 
-    /// <summary>已忽略的模块路径：仍显示在项目管理，但不出现在代码生成 / 字典生成目标中。</summary>
+    /// <summary>已忽略的模块路径；持久化于 <c>devtoy_module.ignored</c>。</summary>
     public List<string> IgnoredModulePaths { get; set; } = new();
 
+    /// <summary>模块覆盖；持久化于 <c>devtoy_module</c> 列，不写入 settings JSON。</summary>
     public Dictionary<string, ModuleCatalogOverride> ModuleOverrides { get; set; } = new();
+
+    /// <summary>模块创建/修改时间；持久化于 <c>devtoy_module.create_time</c> / <c>modify_time</c>。</summary>
+    public Dictionary<string, ModulePersistTimes> ModuleTimes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Java 代码生成页上次使用的勾选与模块习惯。</summary>
     public CodegenHabitSettings CodegenHabit { get; set; } = new();

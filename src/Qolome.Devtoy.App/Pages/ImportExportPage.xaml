@@ -4,9 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer Padding="32,20,32,20" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="20" MaxWidth="880" HorizontalAlignment="Left">
+        <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
             <TextBlock Text="导入导出" FontSize="24" FontWeight="SemiBold" />
-
             <Border
                 Padding="16"
                 CornerRadius="8"
@@ -14,57 +13,30 @@
                 BorderThickness="1"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="网络资产（本地 SQLite）" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <TextBlock
-                        TextWrapping="Wrap"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="仅提供 SQL 导入 / 导出，针对本地 qolome-devtoy.db 中的网络库存（环境、分组、类型、设备、拓扑等）。与远程库交换请用「网络设置」同步。" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button
-                            Style="{StaticResource AccentButtonStyle}"
-                            Command="{x:Bind Nets.ExportSqlCommand}"
-                            Content="导出 SQL" />
-                        <Button Click="ImportNetsSql_Click" Content="导入 SQL" />
-                    </StackPanel>
-                    <TextBlock
-                        Text="{x:Bind Nets.Status, Mode=OneWay}"
-                        TextWrapping="Wrap"
-                        Style="{StaticResource CaptionTextBlockStyle}" />
-                </StackPanel>
-            </Border>
-
-            <Border
-                Padding="16"
-                CornerRadius="8"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="字典（远程数据源）" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock
                         TextWrapping="WrapWholeWords"
                         Opacity="0.85"
-                        Text="针对「数据源设置」中的远程库，导入 / 导出字典表 SQL（devtoy_qolome_dict_item / devtoy_qolome_dict_val）。导出为 DELETE + INSERT；导入将按脚本覆盖写入。" />
+                        Text="仅导入 / 导出本机 SQLite 配置（devtoy_doc 应用设置、devtoy_workspace 工作区、devtoy_module 模块偏好）。不包含远程业务库中的网络库存、拓扑、OUI、字典等表数据。" />
                     <TextBlock
-                        x:Name="DataSourceHintText"
+                        x:Name="ConfigPathText"
                         Opacity="0.7"
                         TextWrapping="WrapWholeWords"
                         FontFamily="Consolas"
                         IsTextSelectionEnabled="True" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button
-                            Click="OnExportDictSql"
+                            Click="OnExportConfigSql"
                             Style="{StaticResource AccentButtonStyle}"
                             Padding="10,6"
-                            Content="导出字典 SQL" />
+                            Content="导出配置 SQL" />
                         <Button
-                            Click="OnImportDictSql"
+                            Click="OnImportConfigSql"
                             Style="{StaticResource DevtoyRowActionButtonStyle}"
                             Padding="10,6"
-                            Content="导入字典 SQL" />
+                            Content="导入配置 SQL" />
                     </StackPanel>
                     <TextBlock
-                        x:Name="DictStatusText"
+                        x:Name="StatusText"
                         TextWrapping="WrapWholeWords"
                         Style="{StaticResource CaptionTextBlockStyle}" />
                 </StackPanel>
