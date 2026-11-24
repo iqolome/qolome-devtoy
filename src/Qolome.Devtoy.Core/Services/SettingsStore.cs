@@ -27,11 +27,11 @@ public sealed class SettingsStore
 
     private CancellationTokenSource? _debounceCts;
 
-    public string SettingsPath => Path.Combine(DevtoyPaths.AppDataRoot, "settings.json");
+    public static string SettingsPath => Path.Combine(DevtoyPaths.AppDataRoot, "settings.json");
 
-    public string ModuleOverridesPath => Path.Combine(DevtoyPaths.AppDataRoot, "module-overrides.json");
+    public static string ModuleOverridesPath => Path.Combine(DevtoyPaths.AppDataRoot, "module-overrides.json");
 
-    public string GlobalPath => Path.Combine(DevtoyPaths.GlobalRoot, "codegen-global.json");
+    public static string GlobalPath => Path.Combine(DevtoyPaths.GlobalRoot, "codegen-global.json");
 
     public DevtoySettings Load()
     {
@@ -103,14 +103,14 @@ public sealed class SettingsStore
     /// <summary>将挂起的防抖写入刷盘。</summary>
     public void Flush() => FlushPending();
 
-    public void ExportGlobal(DevtoySettings settings)
+    public static void ExportGlobal(DevtoySettings settings)
     {
         Directory.CreateDirectory(DevtoyPaths.GlobalRoot);
         // 导出单文件仍内嵌 ModuleOverrides，便于一份带走
         AtomicWriteAllText(GlobalPath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
-    public DevtoySettings? ImportGlobal()
+    public static DevtoySettings? ImportGlobal()
     {
         if (!File.Exists(GlobalPath))
         {
@@ -156,7 +156,7 @@ public sealed class SettingsStore
             return;
         }
 
-        _writeLock.Wait();
+        _writeLock.Wait(CancellationToken.None);
         try
         {
             PersistSplit(settings);
@@ -167,7 +167,7 @@ public sealed class SettingsStore
         }
     }
 
-    private void PersistSplit(DevtoySettings settings)
+    private static void PersistSplit(DevtoySettings settings)
     {
         Directory.CreateDirectory(DevtoyPaths.AppDataRoot);
 
@@ -229,7 +229,7 @@ public sealed class SettingsStore
         }
     }
 
-    private void LoadModuleOverridesFile(DevtoySettings settings)
+    private static void LoadModuleOverridesFile(DevtoySettings settings)
     {
         if (!File.Exists(ModuleOverridesPath))
         {

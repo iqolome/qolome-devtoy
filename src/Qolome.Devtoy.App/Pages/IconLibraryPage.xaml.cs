@@ -7,7 +7,7 @@ namespace Qolome_Devtoy_App.Pages;
 
 public sealed partial class IconLibraryPage : Page
 {
-    private readonly IReadOnlyList<IconLibraryItem> _all;
+    private readonly List<IconLibraryItem> _all;
     private DispatcherTimer? _copyHintTimer;
 
     public IconLibraryPage()

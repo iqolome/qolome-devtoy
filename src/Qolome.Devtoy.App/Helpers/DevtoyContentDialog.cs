@@ -67,24 +67,29 @@ public static class DevtoyContentDialog
 
             if (button.Content is StackPanel stack)
             {
-                foreach (var child in stack.Children)
-                {
-                    if (child is TextBlock tb)
-                    {
-                        tb.Foreground = fg;
-                    }
-                    else if (child is Viewbox { Child: SymbolIcon symbol })
-                    {
-                        symbol.Foreground = fg;
-                    }
-                    else if (child is SymbolIcon sym)
-                    {
-                        sym.Foreground = fg;
-                    }
-                }
+                ApplyForegroundToStackChildren(stack, fg);
             }
 
             return;
+        }
+    }
+
+    private static void ApplyForegroundToStackChildren(StackPanel stack, Brush fg)
+    {
+        foreach (var child in stack.Children)
+        {
+            switch (child)
+            {
+                case TextBlock tb:
+                    tb.Foreground = fg;
+                    break;
+                case Viewbox { Child: SymbolIcon symbol }:
+                    symbol.Foreground = fg;
+                    break;
+                case SymbolIcon sym:
+                    sym.Foreground = fg;
+                    break;
+            }
         }
     }
 

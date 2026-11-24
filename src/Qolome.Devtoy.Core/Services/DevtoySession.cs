@@ -147,8 +147,8 @@ public sealed class DevtoySession
 
     /// <summary>后台扫描模块；通过 <see cref="IsModulesBusy"/> 通知 UI 展示页面 loading。</summary>
     public async Task RefreshModulesAsync(
-        CancellationToken cancellationToken = default,
-        string? busyMessage = null)
+        string? busyMessage = null,
+        CancellationToken cancellationToken = default)
     {
         EnterModulesBusy(busyMessage ?? "正在扫描模块…");
         try
@@ -296,16 +296,16 @@ public sealed class DevtoySession
     public void ExportConfig()
     {
         _store.Flush();
-        _store.ExportGlobal(Settings);
-        Log("已导出配置 -> " + _store.GlobalPath);
+        SettingsStore.ExportGlobal(Settings);
+        Log("已导出配置 -> " + SettingsStore.GlobalPath);
     }
 
     public bool ImportConfig()
     {
-        var loaded = _store.ImportGlobal();
+        var loaded = SettingsStore.ImportGlobal();
         if (loaded is null)
         {
-            LogWarn("未找到配置文件: " + _store.GlobalPath);
+            LogWarn("未找到配置文件: " + SettingsStore.GlobalPath);
             return false;
         }
 

@@ -9,6 +9,8 @@ namespace Qolome.Devtoy.Core.Services;
 /// <summary>将数据源设置 / JDBC URL 转为各驱动 ADO.NET 连接串。</summary>
 public static class AdoConnectionStrings
 {
+    private const string SqliteMemoryDataSource = ":memory:";
+
     public static string Build(DataSourceSettings ds) =>
         ds.DatabaseKind switch
         {
@@ -73,13 +75,13 @@ public static class AdoConnectionStrings
         }
         else
         {
-            dataSource = string.IsNullOrWhiteSpace(ds.Database) ? ":memory:" : ds.Database.Trim();
+            dataSource = string.IsNullOrWhiteSpace(ds.Database) ? SqliteMemoryDataSource : ds.Database.Trim();
         }
 
         var builder = new SqliteConnectionStringBuilder
         {
             DataSource = dataSource,
-            Mode = string.Equals(dataSource, ":memory:", StringComparison.OrdinalIgnoreCase)
+            Mode = string.Equals(dataSource, SqliteMemoryDataSource, StringComparison.OrdinalIgnoreCase)
                 ? SqliteOpenMode.Memory
                 : SqliteOpenMode.ReadWriteCreate,
         };
@@ -104,7 +106,6 @@ public static class AdoConnectionStrings
             return AppendUserPasswordIfMissing(ds.ConnectionParams.Trim(), ds.Username, ds.Password);
         }
 
-        // 简易拼装：Driver={...};Server=...;Port=...;Database=...;
         var driver = string.IsNullOrWhiteSpace(ds.ConnectionParams)
             ? "{PostgreSQL Unicode}"
             : ds.ConnectionParams.Trim();
@@ -190,7 +191,7 @@ public static class AdoConnectionStrings
     private static string FromJdbcOracle(string jdbcUrl, string user, string password)
     {
         // jdbc:oracle:thin:@//host:port/service 或 @host:port:sid
-        var marker = jdbcUrl.IndexOf("@", StringComparison.Ordinal);
+        var marker = jdbcUrl.IndexOf('@');
         if (marker < 0)
         {
             throw new ArgumentException("无效的 Oracle JDBC URL");
@@ -225,7 +226,7 @@ public static class AdoConnectionStrings
         }
 
         var path = jdbcUrl[prefix.Length..].Trim();
-        return string.IsNullOrWhiteSpace(path) || path == ":memory:" ? ":memory:" : path;
+        return string.IsNullOrWhiteSpace(path) || path == SqliteMemoryDataSource ? SqliteMemoryDataSource : path;
     }
 
     private static string AppendUserPasswordIfMissing(string connectionString, string user, string password)

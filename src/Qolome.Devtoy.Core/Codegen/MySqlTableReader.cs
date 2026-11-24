@@ -5,9 +5,14 @@ using Qolome.Devtoy.Core.Services;
 namespace Qolome.Devtoy.Core.Codegen;
 
 /// <summary>按数据源方言读取表结构（MySQL / PostgreSQL / SQLite / Oracle / ODBC information_schema）。</summary>
-public sealed class MySqlTableReader
+public static class MySqlTableReader
 {
-    public TableMetadata Read(DataSourceSettings dataSource, string tableName)
+    private const string ParamSchema = "@schema";
+    private const string ParamTable = "@table";
+    private const string TableNotFoundPrefix = "找不到表: ";
+    private const string TableNoColumnsPrefix = "表无字段: ";
+
+    public static TableMetadata Read(DataSourceSettings dataSource, string tableName)
     {
         using var conn = DbConnectionFactory.Open(dataSource);
         return dataSource.DatabaseKind switch
@@ -33,15 +38,15 @@ public sealed class MySqlTableReader
             """;
         using (var tableCmd = DbConnectionFactory.CreateCommand(conn, tableSql))
         {
-            DbConnectionFactory.AddParam(tableCmd, "@schema", schema);
-            DbConnectionFactory.AddParam(tableCmd, "@table", tableName);
+            DbConnectionFactory.AddParam(tableCmd, ParamSchema, schema);
+            DbConnectionFactory.AddParam(tableCmd, ParamTable, tableName);
             var commentObj = tableCmd.ExecuteScalar();
             if (commentObj is null || commentObj is DBNull)
             {
                 // ODBC / 部分库无 TABLE_COMMENT 列时再试仅校验存在
                 if (!TableExistsLoose(conn, schema, tableName))
                 {
-                    throw new InvalidOperationException("找不到表: " + tableName);
+                    throw new InvalidOperationException(TableNotFoundPrefix + tableName);
                 }
 
                 commentObj = "";
@@ -63,8 +68,8 @@ public sealed class MySqlTableReader
             try
             {
                 using var colCmd = DbConnectionFactory.CreateCommand(conn, colSql);
-                DbConnectionFactory.AddParam(colCmd, "@schema", schema);
-                DbConnectionFactory.AddParam(colCmd, "@table", tableName);
+                DbConnectionFactory.AddParam(colCmd, ParamSchema, schema);
+                DbConnectionFactory.AddParam(colCmd, ParamTable, tableName);
                 FillColumnsMySqlShape(colCmd, table);
             }
             catch
@@ -78,14 +83,14 @@ public sealed class MySqlTableReader
                     ORDER BY ORDINAL_POSITION
                     """;
                 using var colCmd = DbConnectionFactory.CreateCommand(conn, simpleSql);
-                DbConnectionFactory.AddParam(colCmd, "@schema", schema);
-                DbConnectionFactory.AddParam(colCmd, "@table", tableName);
+                DbConnectionFactory.AddParam(colCmd, ParamSchema, schema);
+                DbConnectionFactory.AddParam(colCmd, ParamTable, tableName);
                 FillColumnsMySqlShape(colCmd, table);
             }
 
             if (table.Columns.Count == 0)
             {
-                throw new InvalidOperationException("表无字段: " + tableName);
+                throw new InvalidOperationException(TableNoColumnsPrefix + tableName);
             }
 
             return table;
@@ -107,11 +112,11 @@ public sealed class MySqlTableReader
             """;
         using (var existsCmd = DbConnectionFactory.CreateCommand(conn, existsSql))
         {
-            DbConnectionFactory.AddParam(existsCmd, "@schema", schema);
-            DbConnectionFactory.AddParam(existsCmd, "@table", tableName);
+            DbConnectionFactory.AddParam(existsCmd, ParamSchema, schema);
+            DbConnectionFactory.AddParam(existsCmd, ParamTable, tableName);
             if (existsCmd.ExecuteScalar() is null)
             {
-                throw new InvalidOperationException("找不到表: " + tableName);
+                throw new InvalidOperationException(TableNotFoundPrefix + tableName);
             }
         }
 
@@ -124,12 +129,12 @@ public sealed class MySqlTableReader
             ORDER BY ordinal_position
             """;
         using var colCmd = DbConnectionFactory.CreateCommand(conn, colSql);
-        DbConnectionFactory.AddParam(colCmd, "@schema", schema);
-        DbConnectionFactory.AddParam(colCmd, "@table", tableName);
+        DbConnectionFactory.AddParam(colCmd, ParamSchema, schema);
+        DbConnectionFactory.AddParam(colCmd, ParamTable, tableName);
         FillColumnsMySqlShape(colCmd, table);
         if (table.Columns.Count == 0)
         {
-            throw new InvalidOperationException("表无字段: " + tableName);
+            throw new InvalidOperationException(TableNoColumnsPrefix + tableName);
         }
 
         return table;
@@ -142,10 +147,10 @@ public sealed class MySqlTableReader
             """;
         using (var existsCmd = DbConnectionFactory.CreateCommand(conn, existsSql))
         {
-            DbConnectionFactory.AddParam(existsCmd, "@table", tableName);
+            DbConnectionFactory.AddParam(existsCmd, ParamTable, tableName);
             if (existsCmd.ExecuteScalar() is null)
             {
-                throw new InvalidOperationException("找不到表: " + tableName);
+                throw new InvalidOperationException(TableNotFoundPrefix + tableName);
             }
         }
 
@@ -173,7 +178,7 @@ public sealed class MySqlTableReader
 
         if (table.Columns.Count == 0)
         {
-            throw new InvalidOperationException("表无字段: " + tableName);
+            throw new InvalidOperationException(TableNoColumnsPrefix + tableName);
         }
 
         return table;
@@ -189,7 +194,7 @@ public sealed class MySqlTableReader
             DbConnectionFactory.AddParam(existsCmd, "table_name", tableName.ToUpperInvariant());
             if (existsCmd.ExecuteScalar() is null)
             {
-                throw new InvalidOperationException("找不到表: " + tableName);
+                throw new InvalidOperationException(TableNotFoundPrefix + tableName);
             }
         }
 
@@ -222,7 +227,7 @@ public sealed class MySqlTableReader
 
         if (table.Columns.Count == 0)
         {
-            throw new InvalidOperationException("表无字段: " + tableName);
+            throw new InvalidOperationException(TableNoColumnsPrefix + tableName);
         }
 
         return table;
@@ -233,26 +238,31 @@ public sealed class MySqlTableReader
         using var reader = colCmd.ExecuteReader();
         while (reader.Read())
         {
-            var extra = reader.FieldCount > 6 && !reader.IsDBNull(6)
-                ? Convert.ToString(reader.GetValue(6)) ?? ""
-                : "";
-            var key = reader.FieldCount > 5 && !reader.IsDBNull(5)
-                ? Convert.ToString(reader.GetValue(5)) ?? ""
-                : "";
-            var nullableRaw = reader.IsDBNull(4) ? "YES" : Convert.ToString(reader.GetValue(4)) ?? "YES";
-            table.Columns.Add(new ColumnMetadata
-            {
-                Name = reader.GetString(0),
-                Comment = reader.IsDBNull(1) ? "" : Convert.ToString(reader.GetValue(1)) ?? "",
-                DataType = reader.IsDBNull(2) ? "varchar" : Convert.ToString(reader.GetValue(2)) ?? "varchar",
-                ColumnType = reader.IsDBNull(3) ? "" : Convert.ToString(reader.GetValue(3)) ?? "",
-                Nullable = string.Equals(nullableRaw, "YES", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(nullableRaw, "Y", StringComparison.OrdinalIgnoreCase),
-                PrimaryKey = string.Equals(key, "PRI", StringComparison.OrdinalIgnoreCase),
-                AutoIncrement = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
-                Extra = extra,
-            });
+            table.Columns.Add(ReadColumnMySqlShape(reader));
         }
+    }
+
+    private static ColumnMetadata ReadColumnMySqlShape(DbDataReader reader)
+    {
+        var extra = reader.FieldCount > 6 && !reader.IsDBNull(6)
+            ? Convert.ToString(reader.GetValue(6)) ?? ""
+            : "";
+        var key = reader.FieldCount > 5 && !reader.IsDBNull(5)
+            ? Convert.ToString(reader.GetValue(5)) ?? ""
+            : "";
+        var nullableRaw = reader.IsDBNull(4) ? "YES" : Convert.ToString(reader.GetValue(4)) ?? "YES";
+        return new ColumnMetadata
+        {
+            Name = reader.GetString(0),
+            Comment = reader.IsDBNull(1) ? "" : Convert.ToString(reader.GetValue(1)) ?? "",
+            DataType = reader.IsDBNull(2) ? "varchar" : Convert.ToString(reader.GetValue(2)) ?? "varchar",
+            ColumnType = reader.IsDBNull(3) ? "" : Convert.ToString(reader.GetValue(3)) ?? "",
+            Nullable = string.Equals(nullableRaw, "YES", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(nullableRaw, "Y", StringComparison.OrdinalIgnoreCase),
+            PrimaryKey = string.Equals(key, "PRI", StringComparison.OrdinalIgnoreCase),
+            AutoIncrement = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
+            Extra = extra,
+        };
     }
 
     private static string ResolveSchema(DbConnection conn, DataSourceSettings dataSource)
@@ -274,8 +284,8 @@ public sealed class MySqlTableReader
                 WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
                 """;
             using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
-            DbConnectionFactory.AddParam(cmd, "@schema", schema);
-            DbConnectionFactory.AddParam(cmd, "@table", tableName);
+            DbConnectionFactory.AddParam(cmd, ParamSchema, schema);
+            DbConnectionFactory.AddParam(cmd, ParamTable, tableName);
             return cmd.ExecuteScalar() is not null and not DBNull;
         }
         catch

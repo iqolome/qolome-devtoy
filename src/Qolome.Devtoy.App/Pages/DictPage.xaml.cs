@@ -104,10 +104,11 @@ public sealed partial class DictPage : Page
             Height = 280,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
-        foreach (var m in modules)
+        var selectedModule = _session.SelectedModule;
+        if (selectedModule is not null)
         {
-            if (_session.SelectedModule is not null
-                && string.Equals(m.ModulePath, _session.SelectedModule.ModulePath, StringComparison.OrdinalIgnoreCase))
+            foreach (var m in modules.Where(m =>
+                         string.Equals(m.ModulePath, selectedModule.ModulePath, StringComparison.OrdinalIgnoreCase)))
             {
                 list.SelectedItems.Add(m);
             }

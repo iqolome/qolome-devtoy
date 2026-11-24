@@ -3,7 +3,7 @@ import pathlib
 
 root = pathlib.Path(__file__).resolve().parents[1]
 md = (root / "docs" / "segoe-fluent-icons.md").read_text(encoding="utf-8")
-pat = re.compile(r"^\| ([A-Za-z0-9_]+) \| U\+([0-9A-Fa-f]+) \|")
+pat = re.compile(r"^\| (\w+) \| U\+([0-9A-Fa-f]+) \|")
 items = []
 for line in md.splitlines():
     m = pat.match(line)

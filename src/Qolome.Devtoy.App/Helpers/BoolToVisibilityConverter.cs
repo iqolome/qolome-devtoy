@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Data;
 namespace Qolome_Devtoy_App.Helpers;
 
 /// <summary>bool → Visibility；ConverterParameter=invert 时取反。</summary>
-public sealed class BoolToVisibilityConverter : IValueConverter
+public sealed partial class BoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {

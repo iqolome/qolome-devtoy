@@ -193,25 +193,7 @@ public static partial class SvgPathIconFactory
                     continue;
                 }
 
-                if (x < minX)
-                {
-                    minX = x;
-                }
-
-                if (y < minY)
-                {
-                    minY = y;
-                }
-
-                if (x > maxX)
-                {
-                    maxX = x;
-                }
-
-                if (y > maxY)
-                {
-                    maxY = y;
-                }
+                UpdateInkExtrema(x, y, ref minX, ref minY, ref maxX, ref maxY);
             }
         }
 
@@ -222,6 +204,29 @@ public static partial class SvgPathIconFactory
 
         // 含右下像素
         return new SKRect(minX, minY, maxX + 1, maxY + 1);
+    }
+
+    private static void UpdateInkExtrema(int x, int y, ref int minX, ref int minY, ref int maxX, ref int maxY)
+    {
+        if (x < minX)
+        {
+            minX = x;
+        }
+
+        if (y < minY)
+        {
+            minY = y;
+        }
+
+        if (x > maxX)
+        {
+            maxX = x;
+        }
+
+        if (y > maxY)
+        {
+            maxY = y;
+        }
     }
 
     private static SKRect NormalizeCull(SKRect cull) =>
@@ -257,12 +262,10 @@ public static partial class SvgPathIconFactory
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", normalized)),
         };
 
-        foreach (var candidate in candidates)
+        var found = candidates.FirstOrDefault(File.Exists);
+        if (found is not null)
         {
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
+            return found;
         }
 
         throw new FileNotFoundException($"未找到 SVG: {relativePath}", relativePath);

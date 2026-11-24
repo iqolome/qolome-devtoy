@@ -5,6 +5,11 @@ using Qolome.Devtoy.Core.Models;
 
 public sealed class DictCatalogService
 {
+    private const string ParamItemId = "@item_id";
+    private const string ParamRemark = "@remark";
+    private const string ParamEnabled = "@enabled";
+    private const string ParamValId = "@val_id";
+
     private const string ListValuesSql = """
         SELECT val_id, val_value, val_code, val_name, val_enum, val_scope, val_desc, seq, remark, enabled
         FROM qolome_dict_val
@@ -103,7 +108,7 @@ public sealed class DictCatalogService
             """;
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
-        DbConnectionFactory.AddParam(cmd, "@item_id", itemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
         using var reader = cmd.ExecuteReader();
         return reader.Read() ? ReadItemRecord(reader) : null;
     }
@@ -112,7 +117,7 @@ public sealed class DictCatalogService
     {
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, ListValuesSql);
-        DbConnectionFactory.AddParam(cmd, "@item_id", itemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
         using var reader = cmd.ExecuteReader();
         var list = new List<DictValueRow>();
         while (reader.Read())
@@ -139,15 +144,15 @@ public sealed class DictCatalogService
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         var now = DateTime.Now;
-        DbConnectionFactory.AddParam(cmd, "@item_id", itemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
         DbConnectionFactory.AddParam(cmd, "@item_code", record.ItemCode);
         DbConnectionFactory.AddParam(cmd, "@item_name", record.ItemName);
         SetNullableInt(cmd, "@item_scope", record.ItemScope);
         DbConnectionFactory.AddParam(cmd, "@item_desc", (object?)record.ItemDesc ?? DBNull.Value);
         DbConnectionFactory.AddParam(cmd, "@enum_flag", BoolToInt(record.EnumFlag));
         SetNullableInt(cmd, "@data_reference_type", record.DataReferenceType);
-        DbConnectionFactory.AddParam(cmd, "@remark", (object?)record.Remark ?? DBNull.Value);
-        DbConnectionFactory.AddParam(cmd, "@enabled", BoolToInt(record.Enabled));
+        DbConnectionFactory.AddParam(cmd, ParamRemark, (object?)record.Remark ?? DBNull.Value);
+        DbConnectionFactory.AddParam(cmd, ParamEnabled, BoolToInt(record.Enabled));
         DbConnectionFactory.AddParam(cmd, "@now", now);
         cmd.ExecuteNonQuery();
         return itemId;
@@ -176,10 +181,10 @@ public sealed class DictCatalogService
         DbConnectionFactory.AddParam(cmd, "@item_desc", (object?)record.ItemDesc ?? DBNull.Value);
         DbConnectionFactory.AddParam(cmd, "@enum_flag", BoolToInt(record.EnumFlag));
         SetNullableInt(cmd, "@data_reference_type", record.DataReferenceType);
-        DbConnectionFactory.AddParam(cmd, "@remark", (object?)record.Remark ?? DBNull.Value);
-        DbConnectionFactory.AddParam(cmd, "@enabled", BoolToInt(record.Enabled));
+        DbConnectionFactory.AddParam(cmd, ParamRemark, (object?)record.Remark ?? DBNull.Value);
+        DbConnectionFactory.AddParam(cmd, ParamEnabled, BoolToInt(record.Enabled));
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
-        DbConnectionFactory.AddParam(cmd, "@item_id", record.ItemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, record.ItemId);
         if (cmd.ExecuteNonQuery() != 1)
         {
             throw new InvalidOperationException("字典项不存在或已删除: " + record.ItemId);
@@ -192,7 +197,7 @@ public sealed class DictCatalogService
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
-        DbConnectionFactory.AddParam(cmd, "@item_id", itemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
         if (cmd.ExecuteNonQuery() != 1)
         {
             throw new InvalidOperationException("字典项不存在: " + itemId);
@@ -215,8 +220,8 @@ public sealed class DictCatalogService
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         var now = DateTime.Now;
-        DbConnectionFactory.AddParam(cmd, "@val_id", valId);
-        DbConnectionFactory.AddParam(cmd, "@item_id", value.ItemId);
+        DbConnectionFactory.AddParam(cmd, ParamValId, valId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, value.ItemId);
         DbConnectionFactory.AddParam(cmd, "@val_value", value.ValValue);
         DbConnectionFactory.AddParam(cmd, "@val_code", value.ValCode);
         DbConnectionFactory.AddParam(cmd, "@val_name", value.ValName);
@@ -224,8 +229,8 @@ public sealed class DictCatalogService
         SetNullableInt(cmd, "@val_scope", value.ValScope);
         DbConnectionFactory.AddParam(cmd, "@val_desc", (object?)value.ValDesc ?? DBNull.Value);
         DbConnectionFactory.AddParam(cmd, "@seq", value.Seq);
-        DbConnectionFactory.AddParam(cmd, "@remark", (object?)value.Remark ?? DBNull.Value);
-        DbConnectionFactory.AddParam(cmd, "@enabled", BoolToInt(value.Enabled));
+        DbConnectionFactory.AddParam(cmd, ParamRemark, (object?)value.Remark ?? DBNull.Value);
+        DbConnectionFactory.AddParam(cmd, ParamEnabled, BoolToInt(value.Enabled));
         DbConnectionFactory.AddParam(cmd, "@now", now);
         cmd.ExecuteNonQuery();
         return valId;
@@ -255,10 +260,10 @@ public sealed class DictCatalogService
         SetNullableInt(cmd, "@val_scope", value.ValScope);
         DbConnectionFactory.AddParam(cmd, "@val_desc", (object?)value.ValDesc ?? DBNull.Value);
         DbConnectionFactory.AddParam(cmd, "@seq", value.Seq);
-        DbConnectionFactory.AddParam(cmd, "@remark", (object?)value.Remark ?? DBNull.Value);
-        DbConnectionFactory.AddParam(cmd, "@enabled", BoolToInt(value.Enabled));
+        DbConnectionFactory.AddParam(cmd, ParamRemark, (object?)value.Remark ?? DBNull.Value);
+        DbConnectionFactory.AddParam(cmd, ParamEnabled, BoolToInt(value.Enabled));
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
-        DbConnectionFactory.AddParam(cmd, "@val_id", value.ValId);
+        DbConnectionFactory.AddParam(cmd, ParamValId, value.ValId);
         if (cmd.ExecuteNonQuery() != 1)
         {
             throw new InvalidOperationException("字典值不存在: " + value.ValId);
@@ -271,7 +276,7 @@ public sealed class DictCatalogService
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
-        DbConnectionFactory.AddParam(cmd, "@val_id", valId);
+        DbConnectionFactory.AddParam(cmd, ParamValId, valId);
         if (cmd.ExecuteNonQuery() != 1)
         {
             throw new InvalidOperationException("字典值不存在: " + valId);
@@ -316,12 +321,12 @@ public sealed class DictCatalogService
             """ + (excludeValId is null ? "" : " AND val_id <> @val_id") + " LIMIT 1";
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
-        DbConnectionFactory.AddParam(cmd, "@item_id", itemId);
+        DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
         DbConnectionFactory.AddParam(cmd, "@val_code", valCode);
         DbConnectionFactory.AddParam(cmd, "@val_value", valValue);
         if (excludeValId is not null)
         {
-            DbConnectionFactory.AddParam(cmd, "@val_id", excludeValId.Value);
+            DbConnectionFactory.AddParam(cmd, ParamValId, excludeValId.Value);
         }
 
         using var reader = cmd.ExecuteReader();

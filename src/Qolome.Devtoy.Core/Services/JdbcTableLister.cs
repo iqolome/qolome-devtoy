@@ -24,7 +24,7 @@ public static class JdbcTableLister
         };
     }
 
-    private static IReadOnlyList<TableListItem> ListInformationSchema(
+    private static List<TableListItem> ListInformationSchema(
         DbConnection conn,
         string? currentSchemaSql,
         string? schemaFallback = null)
@@ -63,7 +63,7 @@ public static class JdbcTableLister
         return ReadNameComment(cmd);
     }
 
-    private static IReadOnlyList<TableListItem> ListSqlite(DbConnection conn)
+    private static List<TableListItem> ListSqlite(DbConnection conn)
     {
         const string sql = """
             SELECT name, '' AS comment
@@ -75,7 +75,7 @@ public static class JdbcTableLister
         return ReadNameComment(cmd);
     }
 
-    private static IReadOnlyList<TableListItem> ListOracle(DbConnection conn)
+    private static List<TableListItem> ListOracle(DbConnection conn)
     {
         const string sql = """
             SELECT table_name, NVL(comments, '') AS table_comment

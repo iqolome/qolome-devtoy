@@ -368,7 +368,7 @@ public sealed partial class ModulePage : Page
         try
         {
             panel.Children.Clear();
-            var defs = GetTagDefs(entry);
+            var defs = GetTagDefs();
             foreach (var def in defs.Where(d => d.IsOn(entry)))
             {
                 panel.Children.Add(CreateTagChip(entry, def));
@@ -394,7 +394,7 @@ public sealed partial class ModulePage : Page
             entry.TagBootStarter,
             entry.EnableTsDict);
 
-    private static IReadOnlyList<TagDef> GetTagDefs(ModuleEntry entry) =>
+    private static IReadOnlyList<TagDef> GetTagDefs() =>
     [
         new TagDef(
             ModuleTagKind.Codegen,

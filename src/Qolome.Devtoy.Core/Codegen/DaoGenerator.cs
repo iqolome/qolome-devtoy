@@ -18,7 +18,6 @@ public sealed class DaoGenerator
         ["Detail", "QueryPage", "QuerySimpleAll"];
 
     private readonly VelocityFiles _velocityFiles;
-    private readonly MySqlTableReader _tableReader = new();
     private readonly DictCatalogService _dictCatalog = new();
 
     public DaoGenerator(VelocityFiles velocityFiles) => _velocityFiles = velocityFiles;
@@ -45,7 +44,7 @@ public sealed class DaoGenerator
         foreach (var tableName in tables)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var meta = _tableReader.Read(dataSource, tableName);
+            var meta = MySqlTableReader.Read(dataSource, tableName);
             var context = BuildContext(settings, target, meta, dataSource);
             written.AddRange(WriteArtifacts(target, meta, context, generateEntityMapper));
         }
