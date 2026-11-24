@@ -10,11 +10,7 @@ using Qolome.Devtoy.Core.Models;
 /// </summary>
 public static class SchemaInitService
 {
-    public static readonly IReadOnlyList<string> RequiredTables =
-    [
-        "qolome_dict_item",
-        "qolome_dict_val",
-    ];
+    public static readonly IReadOnlyList<string> RequiredTables = DevtoyTableNames.RequiredDictTables;
 
     /// <summary>
     /// 按当前数据源生成可执行的初始化 DDL（表结构定义，非从线上库提取）。
@@ -25,7 +21,7 @@ public static class SchemaInitService
         var database = ResolveDatabaseName(dataSource);
         var body = LoadBundledInitSql(dataSource.DatabaseKind);
         var sb = new StringBuilder();
-        sb.AppendLine("-- Qolome Devtoy 初始化 DDL");
+        sb.AppendLine("-- Qolome DevToy 初始化 DDL");
         sb.AppendLine($"-- databaseKind={dataSource.DatabaseKind}");
         if (!string.IsNullOrWhiteSpace(database))
         {

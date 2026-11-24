@@ -4,46 +4,69 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer Padding="32,20,32,20" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+        <StackPanel Spacing="20" MaxWidth="880" HorizontalAlignment="Left">
             <TextBlock Text="导入导出" FontSize="24" FontWeight="SemiBold" />
+
             <Border
                 Padding="16"
                 CornerRadius="8"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1">
+                BorderThickness="1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="配置以本机全局 JSON 为准（与 qolome-codegen 对齐），包含作者、数据源、工作区、指定工程等完整内容。" TextWrapping="WrapWholeWords" Opacity="0.85" />
-                    <TextBlock x:Name="ConfigPathText" Opacity="0.7" TextWrapping="WrapWholeWords" FontFamily="Consolas" />
+                    <TextBlock Text="网络资产（本地 SQLite）" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="仅提供 SQL 导入 / 导出，针对本地 qolome-devtoy.db 中的网络库存（环境、分组、类型、设备、拓扑等）。与远程库交换请用「网络设置」同步。" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button
-                            Click="OnExportConfig"
-                            Style="{StaticResource DevtoyRowActionButtonStyle}"
-                            Padding="10,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Viewbox
-                                    Width="{StaticResource DevtoyGlyphIconBox}"
-                                    Height="{StaticResource DevtoyGlyphIconBox}"
-                                    VerticalAlignment="Center">
-                                    <SymbolIcon Symbol="SaveLocal" />
-                                </Viewbox>
-                                <TextBlock Text="导出配置" Style="{StaticResource DevtoyGlyphTextStyle}" />
-                            </StackPanel>
-                        </Button>
-                        <Button
-                            Click="OnImportConfig"
-                            Style="{StaticResource DevtoyRowActionButtonStyle}"
-                            Padding="10,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Viewbox
-                                    Width="{StaticResource DevtoyGlyphIconBox}"
-                                    Height="{StaticResource DevtoyGlyphIconBox}"
-                                    VerticalAlignment="Center">
-                                    <SymbolIcon Symbol="OpenLocal" />
-                                </Viewbox>
-                                <TextBlock Text="导入配置" Style="{StaticResource DevtoyGlyphTextStyle}" />
-                            </StackPanel>
-                        </Button>
+                            Style="{StaticResource AccentButtonStyle}"
+                            Command="{x:Bind Nets.ExportSqlCommand}"
+                            Content="导出 SQL" />
+                        <Button Click="ImportNetsSql_Click" Content="导入 SQL" />
                     </StackPanel>
+                    <TextBlock
+                        Text="{x:Bind Nets.Status, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="16"
+                CornerRadius="8"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="字典（远程数据源）" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        TextWrapping="WrapWholeWords"
+                        Opacity="0.85"
+                        Text="针对「数据源设置」中的远程库，导入 / 导出字典表 SQL（devtoy_qolome_dict_item / devtoy_qolome_dict_val）。导出为 DELETE + INSERT；导入将按脚本覆盖写入。" />
+                    <TextBlock
+                        x:Name="DataSourceHintText"
+                        Opacity="0.7"
+                        TextWrapping="WrapWholeWords"
+                        FontFamily="Consolas"
+                        IsTextSelectionEnabled="True" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Click="OnExportDictSql"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Padding="10,6"
+                            Content="导出字典 SQL" />
+                        <Button
+                            Click="OnImportDictSql"
+                            Style="{StaticResource DevtoyRowActionButtonStyle}"
+                            Padding="10,6"
+                            Content="导入字典 SQL" />
+                    </StackPanel>
+                    <TextBlock
+                        x:Name="DictStatusText"
+                        TextWrapping="WrapWholeWords"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
                 </StackPanel>
             </Border>
         </StackPanel>

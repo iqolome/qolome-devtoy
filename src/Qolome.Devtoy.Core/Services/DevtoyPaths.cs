@@ -5,6 +5,9 @@ public static class DevtoyPaths
     public static string AppDataRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Qolome", "Devtoy");
 
+    /// <summary>Devtoy 与 Nets 共用的本地 SQLite 库。</summary>
+    public static string LocalDbPath => Path.Combine(AppDataRoot, "qolome-devtoy.db");
+
     public static string GlobalRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".qolome");
 

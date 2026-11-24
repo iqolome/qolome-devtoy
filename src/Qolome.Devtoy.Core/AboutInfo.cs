@@ -3,7 +3,7 @@ namespace Qolome.Devtoy.Core;
 /// <summary>产品关于信息。</summary>
 public static class AboutInfo
 {
-    public const string ProductName = "Qolome Devtoy";
+    public const string ProductName = "Qolome DevToy";
 
     public const string CompanyNameZh = "忻州市尖锋达科技有限公司";
 

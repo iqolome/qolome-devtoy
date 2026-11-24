@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Qolome.Nets.App.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="16">
+        <StackPanel Spacing="16" MaxWidth="880">
+            <TextBlock Text="设置" Style="{StaticResource TitleTextBlockStyle}" />
+
+            <Border
+                Padding="16"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="扫描" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.PortConcurrencyDefaultText}" />
+                    <Grid ColumnSpacing="16" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <NumberBox
+                            Header="端口扫描并发数"
+                            Minimum="1"
+                            Maximum="256"
+                            SpinButtonPlacementMode="Compact"
+                            Value="{x:Bind ViewModel.PortScanConcurrency, Mode=TwoWay}" />
+                        <NumberBox
+                            Grid.Column="1"
+                            Header="单次 IP 扫描数量"
+                            Minimum="1"
+                            Maximum="4096"
+                            SpinButtonPlacementMode="Compact"
+                            Value="{x:Bind ViewModel.IpScanBatchSize, Mode=TwoWay}" />
+                        <NumberBox
+                            Grid.Row="1"
+                            Header="IP 扫描并发数"
+                            Minimum="1"
+                            Maximum="64"
+                            SpinButtonPlacementMode="Compact"
+                            Value="{x:Bind ViewModel.IpScanConcurrency, Mode=TwoWay}" />
+                        <NumberBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Header="默认 Ping 次数"
+                            Minimum="1"
+                            Maximum="100"
+                            SpinButtonPlacementMode="Compact"
+                            Value="{x:Bind ViewModel.PingCount, Mode=TwoWay}" />
+                    </Grid>
+                    <Button Command="{x:Bind ViewModel.ResetScanDefaultsCommand}" Content="恢复默认" />
+                    <TextBlock
+                        Text="{x:Bind ViewModel.ScanSettingsHint, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="16"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="OUI 厂商库" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="安装时把内置 IEEE OUI（MA-L / MA-M / MA-S）写入当前 SQLite 或 MySQL。之后只维护数据库里的数据。IEEE 没有官方批次号，本程序用三份登记文件的 SHA256 作为批次；同一批次跳过写入，不同批次按前缀增量增删改。" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Command="{x:Bind ViewModel.UpdateOuiCommand}"
+                            Content="从 IEEE 更新"
+                            IsEnabled="{x:Bind ViewModel.OuiUpdateEnabled, Mode=OneWay}" />
+                        <ProgressRing
+                            Width="20"
+                            Height="20"
+                            MinWidth="20"
+                            MinHeight="20"
+                            VerticalAlignment="Center"
+                            IsActive="{x:Bind ViewModel.IsOuiUpdating, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.OuiProgressVisibility, Mode=OneWay}" />
+                    </StackPanel>
+                    <ProgressBar
+                        Maximum="100"
+                        ShowPaused="False"
+                        IsIndeterminate="{x:Bind ViewModel.OuiProgressIndeterminate, Mode=OneWay}"
+                        Value="{x:Bind ViewModel.OuiProgressPercent, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.OuiProgressVisibility, Mode=OneWay}" />
+                    <TextBlock
+                        Text="{x:Bind ViewModel.OuiHint, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="16"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="本地 ↔ 远程同步" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="网络资产日常读写使用本地 SQLite。远程库与代码生成、字典共用「配置管理 → 数据源设置」，本页不再单独配置连接。" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind ViewModel.LocalConnectionText, Mode=OneWay}" />
+                    <TextBlock
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind ViewModel.RemoteConnectionText, Mode=OneWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Style="{StaticResource AccentButtonStyle}"
+                            Click="SyncToRemote_Click"
+                            Content="本地 → 远程"
+                            IsEnabled="{x:Bind ViewModel.SyncEnabled, Mode=OneWay}" />
+                        <Button
+                            Click="SyncToLocal_Click"
+                            Content="远程 → 本地"
+                            IsEnabled="{x:Bind ViewModel.SyncEnabled, Mode=OneWay}" />
+                        <ProgressRing
+                            Width="20"
+                            Height="20"
+                            MinWidth="20"
+                            MinHeight="20"
+                            VerticalAlignment="Center"
+                            IsActive="{x:Bind ViewModel.IsSyncing, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.SyncProgressVisibility, Mode=OneWay}" />
+                    </StackPanel>
+                    <ProgressBar
+                        Maximum="100"
+                        ShowPaused="False"
+                        IsIndeterminate="{x:Bind ViewModel.SyncProgressIndeterminate, Mode=OneWay}"
+                        Value="{x:Bind ViewModel.SyncProgressPercent, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.SyncProgressVisibility, Mode=OneWay}" />
+                    <TextBlock
+                        Text="{x:Bind ViewModel.SyncHint, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

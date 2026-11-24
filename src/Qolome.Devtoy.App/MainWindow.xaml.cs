@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Qolome.Devtoy.Core.Services;
+using Qolome.Nets.Core.Data;
 using Qolome_Devtoy_App.Helpers;
 
 namespace Qolome_Devtoy_App;
@@ -18,11 +20,34 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        NetsRuntime.GetRemoteDataSource = () => AppServices.Session.Settings.DataSource;
+        _ = InitializeNetsAsync();
         RootFrame.Navigate(typeof(MainPage));
         TitleBarChrome.Apply(this);
         TitleBarChrome.ListenToThemeChanges(this, RootFrame);
         Activated += (_, _) => TitleBarChrome.Apply(this);
         Closed += (_, _) => AppServices.Session.FlushSettings();
+    }
+
+    private static async Task InitializeNetsAsync()
+    {
+        try
+        {
+            Qolome.Nets.App.AppServices.LoadScanSettings();
+            await AppDatabase.InitializeAsync().ConfigureAwait(true);
+            var warn = AppDatabase.StartupWarning;
+            if (!string.IsNullOrWhiteSpace(warn))
+            {
+                AppServices.Session.LogWarn(warn);
+            }
+
+            AppServices.Session.Log($"网络工具本地库：{DevtoyPaths.LocalDbPath}");
+        }
+        catch (Exception ex)
+        {
+            AppServices.Session.LogWarn("网络工具初始化失败：" + ex.Message);
+            CrashLog.Write("Nets InitializeAsync failed", ex);
+        }
     }
 
     public void SetTitleBarIcon(string icoPath)

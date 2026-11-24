@@ -2,5 +2,6 @@
   <Folder Name="/src/">
     <Project Path="src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj" />
     <Project Path="src/Qolome.Devtoy.Core/Qolome.Devtoy.Core.csproj" />
+    <Project Path="src/Qolome.Nets.Core/Qolome.Nets.Core.csproj" />
   </Folder>
 </Solution>

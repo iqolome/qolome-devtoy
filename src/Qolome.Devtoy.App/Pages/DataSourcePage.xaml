@@ -6,6 +6,10 @@
     <ScrollViewer Padding="32,20,32,20" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
         <StackPanel MaxWidth="800" HorizontalAlignment="Left" Spacing="16">
             <TextBlock Text="数据源设置" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock
+                TextWrapping="Wrap"
+                Opacity="0.75"
+                Text="应用配置与网络资产日常读写落在本地 SQLite（%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db）。此处为全局唯一远程库（MySQL / PostgreSQL / Oracle / ODBC），供代码生成、字典与「网络设置」本地↔远程覆盖同步共用，网络模块不再单独配置数据库。" />
             <Grid x:Name="FormGrid" ColumnSpacing="16" RowSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />

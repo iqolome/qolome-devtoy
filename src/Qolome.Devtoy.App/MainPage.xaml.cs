@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Qolome.Nets.App;
 using Qolome_Devtoy_App.Pages;
 
 namespace Qolome_Devtoy_App;
@@ -65,6 +66,12 @@ public sealed partial class MainPage : Page
             "ConfigDataSource" => typeof(DataSourcePage),
             "ConfigTemplates" => typeof(TemplatePage),
             "ConfigImportExport" => typeof(ImportExportPage),
+            "NetsScan" => typeof(Qolome.Nets.App.MainPage),
+            "NetsDevices" => typeof(DevicesPage),
+            "NetsTopology" => typeof(TopologyPage),
+            "NetsEnvironments" => typeof(EnvironmentsPage),
+            "NetsDeviceTypes" => typeof(DeviceTypesPage),
+            "NetsSettings" => typeof(SettingsPage),
             "About" => typeof(AboutPage),
             "IconLibrary" => typeof(IconLibraryPage),
             _ => typeof(PlaceholderPage),

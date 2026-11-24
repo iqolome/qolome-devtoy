@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Qolome.Devtoy.Core;
+using Qolome.Nets.App;
 using Qolome_Devtoy_App.Services;
 
 namespace Qolome_Devtoy_App.Pages;
@@ -18,6 +19,7 @@ public sealed partial class AboutPage : Page
             $"本软件采用 {AboutInfo.LicenseName} 授权。完整协议见仓库根目录 LICENSE 文件。";
         WebsiteLink.NavigateUri = new Uri(AboutInfo.WebsiteUrl);
         LicenseLink.NavigateUri = new Uri(AboutInfo.LicenseUrl);
+        ServiceAgreementText.Text = AppInfo.ServiceAgreement;
         LoadProductLogo();
     }
 

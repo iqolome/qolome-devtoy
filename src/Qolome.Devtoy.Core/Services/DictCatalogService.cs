@@ -13,7 +13,7 @@ public static class DictCatalogService
 
     private const string ListValuesSql = """
         SELECT val_id, val_value, val_code, val_name, val_enum, val_scope, val_desc, seq, remark, enabled
-        FROM qolome_dict_val
+        FROM devtoy_qolome_dict_val
         WHERE item_id = @item_id AND deleted = 0
         ORDER BY seq, val_id
         """;
@@ -26,7 +26,7 @@ public static class DictCatalogService
         var sql = """
             SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,
                    data_reference_type, remark, enabled, create_time, modify_time
-            FROM qolome_dict_item
+            FROM devtoy_qolome_dict_item
             WHERE enum_flag = 1 AND deleted = 0 AND enabled = 1
             """;
         var code = NormalizeFilter(itemCode);
@@ -86,7 +86,7 @@ public static class DictCatalogService
         const string sql = """
             SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,
                    data_reference_type, remark, enabled, create_time, modify_time
-            FROM qolome_dict_item
+            FROM devtoy_qolome_dict_item
             WHERE item_code = @item_code AND deleted = 0
             LIMIT 1
             """;
@@ -103,7 +103,7 @@ public static class DictCatalogService
         const string sql = """
             SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,
                    data_reference_type, remark, enabled, create_time, modify_time
-            FROM qolome_dict_item
+            FROM devtoy_qolome_dict_item
             WHERE item_id = @item_id AND deleted = 0
             LIMIT 1
             """;
@@ -134,7 +134,7 @@ public static class DictCatalogService
         EnsureItemCodeFree(dataSource, record.ItemCode, null);
         var itemId = record.ItemId > 0 ? record.ItemId : DictIdGenerator.NextId();
         const string sql = """
-            INSERT INTO qolome_dict_item (
+            INSERT INTO devtoy_qolome_dict_item (
                 item_id, item_code, item_name, item_scope, item_desc, enum_flag, data_reference_type,
                 remark, modify_version, deleted, enabled, tenant_id, create_time, modify_time
             ) VALUES (
@@ -168,7 +168,7 @@ public static class DictCatalogService
 
         EnsureItemCodeFree(dataSource, record.ItemCode, record.ItemId);
         const string sql = """
-            UPDATE qolome_dict_item
+            UPDATE devtoy_qolome_dict_item
             SET item_code = @item_code, item_name = @item_name, item_scope = @item_scope, item_desc = @item_desc,
                 enum_flag = @enum_flag, data_reference_type = @data_reference_type, remark = @remark,
                 enabled = @enabled, modify_time = @now
@@ -194,7 +194,7 @@ public static class DictCatalogService
 
     public static void DeleteItem(DataSourceSettings dataSource, long itemId)
     {
-        const string sql = "UPDATE qolome_dict_item SET deleted = 1, modify_time = @now WHERE item_id = @item_id AND deleted = 0";
+        const string sql = "UPDATE devtoy_qolome_dict_item SET deleted = 1, modify_time = @now WHERE item_id = @item_id AND deleted = 0";
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
@@ -210,7 +210,7 @@ public static class DictCatalogService
         EnsureValueUnique(dataSource, value.ItemId, value.ValCode, value.ValValue, null);
         var valId = value.ValId > 0 ? value.ValId : DictIdGenerator.NextId();
         const string sql = """
-            INSERT INTO qolome_dict_val (
+            INSERT INTO devtoy_qolome_dict_val (
                 val_id, item_id, val_value, val_code, val_name, val_enum, val_scope, val_desc, seq,
                 remark, modify_version, deleted, enabled, tenant_id, create_time, modify_time
             ) VALUES (
@@ -246,7 +246,7 @@ public static class DictCatalogService
 
         EnsureValueUnique(dataSource, value.ItemId, value.ValCode, value.ValValue, value.ValId);
         const string sql = """
-            UPDATE qolome_dict_val
+            UPDATE devtoy_qolome_dict_val
             SET val_value = @val_value, val_code = @val_code, val_name = @val_name, val_enum = @val_enum,
                 val_scope = @val_scope, val_desc = @val_desc, seq = @seq, remark = @remark,
                 enabled = @enabled, modify_time = @now
@@ -273,7 +273,7 @@ public static class DictCatalogService
 
     public static void DeleteValue(DataSourceSettings dataSource, long valId)
     {
-        const string sql = "UPDATE qolome_dict_val SET deleted = 1, modify_time = @now WHERE val_id = @val_id AND deleted = 0";
+        const string sql = "UPDATE devtoy_qolome_dict_val SET deleted = 1, modify_time = @now WHERE val_id = @val_id AND deleted = 0";
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         DbConnectionFactory.AddParam(cmd, "@now", DateTime.Now);
@@ -292,8 +292,8 @@ public static class DictCatalogService
         }
 
         var sql = excludeItemId is null
-            ? "SELECT 1 FROM qolome_dict_item WHERE item_code = @code AND deleted = 0 LIMIT 1"
-            : "SELECT 1 FROM qolome_dict_item WHERE item_code = @code AND item_id <> @id AND deleted = 0 LIMIT 1";
+            ? "SELECT 1 FROM devtoy_qolome_dict_item WHERE item_code = @code AND deleted = 0 LIMIT 1"
+            : "SELECT 1 FROM devtoy_qolome_dict_item WHERE item_code = @code AND item_id <> @id AND deleted = 0 LIMIT 1";
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         DbConnectionFactory.AddParam(cmd, "@code", itemCode.Trim());
@@ -317,7 +317,7 @@ public static class DictCatalogService
         long? excludeValId)
     {
         var sql = """
-            SELECT 1 FROM qolome_dict_val
+            SELECT 1 FROM devtoy_qolome_dict_val
             WHERE item_id = @item_id AND deleted = 0 AND (val_code = @val_code OR val_value = @val_value)
             """ + (excludeValId is null ? "" : " AND val_id <> @val_id") + " LIMIT 1";
         using var conn = MySqlConnectionFactory.Open(dataSource);

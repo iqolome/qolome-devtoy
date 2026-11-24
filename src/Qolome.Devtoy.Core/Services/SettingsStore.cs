@@ -3,14 +3,18 @@ namespace Qolome.Devtoy.Core.Services;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Data.Sqlite;
 using Qolome.Devtoy.Core.Models;
 
 /// <summary>
-/// 配置持久化：settings.json（全局）+ module-overrides.json（模块覆盖）；
-/// 防抖单飞写入，临时文件 + Replace 原子落盘。
+/// 配置持久化：本地 SQLite <c>devtoy_doc</c>（settings / module_overrides）；
+/// 防抖单飞写入，事务原子落盘。Export/Import 仍可用 JSON 文件。
 /// </summary>
 public sealed class SettingsStore
 {
+    private const string KindSettings = "settings";
+    private const string KindModuleOverrides = "module_overrides";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -27,6 +31,8 @@ public sealed class SettingsStore
 
     private CancellationTokenSource? _debounceCts;
 
+    public static string LocalDbPath => DevtoyPaths.LocalDbPath;
+
     public static string SettingsPath => Path.Combine(DevtoyPaths.AppDataRoot, "settings.json");
 
     public static string ModuleOverridesPath => Path.Combine(DevtoyPaths.AppDataRoot, "module-overrides.json");
@@ -37,6 +43,13 @@ public sealed class SettingsStore
     {
         try
         {
+            EnsureDocTable();
+            var fromDb = TryLoadSettingsFromSqlite();
+            if (fromDb is not null)
+            {
+                return fromDb;
+            }
+
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
@@ -46,12 +59,15 @@ public sealed class SettingsStore
                 LoadModuleOverridesFile(settings);
                 var rootsBefore = settings.WorkspaceRoots.Count;
                 settings.NormalizeWorkspaceRoots();
-                // 首次拆分：把内嵌 moduleOverrides 迁到侧车文件并写回干净的 settings.json
                 if (migrated
                     || hadEmbeddedOverrides
                     || (rootsBefore == 0 && settings.WorkspaceRoots.Count > 0))
                 {
                     SaveNow(settings);
+                }
+                else
+                {
+                    PersistSplit(settings);
                 }
 
                 return settings;
@@ -63,7 +79,7 @@ public sealed class SettingsStore
         }
 
         var fresh = new DevtoySettings();
-        LoadModuleOverridesFile(fresh);
+        LoadModuleOverridesFromSqliteOrFile(fresh);
         return fresh;
     }
 
@@ -106,7 +122,6 @@ public sealed class SettingsStore
     public static void ExportGlobal(DevtoySettings settings)
     {
         Directory.CreateDirectory(DevtoyPaths.GlobalRoot);
-        // 导出单文件仍内嵌 ModuleOverrides，便于一份带走
         AtomicWriteAllText(GlobalPath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
@@ -170,17 +185,23 @@ public sealed class SettingsStore
     private static void PersistSplit(DevtoySettings settings)
     {
         Directory.CreateDirectory(DevtoyPaths.AppDataRoot);
+        EnsureDocTable();
 
         var mainJson = SerializeSettingsWithoutOverrides(settings);
-        AtomicWriteAllText(SettingsPath, mainJson);
-
         var overridesDoc = new ModuleOverridesDocument
         {
             ModuleOverrides = new Dictionary<string, ModuleCatalogOverride>(
                 settings.ModuleOverrides,
                 StringComparer.OrdinalIgnoreCase),
         };
-        AtomicWriteAllText(ModuleOverridesPath, JsonSerializer.Serialize(overridesDoc, JsonOptions));
+        var overridesJson = JsonSerializer.Serialize(overridesDoc, JsonOptions);
+        var now = DateTime.UtcNow.ToString("O");
+
+        using var conn = OpenLocalDb();
+        using var tx = conn.BeginTransaction();
+        UpsertDoc(conn, tx, KindSettings, mainJson, now);
+        UpsertDoc(conn, tx, KindModuleOverrides, overridesJson, now);
+        tx.Commit();
     }
 
     private static string SerializeSettingsWithoutOverrides(DevtoySettings settings)
@@ -189,6 +210,64 @@ public sealed class SettingsStore
             ?? new JsonObject();
         node.Remove("moduleOverrides");
         return node.ToJsonString(JsonOptions);
+    }
+
+    private static DevtoySettings? TryLoadSettingsFromSqlite()
+    {
+        if (!File.Exists(LocalDbPath))
+        {
+            return null;
+        }
+
+        var json = ReadDocJson(KindSettings);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        var settings = JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions) ?? new DevtoySettings();
+        LegacySpecifiedMigration.TryApplyFromJson(json, settings);
+        LoadModuleOverridesFromSqliteOrFile(settings);
+        settings.NormalizeWorkspaceRoots();
+        return settings;
+    }
+
+    private static void LoadModuleOverridesFromSqliteOrFile(DevtoySettings settings)
+    {
+        var json = ReadDocJson(KindModuleOverrides);
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            MergeModuleOverridesJson(settings, json);
+            return;
+        }
+
+        LoadModuleOverridesFile(settings);
+    }
+
+    private static void MergeModuleOverridesJson(DevtoySettings settings, string json)
+    {
+        try
+        {
+            var doc = JsonSerializer.Deserialize<ModuleOverridesDocument>(json, JsonOptions);
+            if (doc?.ModuleOverrides is null || doc.ModuleOverrides.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var (key, value) in doc.ModuleOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(key) || value is null)
+                {
+                    continue;
+                }
+
+                settings.ModuleOverrides[Path.GetFullPath(key)] = value;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     /// <returns>是否从 settings.json 内嵌读取到了 overrides（需迁移拆分）。</returns>
@@ -239,27 +318,72 @@ public sealed class SettingsStore
         try
         {
             var json = File.ReadAllText(ModuleOverridesPath);
-            var doc = JsonSerializer.Deserialize<ModuleOverridesDocument>(json, JsonOptions);
-            if (doc?.ModuleOverrides is null || doc.ModuleOverrides.Count == 0)
-            {
-                return;
-            }
-
-            foreach (var (key, value) in doc.ModuleOverrides)
-            {
-                if (string.IsNullOrWhiteSpace(key) || value is null)
-                {
-                    continue;
-                }
-
-                // 侧车文件覆盖同名内嵌项
-                settings.ModuleOverrides[Path.GetFullPath(key)] = value;
-            }
+            MergeModuleOverridesJson(settings, json);
         }
         catch
         {
             // ignore
         }
+    }
+
+    private static void EnsureDocTable()
+    {
+        Directory.CreateDirectory(DevtoyPaths.AppDataRoot);
+        using var conn = OpenLocalDb();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            """
+            CREATE TABLE IF NOT EXISTS devtoy_doc (
+                kind TEXT PRIMARY KEY,
+                json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    private static SqliteConnection OpenLocalDb()
+    {
+        var conn = new SqliteConnection($"Data Source={LocalDbPath};Cache=Shared");
+        conn.Open();
+        return conn;
+    }
+
+    private static string? ReadDocJson(string kind)
+    {
+        if (!File.Exists(LocalDbPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var conn = OpenLocalDb();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT json FROM devtoy_doc WHERE kind = $kind";
+            cmd.Parameters.AddWithValue("$kind", kind);
+            return cmd.ExecuteScalar() as string;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void UpsertDoc(SqliteConnection conn, SqliteTransaction tx, string kind, string json, string updatedAt)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            """
+            INSERT INTO devtoy_doc (kind, json, updated_at)
+            VALUES ($kind, $json, $updated_at)
+            ON CONFLICT(kind) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at;
+            """;
+        cmd.Parameters.AddWithValue("$kind", kind);
+        cmd.Parameters.AddWithValue("$json", json);
+        cmd.Parameters.AddWithValue("$updated_at", updatedAt);
+        cmd.ExecuteNonQuery();
     }
 
     private static void AtomicWriteAllText(string path, string contents)

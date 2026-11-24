@@ -971,6 +971,57 @@ public sealed class DevtoySession
             },
             cancellationToken);
 
+    /// <summary>导出当前数据源中的字典表为 SQL 文件。</summary>
+    public async Task ExportDictSqlAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (!DatabaseGate.TryEnter())
+        {
+            throw new InvalidOperationException(DatabaseBusyMessage);
+        }
+
+        try
+        {
+            await Task.Run(
+                () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    DictSqlDumpService.ExportToFile(Settings.DataSource, path);
+                },
+                cancellationToken).ConfigureAwait(false);
+            Log("已导出字典 SQL -> " + path);
+        }
+        finally
+        {
+            DatabaseGate.Exit();
+        }
+    }
+
+    /// <summary>将 SQL 文件导入到当前数据源字典表（覆盖写入）。</summary>
+    public async Task<int> ImportDictSqlAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (!DatabaseGate.TryEnter())
+        {
+            throw new InvalidOperationException(DatabaseBusyMessage);
+        }
+
+        try
+        {
+            var affected = await Task.Run(
+                () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return DictSqlDumpService.ImportFromFile(Settings.DataSource, path);
+                },
+                cancellationToken).ConfigureAwait(false);
+            Log($"已导入字典 SQL（影响 {affected}）<- {path}");
+            return affected;
+        }
+        finally
+        {
+            DatabaseGate.Exit();
+        }
+    }
+
     /// <summary>初始化库表：已存在则抛异常；否则按数据源生成建表 SQL 并执行。</summary>
     public async Task InitializeSchemaAsync(CancellationToken cancellationToken = default)
     {

@@ -57,7 +57,7 @@ public sealed class AutoConfigurationImportsEditor
     private static List<string> CreateHeader() =>
     [
         "#",
-        "# Spring Boot AutoConfiguration.imports (managed by Qolome Devtoy)",
+        "# Spring Boot AutoConfiguration.imports (managed by Qolome DevToy)",
         "#",
         "",
         "# convert",

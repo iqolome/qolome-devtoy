@@ -33,6 +33,21 @@
             <TextBlock Text="许可协议" FontWeight="SemiBold" />
             <TextBlock x:Name="LicenseText" TextWrapping="WrapWholeWords" />
             <HyperlinkButton x:Name="LicenseLink" Content="Apache License 2.0" />
+            <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Expander
+                Header="服务协议"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                IsExpanded="False">
+                <ScrollViewer MaxHeight="360">
+                    <TextBlock
+                        x:Name="ServiceAgreementText"
+                        TextWrapping="Wrap"
+                        IsTextSelectionEnabled="True"
+                        FontFamily="Consolas"
+                        FontSize="12" />
+                </ScrollViewer>
+            </Expander>
         </StackPanel>
     </ScrollViewer>
 </Page>
