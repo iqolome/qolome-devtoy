@@ -134,44 +134,60 @@ public static class OuiCsvParser
         var fields = new List<string>();
         var buffer = new StringBuilder();
         var quoted = false;
-        for (var i = 0; i < line.Length; i++)
+        var i = 0;
+        while (i < line.Length)
         {
-            var c = line[i];
-            if (quoted)
-            {
-                if (c == '"')
-                {
-                    if (i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        buffer.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        quoted = false;
-                    }
-                }
-                else
-                {
-                    buffer.Append(c);
-                }
-            }
-            else if (c == '"')
-            {
-                quoted = true;
-            }
-            else if (c == ',')
-            {
-                fields.Add(buffer.ToString());
-                buffer.Clear();
-            }
-            else
-            {
-                buffer.Append(c);
-            }
+            i = quoted
+                ? AppendQuotedField(line, buffer, ref quoted, i)
+                : AppendUnquotedField(line, fields, buffer, ref quoted, i);
+            i++;
         }
 
         fields.Add(buffer.ToString());
         return fields;
+    }
+
+    private static int AppendQuotedField(string line, StringBuilder buffer, ref bool quoted, int i)
+    {
+        var c = line[i];
+        if (c != '"')
+        {
+            buffer.Append(c);
+            return i;
+        }
+
+        if (i + 1 < line.Length && line[i + 1] == '"')
+        {
+            buffer.Append('"');
+            return i + 1;
+        }
+
+        quoted = false;
+        return i;
+    }
+
+    private static int AppendUnquotedField(
+        string line,
+        List<string> fields,
+        StringBuilder buffer,
+        ref bool quoted,
+        int i)
+    {
+        var c = line[i];
+        if (c == '"')
+        {
+            quoted = true;
+            return i;
+        }
+
+        if (c == ',')
+        {
+            fields.Add(buffer.ToString());
+            buffer.Clear();
+            return i;
+        }
+
+        buffer.Append(c);
+        return i;
     }
 }

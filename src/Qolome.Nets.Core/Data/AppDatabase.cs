@@ -11,6 +11,8 @@ namespace Qolome.Nets.Core.Data;
 
 public static class AppDatabase
 {
+    private const string OuiColumnBatchKey = "BatchKey";
+
     public static string DataDirectory => DevtoyPaths.AppDataRoot;
 
     public static string DbPath { get; private set; } = DevtoyPaths.LocalDbPath;
@@ -280,9 +282,7 @@ public static class AppDatabase
             await using var conn = new MySqlConnection(adminCs);
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
-            var name = mysql.Database.Replace("`", "``", StringComparison.Ordinal);
-            cmd.CommandText =
-                $"CREATE DATABASE IF NOT EXISTS `{name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+            cmd.CommandText = NetsSqlIdentifiers.BuildMySqlCreateDatabaseSql(mysql.Database);
             await cmd.ExecuteNonQueryAsync();
         }
         catch (Exception ex)
@@ -517,11 +517,11 @@ public static class AppDatabase
     {
         if (ContextIsMySql(db))
         {
-            await EnsureColumnAsync(db, "devtoy_device_type", "IconFile",
+            await EnsureColumnAsync(db, NetsTableNames.DeviceType, "IconFile",
                 "ALTER TABLE `devtoy_device_type` ADD COLUMN `IconFile` VARCHAR(128) NULL");
-            await EnsureColumnAsync(db, "devtoy_device_type", "IsCustomIcon",
+            await EnsureColumnAsync(db, NetsTableNames.DeviceType, "IsCustomIcon",
                 "ALTER TABLE `devtoy_device_type` ADD COLUMN `IsCustomIcon` TINYINT(1) NOT NULL DEFAULT 0");
-            await EnsureColumnAsync(db, "devtoy_device_type", "ColorGroup",
+            await EnsureColumnAsync(db, NetsTableNames.DeviceType, "ColorGroup",
                 "ALTER TABLE `devtoy_device_type` ADD COLUMN `ColorGroup` VARCHAR(32) NULL");
             await EnsureColumnAsync(db, NetsTableNames.Device, "Brand",
                 $"ALTER TABLE `{NetsTableNames.Device}` ADD COLUMN `Brand` VARCHAR(128) NULL");
@@ -580,9 +580,9 @@ public static class AppDatabase
             return;
         }
 
-        await EnsureColumnAsync(db, "devtoy_device_type", "IconFile", "ALTER TABLE devtoy_device_type ADD COLUMN IconFile TEXT NULL");
-        await EnsureColumnAsync(db, "devtoy_device_type", "IsCustomIcon", "ALTER TABLE devtoy_device_type ADD COLUMN IsCustomIcon INTEGER NOT NULL DEFAULT 0");
-        await EnsureColumnAsync(db, "devtoy_device_type", "ColorGroup", "ALTER TABLE devtoy_device_type ADD COLUMN ColorGroup TEXT NULL");
+        await EnsureColumnAsync(db, NetsTableNames.DeviceType, "IconFile", "ALTER TABLE devtoy_device_type ADD COLUMN IconFile TEXT NULL");
+        await EnsureColumnAsync(db, NetsTableNames.DeviceType, "IsCustomIcon", "ALTER TABLE devtoy_device_type ADD COLUMN IsCustomIcon INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(db, NetsTableNames.DeviceType, "ColorGroup", "ALTER TABLE devtoy_device_type ADD COLUMN ColorGroup TEXT NULL");
         await EnsureColumnAsync(db, NetsTableNames.Device, "Brand",
             $"ALTER TABLE {NetsTableNames.Device} ADD COLUMN Brand TEXT NULL");
         await EnsureColumnAsync(db, NetsTableNames.Device, "Vendor",
@@ -763,32 +763,32 @@ public static class AppDatabase
     {
         if (mysql)
         {
-            await EnsureColumnAsync(db, "devtoy_oui_entry", "BatchKey",
+            await EnsureColumnAsync(db, NetsTableNames.OuiEntry, OuiColumnBatchKey,
                 "ALTER TABLE `devtoy_oui_entry` ADD COLUMN `BatchKey` VARCHAR(64) NULL");
-            await EnsureColumnAsync(db, "devtoy_oui_meta", "BatchKey",
+            await EnsureColumnAsync(db, NetsTableNames.OuiMeta, OuiColumnBatchKey,
                 "ALTER TABLE `devtoy_oui_meta` ADD COLUMN `BatchKey` VARCHAR(64) NULL");
-            await EnsureColumnAsync(db, "devtoy_oui_meta", "PreviousBatchKey",
+            await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "PreviousBatchKey",
                 "ALTER TABLE `devtoy_oui_meta` ADD COLUMN `PreviousBatchKey` VARCHAR(64) NULL");
-            await EnsureColumnAsync(db, "devtoy_oui_meta", "AddedCount",
+            await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "AddedCount",
                 "ALTER TABLE `devtoy_oui_meta` ADD COLUMN `AddedCount` INT NOT NULL DEFAULT 0");
-            await EnsureColumnAsync(db, "devtoy_oui_meta", "UpdatedCount",
+            await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "UpdatedCount",
                 "ALTER TABLE `devtoy_oui_meta` ADD COLUMN `UpdatedCount` INT NOT NULL DEFAULT 0");
-            await EnsureColumnAsync(db, "devtoy_oui_meta", "RemovedCount",
+            await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "RemovedCount",
                 "ALTER TABLE `devtoy_oui_meta` ADD COLUMN `RemovedCount` INT NOT NULL DEFAULT 0");
             return;
         }
 
-        await EnsureColumnAsync(db, "devtoy_oui_entry", "BatchKey",
+        await EnsureColumnAsync(db, NetsTableNames.OuiEntry, OuiColumnBatchKey,
             "ALTER TABLE devtoy_oui_entry ADD COLUMN BatchKey TEXT NULL");
-        await EnsureColumnAsync(db, "devtoy_oui_meta", "BatchKey",
+        await EnsureColumnAsync(db, NetsTableNames.OuiMeta, OuiColumnBatchKey,
             "ALTER TABLE devtoy_oui_meta ADD COLUMN BatchKey TEXT NULL");
-        await EnsureColumnAsync(db, "devtoy_oui_meta", "PreviousBatchKey",
+        await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "PreviousBatchKey",
             "ALTER TABLE devtoy_oui_meta ADD COLUMN PreviousBatchKey TEXT NULL");
-        await EnsureColumnAsync(db, "devtoy_oui_meta", "AddedCount",
+        await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "AddedCount",
             "ALTER TABLE devtoy_oui_meta ADD COLUMN AddedCount INTEGER NOT NULL DEFAULT 0");
-        await EnsureColumnAsync(db, "devtoy_oui_meta", "UpdatedCount",
+        await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "UpdatedCount",
             "ALTER TABLE devtoy_oui_meta ADD COLUMN UpdatedCount INTEGER NOT NULL DEFAULT 0");
-        await EnsureColumnAsync(db, "devtoy_oui_meta", "RemovedCount",
+        await EnsureColumnAsync(db, NetsTableNames.OuiMeta, "RemovedCount",
             "ALTER TABLE devtoy_oui_meta ADD COLUMN RemovedCount INTEGER NOT NULL DEFAULT 0");
     }
 
@@ -806,6 +806,8 @@ public static class AppDatabase
 
     private static async Task EnsureColumnAsync(NetsDbContext db, string table, string column, string ddl)
     {
+        NetsSqlIdentifiers.RequireKnownTableName(table);
+        NetsSqlIdentifiers.RequireColumnName(column);
         var names = await ReadColumnNamesAsync(db, table);
         if (!names.Contains(column))
         {
@@ -840,7 +842,7 @@ public static class AppDatabase
             }
             else
             {
-                cmd.CommandText = $"PRAGMA table_info({table})";
+                cmd.CommandText = NetsSqlIdentifiers.ResolvePragmaTableInfoSql(table);
             }
 
             await using var reader = await cmd.ExecuteReaderAsync();

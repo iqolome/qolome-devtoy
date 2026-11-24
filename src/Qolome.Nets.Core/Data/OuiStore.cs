@@ -9,9 +9,9 @@ namespace Qolome.Nets.Core.Data;
 
 public static class OuiStore
 {
-    public const string IeeeOuiUrl = "https://standards-oui.ieee.org/oui/oui.csv";
-    public const string IeeeMamUrl = "https://standards-oui.ieee.org/oui28/mam.csv";
-    public const string IeeeOui36Url = "https://standards-oui.ieee.org/oui36/oui36.csv";
+    public const string IeeeOuiUrl = "https://standards-oui.ieee.org/oui/oui.csv"; // NOSONAR S1075 — IEEE 官方 OUI CSV
+    public const string IeeeMamUrl = "https://standards-oui.ieee.org/oui28/mam.csv"; // NOSONAR S1075 — IEEE 官方 MAM CSV
+    public const string IeeeOui36Url = "https://standards-oui.ieee.org/oui36/oui36.csv"; // NOSONAR S1075 — IEEE 官方 OUI36 CSV
 
     private const int WriteChunk = 400;
 
@@ -51,7 +51,7 @@ public static class OuiStore
             throw new ScanException("安装包中没有 OUI 数据（Assets/Oui）。");
         }
 
-        await ApplyAsync(db, rows, OuiSources.Bundled, ReadBundledAt(), "安装包内置 IEEE OUI", batchKey)
+        await ApplyAsync(new OuiApplyRequest(db, rows, OuiSources.Bundled, ReadBundledAt(), "安装包内置 IEEE OUI", batchKey))
             .ConfigureAwait(false);
         await ReloadAsync().ConfigureAwait(false);
     }
@@ -126,7 +126,7 @@ public static class OuiStore
         await using var db = AppDatabase.CreateContext();
         var bundledAt = (await db.OuiMetas.AsNoTracking().FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false))?.BundledAtUtc
             ?? ReadBundledAt();
-        await ApplyAsync(
+        await ApplyAsync(new OuiApplyRequest(
             db,
             rows,
             OuiSources.Ieee,
@@ -134,7 +134,7 @@ public static class OuiStore
             $"{IeeeOuiUrl} ; {IeeeMamUrl} ; {IeeeOui36Url}",
             batchKey,
             progress,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken)).ConfigureAwait(false);
         Report(progress, 94, "正在加载厂商查找表…");
         await ReloadAsync().ConfigureAwait(false);
         Report(progress, 100, "OUI 更新完成");
@@ -162,13 +162,13 @@ public static class OuiStore
         var batchKey = string.IsNullOrWhiteSpace(meta?.BatchKey)
             ? HashRows(copies)
             : meta.BatchKey;
-        await ApplyAsync(
+        await ApplyAsync(new OuiApplyRequest(
             to,
             copies,
             meta?.Source ?? OuiSources.Bundled,
             meta?.BundledAtUtc,
             meta?.Note,
-            batchKey).ConfigureAwait(false);
+            batchKey)).ConfigureAwait(false);
         await ReloadAsync().ConfigureAwait(false);
     }
 
@@ -189,37 +189,33 @@ public static class OuiStore
             : "—";
         var count = meta?.RecordCount > 0 ? meta.RecordCount : CachedCount;
         var batch = ShortBatch(meta?.BatchKey);
-        var delta = string.IsNullOrEmpty(meta?.PreviousBatchKey)
-            ? "全量"
-            : $"+{meta!.AddedCount} / 改 {meta.UpdatedCount} / 删 {meta.RemovedCount}";
+        var delta = "全量";
+        if (!string.IsNullOrEmpty(meta?.PreviousBatchKey) && meta is not null)
+        {
+            delta = $"+{meta.AddedCount} / 改 {meta.UpdatedCount} / 删 {meta.RemovedCount}";
+        }
+
         return $"内置登记 {bundled}。数据库 {imported} 写入 {count} 条（{source}）。批次 {batch}（{delta}）。之后只维护当前库中的 OUI。IEEE 没有官方批次号，本程序用三份登记文件的 SHA256 作为批次。";
     }
 
-    private static async Task ApplyAsync(
-        NetsDbContext db,
-        IReadOnlyList<OuiEntry> rows,
-        string source,
-        DateTime? bundledAt,
-        string? note,
-        string batchKey,
-        IProgress<ScanProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+    private static async Task ApplyAsync(OuiApplyRequest apply)
     {
-        Report(progress, 52, "正在比对当前库中的 OUI 批次…");
-        var current = await db.OuiMetas.AsNoTracking().FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
-        if (string.Equals(current?.BatchKey, batchKey, StringComparison.OrdinalIgnoreCase)
-            && await db.OuiEntries.AnyAsync(cancellationToken).ConfigureAwait(false))
+        Report(apply.Progress, 52, "正在比对当前库中的 OUI 批次…");
+        var current = await apply.Db.OuiMetas.AsNoTracking()
+            .FirstOrDefaultAsync(apply.CancellationToken).ConfigureAwait(false);
+        if (string.Equals(current?.BatchKey, apply.BatchKey, StringComparison.OrdinalIgnoreCase)
+            && await apply.Db.OuiEntries.AnyAsync(apply.CancellationToken).ConfigureAwait(false))
         {
-            Report(progress, 90, "IEEE 批次未变，正在更新元数据…");
-            await TouchMetaAsync(db, source, bundledAt, note).ConfigureAwait(false);
+            Report(apply.Progress, 90, "IEEE 批次未变，正在更新元数据…");
+            await TouchMetaAsync(apply.Db, apply.Source, apply.BundledAt, apply.Note).ConfigureAwait(false);
             return;
         }
 
-        Report(progress, 54, "正在读取当前库中的 OUI…");
-        var existing = await LoadExistingAsync(db).ConfigureAwait(false);
-        Report(progress, 58, $"已读取 {existing.Count} 条现有记录，正在计算增量…");
-        var incoming = new Dictionary<string, OuiEntry>(rows.Count, StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows)
+        Report(apply.Progress, 54, "正在读取当前库中的 OUI…");
+        var existing = await LoadExistingAsync(apply.Db).ConfigureAwait(false);
+        Report(apply.Progress, 58, $"已读取 {existing.Count} 条现有记录，正在计算增量…");
+        var incoming = new Dictionary<string, OuiEntry>(apply.Rows.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var row in apply.Rows)
         {
             incoming[row.Prefix] = row;
         }
@@ -243,33 +239,34 @@ public static class OuiStore
         }
 
         var removed = existing.Keys.Where(prefix => !incoming.ContainsKey(prefix)).ToList();
-        Report(progress, 62, $"增量：新增 {added.Count} / 改 {updated.Count} / 删 {removed.Count}");
+        Report(apply.Progress, 62, $"增量：新增 {added.Count} / 改 {updated.Count} / 删 {removed.Count}");
 
-        db.ChangeTracker.Clear();
-        db.ChangeTracker.AutoDetectChangesEnabled = false;
+        apply.Db.ChangeTracker.Clear();
+        apply.Db.ChangeTracker.AutoDetectChangesEnabled = false;
         try
         {
-            await DeleteByPrefixAsync(db, removed, progress, cancellationToken).ConfigureAwait(false);
-            await UpdateByPrefixAsync(db, updated, batchKey, progress, cancellationToken).ConfigureAwait(false);
-            await InsertAsync(db, added, batchKey, progress, cancellationToken).ConfigureAwait(false);
+            await DeleteByPrefixAsync(apply.Db, removed, apply.Progress, apply.CancellationToken).ConfigureAwait(false);
+            await UpdateByPrefixAsync(apply.Db, updated, apply.BatchKey, apply.Progress, apply.CancellationToken)
+                .ConfigureAwait(false);
+            await InsertAsync(apply.Db, added, apply.BatchKey, apply.Progress, apply.CancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            db.ChangeTracker.AutoDetectChangesEnabled = true;
+            apply.Db.ChangeTracker.AutoDetectChangesEnabled = true;
         }
 
-        Report(progress, 92, "正在写入批次元数据…");
-        await UpsertMetaAsync(
-            db,
-            source,
-            bundledAt,
-            note,
-            batchKey,
+        Report(apply.Progress, 92, "正在写入批次元数据…");
+        await UpsertMetaAsync(new OuiMetaUpsertRequest(
+            apply.Db,
+            apply.Source,
+            apply.BundledAt,
+            apply.Note,
+            apply.BatchKey,
             current?.BatchKey,
             incoming.Count,
             added.Count,
             updated.Count,
-            removed.Count).ConfigureAwait(false);
+            removed.Count)).ConfigureAwait(false);
     }
 
     private static async Task TouchMetaAsync(
@@ -291,37 +288,27 @@ public static class OuiStore
         await db.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    private static async Task UpsertMetaAsync(
-        NetsDbContext db,
-        string source,
-        DateTime? bundledAt,
-        string? note,
-        string batchKey,
-        string? previousBatchKey,
-        int recordCount,
-        int added,
-        int updated,
-        int removed)
+    private static async Task UpsertMetaAsync(OuiMetaUpsertRequest upsert)
     {
-        db.ChangeTracker.Clear();
-        var meta = await db.OuiMetas.FirstOrDefaultAsync(x => x.Id == 1).ConfigureAwait(false);
+        upsert.Db.ChangeTracker.Clear();
+        var meta = await upsert.Db.OuiMetas.FirstOrDefaultAsync(x => x.Id == 1).ConfigureAwait(false);
         if (meta is null)
         {
             meta = new OuiMeta { Id = 1 };
-            db.OuiMetas.Add(meta);
+            upsert.Db.OuiMetas.Add(meta);
         }
 
-        meta.Source = source;
-        meta.BundledAtUtc = bundledAt;
+        meta.Source = upsert.Source;
+        meta.BundledAtUtc = upsert.BundledAt;
         meta.ImportedAtUtc = DateTime.UtcNow;
-        meta.RecordCount = recordCount;
-        meta.Note = note;
-        meta.PreviousBatchKey = previousBatchKey;
-        meta.BatchKey = batchKey;
-        meta.AddedCount = added;
-        meta.UpdatedCount = updated;
-        meta.RemovedCount = removed;
-        await db.SaveChangesAsync().ConfigureAwait(false);
+        meta.RecordCount = upsert.RecordCount;
+        meta.Note = upsert.Note;
+        meta.PreviousBatchKey = upsert.PreviousBatchKey;
+        meta.BatchKey = upsert.BatchKey;
+        meta.AddedCount = upsert.Added;
+        meta.UpdatedCount = upsert.Updated;
+        meta.RemovedCount = upsert.Removed;
+        await upsert.Db.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private static async Task DeleteByPrefixAsync(
@@ -438,7 +425,7 @@ public static class OuiStore
                 builder.Add(reader.GetString(0), Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture), reader.GetString(2));
             }
 
-            return builder.Build();
+            return builder.ToTable();
         }
         finally
         {
@@ -569,7 +556,7 @@ public static class OuiStore
         int n;
         while ((n = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
         {
-            output.Write(buffer, 0, n);
+            await output.WriteAsync(buffer.AsMemory(0, n), cancellationToken).ConfigureAwait(false);
             read += n;
             if (read - lastReport < 256 * 1024 && (total is null || read < total.Value))
             {
@@ -603,19 +590,30 @@ public static class OuiStore
     private static double Lerp(double start, double end, double t) =>
         start + (end - start) * Math.Clamp(t, 0, 1);
 
-    private static string FormatSize(long bytes) =>
-        bytes < 1024
-            ? $"{bytes} B"
-            : bytes < 1024 * 1024
-                ? $"{bytes / 1024.0:0.0} KB"
-                : $"{bytes / (1024.0 * 1024):0.00} MB";
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
 
-    private static string ShortBatch(string? batchKey) =>
-        string.IsNullOrEmpty(batchKey)
-            ? "—"
-            : batchKey.Length <= 8
-                ? batchKey
-                : batchKey[..8];
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024.0:0.0} KB";
+        }
+
+        return $"{bytes / (1024.0 * 1024):0.00} MB";
+    }
+
+    private static string ShortBatch(string? batchKey)
+    {
+        if (string.IsNullOrEmpty(batchKey))
+        {
+            return "—";
+        }
+
+        return batchKey.Length <= 8 ? batchKey : batchKey[..8];
+    }
 
     private static string HeaderText(byte[] bytes)
     {
@@ -640,4 +638,26 @@ public static class OuiStore
             ? value
             : null;
     }
+
+    private sealed record OuiApplyRequest(
+        NetsDbContext Db,
+        IReadOnlyList<OuiEntry> Rows,
+        string Source,
+        DateTime? BundledAt,
+        string? Note,
+        string BatchKey,
+        IProgress<ScanProgress>? Progress = null,
+        CancellationToken CancellationToken = default);
+
+    private sealed record OuiMetaUpsertRequest(
+        NetsDbContext Db,
+        string Source,
+        DateTime? BundledAt,
+        string? Note,
+        string BatchKey,
+        string? PreviousBatchKey,
+        int RecordCount,
+        int Added,
+        int Updated,
+        int Removed);
 }

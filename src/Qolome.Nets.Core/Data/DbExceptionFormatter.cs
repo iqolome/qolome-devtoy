@@ -39,9 +39,17 @@ public static class DbExceptionFormatter
                        "An error occurred while saving the entity changes. See the inner exception for details.",
                        StringComparison.Ordinal)))
         {
-            current = current.InnerException is AggregateException agg
-                ? agg.Flatten().InnerExceptions.FirstOrDefault() ?? agg.InnerException ?? current.InnerException!
-                : current.InnerException;
+            if (current.InnerException is AggregateException agg)
+            {
+                current = agg.Flatten().InnerExceptions.FirstOrDefault()
+                    ?? agg.InnerException
+                    ?? current.InnerException
+                    ?? current;
+            }
+            else
+            {
+                current = current.InnerException;
+            }
         }
 
         return current;

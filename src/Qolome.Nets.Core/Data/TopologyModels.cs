@@ -25,14 +25,16 @@ public static class TopologyMetrics
     public static double MaxY => Math.Max(0, CanvasHeight - NodeHeight);
 
     public static double WidthOf(TopologyNodeDto node) =>
-        node.IsContainer
-            ? Math.Clamp(node.Width > 0 ? node.Width : ContainerMinWidth, ContainerMinWidth, CanvasMaxWidth)
-            : NodeWidth;
+        node.IsContainer ? ClampContainer(node.Width, ContainerMinWidth, CanvasMaxWidth) : NodeWidth;
 
     public static double HeightOf(TopologyNodeDto node) =>
-        node.IsContainer
-            ? Math.Clamp(node.Height > 0 ? node.Height : ContainerMinHeight, ContainerMinHeight, CanvasMaxHeight)
-            : NodeHeight;
+        node.IsContainer ? ClampContainer(node.Height, ContainerMinHeight, CanvasMaxHeight) : NodeHeight;
+
+    private static double ClampContainer(double value, double minimum, double maximum)
+    {
+        var size = value > 0 ? value : minimum;
+        return Math.Clamp(size, minimum, maximum);
+    }
 
     public static double LayoutHeightOf(TopologyNodeDto node) =>
         HeightOf(node) + (node.IsContainer ? ContainerCaptionGap + ContainerCaptionHeight : 0);

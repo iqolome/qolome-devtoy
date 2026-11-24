@@ -53,13 +53,13 @@ public partial class MainPageViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
-    public partial string TargetText { get; set; } = "";
+    public partial string TargetText { get; set; }
 
     [ObservableProperty]
-    public partial string PortsText { get; set; } = "";
+    public partial string PortsText { get; set; }
 
     [ObservableProperty]
-    public partial string UdpPortsText { get; set; } = "";
+    public partial string UdpPortsText { get; set; }
 
     [ObservableProperty]
     public partial bool TreatUdpTimeoutAsOpen { get; set; }
@@ -140,7 +140,7 @@ public partial class MainPageViewModel : ObservableObject
         ApplyScanSettings();
         try
         {
-            var environments = await _inventory.GetEnvironmentsAsync();
+            var environments = await InventoryService.GetEnvironmentsAsync();
             Environments.Clear();
             foreach (var env in environments)
             {
@@ -201,7 +201,7 @@ public partial class MainPageViewModel : ObservableObject
             return;
         }
 
-        var groups = await _inventory.GetGroupsAsync(SelectedEnvironment.Id);
+        var groups = await InventoryService.GetGroupsAsync(SelectedEnvironment.Id);
         foreach (var group in groups)
         {
             Groups.Add(group);

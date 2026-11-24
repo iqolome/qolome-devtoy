@@ -139,26 +139,24 @@ public sealed class InventoryBackupService
         };
     }
 
-    public async Task WriteBackupAsync(string path, InventoryBackupPackage package)
+    public static async Task WriteBackupAsync(string path, InventoryBackupPackage package)
     {
         if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
             await using var fs = File.Create(path);
             using var zip = new ZipArchive(fs, ZipArchiveMode.Create);
             var jsonEntry = zip.CreateEntry("qolome-nets.json");
-            await using (var stream = jsonEntry.Open())
+            await using var stream = await jsonEntry.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+            using (MachineBoundSecret.OmitPassword())
             {
-                using (MachineBoundSecret.OmitPassword())
-                {
-                    await JsonSerializer.SerializeAsync(stream, package.File, JsonOptions);
-                }
+                await JsonSerializer.SerializeAsync(stream, package.File, JsonOptions).ConfigureAwait(false);
             }
 
             foreach (var (name, bytes) in package.CustomIcons)
             {
                 var iconEntry = zip.CreateEntry($"icons/{name}");
-                await using var stream = iconEntry.Open();
-                await stream.WriteAsync(bytes);
+                await using var iconStream = await iconEntry.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+                await iconStream.WriteAsync(bytes).ConfigureAwait(false);
             }
 
             return;
@@ -178,15 +176,15 @@ public sealed class InventoryBackupService
         await File.WriteAllTextAsync(path, json);
     }
 
-    public async Task<(InventoryBackupFile File, IReadOnlyDictionary<string, byte[]> Icons)> ReadBackupAsync(string path)
+    public static async Task<(InventoryBackupFile File, IReadOnlyDictionary<string, byte[]> Icons)> ReadBackupAsync(string path)
     {
         if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
-            using var zip = ZipFile.OpenRead(path);
+            await using var zip = await ZipFile.OpenReadAsync(path).ConfigureAwait(false);
             var jsonEntry = zip.GetEntry("qolome-nets.json")
                 ?? zip.Entries.FirstOrDefault(e => e.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                 ?? throw new ScanException("ZIP 中没有找到 qolome-nets.json。");
-            await using var jsonStream = jsonEntry.Open();
+            await using var jsonStream = await jsonEntry.OpenAsync(CancellationToken.None).ConfigureAwait(false);
             using var reader = new StreamReader(jsonStream);
             var zipJson = await reader.ReadToEndAsync();
             var zipFile = DeserializeBackup(zipJson);
@@ -210,7 +208,7 @@ public sealed class InventoryBackupService
                     continue;
                 }
 
-                await using var iconStream = entry.Open();
+                await using var iconStream = await entry.OpenAsync(CancellationToken.None).ConfigureAwait(false);
                 using var ms = new MemoryStream();
                 await iconStream.CopyToAsync(ms);
                 icons[name] = ms.ToArray();
@@ -240,7 +238,7 @@ public sealed class InventoryBackupService
         return file;
     }
 
-    public async Task<InventoryBackupResult> ImportAsync(
+    public static async Task<InventoryBackupResult> ImportAsync(
         InventoryBackupFile file,
         InventoryBackupModules modules,
         IReadOnlyDictionary<string, byte[]>? customIcons = null)
@@ -253,76 +251,123 @@ public sealed class InventoryBackupService
         var result = new InventoryBackupResult();
         await using var db = AppDatabase.CreateContext();
 
-        if (modules.DeviceTypes)
-        {
-            if (file.DeviceTypes is { Count: > 0 })
-            {
-                var (count, icons) = await ImportDeviceTypesAsync(db, file.DeviceTypes, customIcons);
-                result.DeviceTypes = count;
-                result.CustomIcons = icons;
-            }
-            else
-            {
-                result.Warnings.Add("文件中没有设备类型。");
-            }
-        }
-
-        if (modules.Environments)
-        {
-            if (file.Environments is { Count: > 0 })
-            {
-                result.Environments = await ImportEnvironmentsAsync(db, file.Environments);
-            }
-            else
-            {
-                result.Warnings.Add("文件中没有网络环境。");
-            }
-        }
-
-        if (modules.Groups)
-        {
-            if (file.Groups is { Count: > 0 })
-            {
-                var (count, skipped) = await ImportGroupsAsync(db, file.Groups);
-                result.Groups = count;
-                result.Skipped += skipped;
-            }
-            else
-            {
-                result.Warnings.Add("文件中没有网络分组。");
-            }
-        }
-
-        if (modules.Devices)
-        {
-            if (file.Devices is { Count: > 0 })
-            {
-                var (count, skipped) = await ImportDevicesAsync(db, file.Devices);
-                result.Devices = count;
-                result.Skipped += skipped;
-            }
-            else
-            {
-                result.Warnings.Add("文件中没有设备信息。");
-            }
-        }
-
-        if (modules.Topology)
-        {
-            if (file.Topologies is { Count: > 0 })
-            {
-                var (count, skipped) = await ImportTopologiesAsync(db, file.Topologies);
-                result.Topologies = count;
-                result.Skipped += skipped;
-            }
-            else
-            {
-                result.Warnings.Add("文件中没有拓扑图。");
-            }
-        }
+        await ImportDeviceTypesModuleAsync(db, file, modules, customIcons, result);
+        await ImportEnvironmentsModuleAsync(db, file, modules, result);
+        await ImportGroupsModuleAsync(db, file, modules, result);
+        await ImportDevicesModuleAsync(db, file, modules, result);
+        await ImportTopologyModuleAsync(db, file, modules, result);
 
         await db.SaveChangesAsync();
         return result;
+    }
+
+    private static async Task ImportDeviceTypesModuleAsync(
+        NetsDbContext db,
+        InventoryBackupFile file,
+        InventoryBackupModules modules,
+        IReadOnlyDictionary<string, byte[]>? customIcons,
+        InventoryBackupResult result)
+    {
+        if (!modules.DeviceTypes)
+        {
+            return;
+        }
+
+        if (file.DeviceTypes is not { Count: > 0 })
+        {
+            result.Warnings.Add("文件中没有设备类型。");
+            return;
+        }
+
+        var (count, icons) = await ImportDeviceTypesAsync(db, file.DeviceTypes, customIcons);
+        result.DeviceTypes = count;
+        result.CustomIcons = icons;
+    }
+
+    private static async Task ImportEnvironmentsModuleAsync(
+        NetsDbContext db,
+        InventoryBackupFile file,
+        InventoryBackupModules modules,
+        InventoryBackupResult result)
+    {
+        if (!modules.Environments)
+        {
+            return;
+        }
+
+        if (file.Environments is not { Count: > 0 })
+        {
+            result.Warnings.Add("文件中没有网络环境。");
+            return;
+        }
+
+        result.Environments = await ImportEnvironmentsAsync(db, file.Environments);
+    }
+
+    private static async Task ImportGroupsModuleAsync(
+        NetsDbContext db,
+        InventoryBackupFile file,
+        InventoryBackupModules modules,
+        InventoryBackupResult result)
+    {
+        if (!modules.Groups)
+        {
+            return;
+        }
+
+        if (file.Groups is not { Count: > 0 })
+        {
+            result.Warnings.Add("文件中没有网络分组。");
+            return;
+        }
+
+        var (count, skipped) = await ImportGroupsAsync(db, file.Groups);
+        result.Groups = count;
+        result.Skipped += skipped;
+    }
+
+    private static async Task ImportDevicesModuleAsync(
+        NetsDbContext db,
+        InventoryBackupFile file,
+        InventoryBackupModules modules,
+        InventoryBackupResult result)
+    {
+        if (!modules.Devices)
+        {
+            return;
+        }
+
+        if (file.Devices is not { Count: > 0 })
+        {
+            result.Warnings.Add("文件中没有设备信息。");
+            return;
+        }
+
+        var (count, skipped) = await ImportDevicesAsync(db, file.Devices);
+        result.Devices = count;
+        result.Skipped += skipped;
+    }
+
+    private static async Task ImportTopologyModuleAsync(
+        NetsDbContext db,
+        InventoryBackupFile file,
+        InventoryBackupModules modules,
+        InventoryBackupResult result)
+    {
+        if (!modules.Topology)
+        {
+            return;
+        }
+
+        if (file.Topologies is not { Count: > 0 })
+        {
+            result.Warnings.Add("文件中没有拓扑图。");
+            return;
+        }
+
+        var (count, skipped) = await ImportTopologiesAsync(db, file.Topologies);
+        result.Topologies = count;
+        result.Skipped += skipped;
     }
 
     private static async Task<int> ImportEnvironmentsAsync(NetsDbContext db, IReadOnlyList<EnvironmentBackupDto> rows)
@@ -415,53 +460,9 @@ public sealed class InventoryBackupService
         var icons = 0;
         foreach (var row in rows)
         {
-            var code = NullIfEmpty(row.Code)?.ToLowerInvariant();
-            var name = NullIfEmpty(row.Name);
-            if (code is null && name is null)
+            if (!TryImportDeviceTypeRow(db, row, customIcons, existing, ref icons))
             {
                 continue;
-            }
-
-            code ??= (name ?? "type").ToLowerInvariant();
-            name ??= code;
-            var entity = existing.FirstOrDefault(x =>
-                x.Code.Equals(code, StringComparison.OrdinalIgnoreCase)
-                || x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (entity is null)
-            {
-                var order = existing.Select(x => x.SortOrder).DefaultIfEmpty(-1).Max() + 1;
-                entity = new DeviceType { SortOrder = row.SortOrder > 0 ? row.SortOrder : order };
-                db.DeviceTypes.Add(entity);
-                existing.Add(entity);
-            }
-
-            entity.Code = code;
-            entity.Name = name;
-            entity.Description = NullIfEmpty(row.Description) ?? entity.Description;
-            if (!string.IsNullOrWhiteSpace(row.ColorGroup) || string.IsNullOrWhiteSpace(entity.ColorGroup))
-            {
-                entity.ColorGroup = DeviceTypeColorGroups.Normalize(row.ColorGroup, code);
-            }
-            if (row.SortOrder > 0)
-            {
-                entity.SortOrder = row.SortOrder;
-            }
-
-            if (row.IsCustomIcon && NullIfEmpty(row.IconFile) is string iconName
-                && DeviceTypeIconStore.IsSvg(iconName)
-                && customIcons is not null
-                && customIcons.TryGetValue(Path.GetFileName(iconName), out var bytes))
-            {
-                var safe = DeviceTypeIconStore.SanitizeFileName(iconName);
-                DeviceTypeIconStore.InstallCustomFile(safe, bytes);
-                if (entity.IsCustomIcon && !string.Equals(entity.IconFile, safe, StringComparison.OrdinalIgnoreCase))
-                {
-                    DeviceTypeIconStore.DeleteCustom(entity.IconFile);
-                }
-
-                entity.IconFile = safe;
-                entity.IsCustomIcon = true;
-                icons++;
             }
 
             count++;
@@ -469,6 +470,81 @@ public sealed class InventoryBackupService
 
         await db.SaveChangesAsync();
         return (count, icons);
+    }
+
+    private static bool TryImportDeviceTypeRow(
+        NetsDbContext db,
+        DeviceTypeBackupDto row,
+        IReadOnlyDictionary<string, byte[]>? customIcons,
+        List<DeviceType> existing,
+        ref int icons)
+    {
+        var code = NullIfEmpty(row.Code)?.ToLowerInvariant();
+        var name = NullIfEmpty(row.Name);
+        if (code is null && name is null)
+        {
+            return false;
+        }
+
+        code ??= (name ?? "type").ToLowerInvariant();
+        name ??= code;
+        var entity = existing.FirstOrDefault(x =>
+            x.Code.Equals(code, StringComparison.OrdinalIgnoreCase)
+            || x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (entity is null)
+        {
+            var order = existing.Select(x => x.SortOrder).DefaultIfEmpty(-1).Max() + 1;
+            entity = new DeviceType { SortOrder = row.SortOrder > 0 ? row.SortOrder : order };
+            db.DeviceTypes.Add(entity);
+            existing.Add(entity);
+        }
+
+        entity.Code = code;
+        entity.Name = name;
+        entity.Description = NullIfEmpty(row.Description) ?? entity.Description;
+        if (!string.IsNullOrWhiteSpace(row.ColorGroup) || string.IsNullOrWhiteSpace(entity.ColorGroup))
+        {
+            entity.ColorGroup = DeviceTypeColorGroups.Normalize(row.ColorGroup, code);
+        }
+
+        if (row.SortOrder > 0)
+        {
+            entity.SortOrder = row.SortOrder;
+        }
+
+        if (TryInstallCustomTypeIcon(entity, row, customIcons))
+        {
+            icons++;
+        }
+
+        return true;
+    }
+
+    private static bool TryInstallCustomTypeIcon(
+        DeviceType entity,
+        DeviceTypeBackupDto row,
+        IReadOnlyDictionary<string, byte[]>? customIcons)
+    {
+        if (!row.IsCustomIcon || NullIfEmpty(row.IconFile) is not string iconName || !DeviceTypeIconStore.IsSvg(iconName))
+        {
+            return false;
+        }
+
+        if (customIcons is null || !customIcons.TryGetValue(Path.GetFileName(iconName), out var bytes))
+        {
+            return false;
+        }
+
+        var safe = DeviceTypeIconStore.SanitizeFileName(iconName);
+        DeviceTypeIconStore.InstallCustomFile(safe, bytes);
+        if (entity.IsCustomIcon && !string.Equals(entity.IconFile, safe, StringComparison.OrdinalIgnoreCase))
+        {
+            DeviceTypeIconStore.DeleteCustom(entity.IconFile);
+        }
+
+        entity.IconFile = safe;
+        entity.IsCustomIcon = true;
+        return true;
     }
 
     private static async Task<(int Count, int Skipped)> ImportDevicesAsync(NetsDbContext db, IReadOnlyList<DeviceBackupDto> rows)
@@ -483,96 +559,130 @@ public sealed class InventoryBackupService
 
         foreach (var row in rows)
         {
-            var envName = NullIfEmpty(row.EnvironmentName);
-            if (envName is null)
+            if (!TryResolveImportEnvironment(row, environments, out var env))
             {
                 skipped++;
                 continue;
             }
 
-            var env = environments.FirstOrDefault(x => x.Name.Equals(envName, StringComparison.OrdinalIgnoreCase));
-            if (env is null)
-            {
-                skipped++;
-                continue;
-            }
-
-            int? groupId = null;
-            var groupName = NullIfEmpty(row.GroupName);
-            if (groupName is not null)
-            {
-                var group = groups.FirstOrDefault(x =>
-                    x.NetworkEnvironmentId == env.Id
-                    && x.Name.Equals(groupName, StringComparison.OrdinalIgnoreCase));
-                groupId = group?.Id;
-            }
-
-            int? typeId = null;
-            var typeKey = NullIfEmpty(row.DeviceTypeCode) ?? NullIfEmpty(row.DeviceTypeName);
-            if (typeKey is not null)
-            {
-                var type = types.FirstOrDefault(x =>
-                    x.Code.Equals(typeKey, StringComparison.OrdinalIgnoreCase)
-                    || x.Name.Equals(typeKey, StringComparison.OrdinalIgnoreCase));
-                typeId = type?.Id;
-            }
-
-            var code = NullIfEmpty(row.Code);
-            var nics = BackupNics(row);
-            var mac = nics.Select(n => InventoryService.NormalizeMac(n.Mac)).FirstOrDefault(m => m is not null)
-                ?? InventoryService.NormalizeMac(row.Mac);
-            var inEnv = devices.Where(x => x.NetworkEnvironmentId == env.Id);
-            var entity = mac is not null
-                ? inEnv.FirstOrDefault(x =>
-                    InventoryService.NormalizeMac(x.Mac) == mac
-                    || x.Nics.Any(n => InventoryService.NormalizeMac(n.Mac) == mac))
-                : null;
-            if (entity is null && code is not null)
-            {
-                entity = inEnv.FirstOrDefault(x => x.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
-            }
-            if (entity is null)
-            {
-                entity = new Device
-                {
-                    Code = code ?? $"DEV-{nextSerial++:D4}",
-                    CreatedAtUtc = DateTime.UtcNow
-                };
-                if (devices.Any(d => d.Code.Equals(entity.Code, StringComparison.OrdinalIgnoreCase)))
-                {
-                    entity.Code = $"DEV-{nextSerial++:D4}";
-                }
-
-                db.Devices.Add(entity);
-                devices.Add(entity);
-            }
-
-            entity.NetworkEnvironmentId = env.Id;
-            entity.DeviceGroupId = groupId;
-            entity.DeviceTypeId = typeId ?? entity.DeviceTypeId;
-            entity.Hostname = NullIfEmpty(row.Hostname) ?? entity.Hostname;
-            entity.Vendor = NullIfEmpty(row.Vendor) ?? entity.Vendor;
-            entity.Brand = NullIfEmpty(row.Brand) ?? entity.Brand;
-            entity.Model = NullIfEmpty(row.Model) ?? entity.Model;
-            entity.Description = NullIfEmpty(row.Description) ?? entity.Description;
-            entity.Ip = NullIfEmpty(row.Ip) ?? entity.Ip;
-            entity.Mac = mac ?? entity.Mac;
-            entity.OsType = NullIfEmpty(row.OsType) ?? entity.OsType;
-            entity.DeviceInfo = NullIfEmpty(row.DeviceInfo) ?? entity.DeviceInfo;
-            entity.OpenPorts = NullIfEmpty(row.OpenPorts) ?? entity.OpenPorts;
-            entity.Remarks = NullIfEmpty(row.Remarks) ?? entity.Remarks;
-            entity.Source = NullIfEmpty(row.Source) ?? "Import";
-            entity.UpdatedAtUtc = DateTime.UtcNow;
-            ReplaceDomains(entity, row.Domains);
-            if (nics.Count > 0)
-            {
-                ReplaceNics(entity, nics);
-            }
+            var entity = FindOrCreateImportDevice(db, row, env.Id, devices, ref nextSerial);
+            ApplyImportedDeviceFields(entity, row, env, groups, types);
             count++;
         }
 
         await db.SaveChangesAsync();
         return (count, skipped);
+    }
+
+    private static bool TryResolveImportEnvironment(
+        DeviceBackupDto row,
+        IReadOnlyList<NetworkEnvironment> environments,
+        out NetworkEnvironment env)
+    {
+        var envName = NullIfEmpty(row.EnvironmentName);
+        if (envName is null)
+        {
+            env = null!;
+            return false;
+        }
+
+        env = environments.FirstOrDefault(x => x.Name.Equals(envName, StringComparison.OrdinalIgnoreCase))!;
+        return env is not null;
+    }
+
+    private static Device FindOrCreateImportDevice(
+        NetsDbContext db,
+        DeviceBackupDto row,
+        int environmentId,
+        List<Device> devices,
+        ref int nextSerial)
+    {
+        var code = NullIfEmpty(row.Code);
+        var nics = BackupNics(row);
+        var mac = nics.Select(n => InventoryService.NormalizeMac(n.Mac)).FirstOrDefault(m => m is not null)
+            ?? InventoryService.NormalizeMac(row.Mac);
+        var inEnv = devices.Where(x => x.NetworkEnvironmentId == environmentId);
+        Device? entity = mac is not null
+            ? inEnv.FirstOrDefault(x =>
+                InventoryService.NormalizeMac(x.Mac) == mac
+                || x.Nics.Any(n => InventoryService.NormalizeMac(n.Mac) == mac))
+            : null;
+        if (entity is null && code is not null)
+        {
+            entity = inEnv.FirstOrDefault(x => x.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (entity is not null)
+        {
+            return entity;
+        }
+
+        entity = new Device
+        {
+            Code = code ?? $"DEV-{nextSerial++:D4}",
+            CreatedAtUtc = DateTime.UtcNow
+        };
+        if (devices.Exists(d => d.Code.Equals(entity.Code, StringComparison.OrdinalIgnoreCase)))
+        {
+            entity.Code = $"DEV-{nextSerial++:D4}";
+        }
+
+        db.Devices.Add(entity);
+        devices.Add(entity);
+        return entity;
+    }
+
+    private static void ApplyImportedDeviceFields(
+        Device entity,
+        DeviceBackupDto row,
+        NetworkEnvironment env,
+        IReadOnlyList<DeviceGroup> groups,
+        IReadOnlyList<DeviceType> types)
+    {
+        int? groupId = null;
+        var groupName = NullIfEmpty(row.GroupName);
+        if (groupName is not null)
+        {
+            var group = groups.FirstOrDefault(x =>
+                x.NetworkEnvironmentId == env.Id && x.Name.Equals(groupName, StringComparison.OrdinalIgnoreCase));
+            groupId = group?.Id;
+        }
+
+        int? typeId = null;
+        var typeKey = NullIfEmpty(row.DeviceTypeCode) ?? NullIfEmpty(row.DeviceTypeName);
+        if (typeKey is not null)
+        {
+            var type = types.FirstOrDefault(x =>
+                x.Code.Equals(typeKey, StringComparison.OrdinalIgnoreCase)
+                || x.Name.Equals(typeKey, StringComparison.OrdinalIgnoreCase));
+            typeId = type?.Id;
+        }
+
+        var nics = BackupNics(row);
+        var mac = nics.Select(n => InventoryService.NormalizeMac(n.Mac)).FirstOrDefault(m => m is not null)
+            ?? InventoryService.NormalizeMac(row.Mac);
+
+        entity.NetworkEnvironmentId = env.Id;
+        entity.DeviceGroupId = groupId;
+        entity.DeviceTypeId = typeId ?? entity.DeviceTypeId;
+        entity.Hostname = NullIfEmpty(row.Hostname) ?? entity.Hostname;
+        entity.Vendor = NullIfEmpty(row.Vendor) ?? entity.Vendor;
+        entity.Brand = NullIfEmpty(row.Brand) ?? entity.Brand;
+        entity.Model = NullIfEmpty(row.Model) ?? entity.Model;
+        entity.Description = NullIfEmpty(row.Description) ?? entity.Description;
+        entity.Ip = NullIfEmpty(row.Ip) ?? entity.Ip;
+        entity.Mac = mac ?? entity.Mac;
+        entity.OsType = NullIfEmpty(row.OsType) ?? entity.OsType;
+        entity.DeviceInfo = NullIfEmpty(row.DeviceInfo) ?? entity.DeviceInfo;
+        entity.OpenPorts = NullIfEmpty(row.OpenPorts) ?? entity.OpenPorts;
+        entity.Remarks = NullIfEmpty(row.Remarks) ?? entity.Remarks;
+        entity.Source = NullIfEmpty(row.Source) ?? "Import";
+        entity.UpdatedAtUtc = DateTime.UtcNow;
+        ReplaceDomains(entity, row.Domains);
+        if (nics.Count > 0)
+        {
+            ReplaceNics(entity, nics);
+        }
     }
 
     private static async Task<List<TopologyBackupDto>> ExportTopologiesAsync(NetsDbContext db)
@@ -663,7 +773,6 @@ public sealed class InventoryBackupService
     {
         var environments = await db.Environments.AsNoTracking().ToListAsync();
         var devices = await db.Devices.AsNoTracking().ToListAsync();
-        var store = new TopologyStore();
         var count = 0;
         var skipped = 0;
         foreach (var row in rows)
@@ -684,7 +793,7 @@ public sealed class InventoryBackupService
 
             var envDevices = devices.Where(d => d.NetworkEnvironmentId == env.Id).ToList();
             var document = FromTopologyBackup(row, env.Id, envDevices);
-            await store.SaveAsync(document);
+            await TopologyStore.SaveAsync(document);
             count++;
         }
 
@@ -698,122 +807,152 @@ public sealed class InventoryBackupService
     {
         var idMap = new Dictionary<int, int>();
         var usedIds = new HashSet<int>();
-        var nodes = new List<TopologyNodeDto>();
-        foreach (var node in row.Nodes)
-        {
-            var kind = TopologyNodeKinds.Normalize(node.Kind, string.IsNullOrWhiteSpace(node.DeviceCode) ? 0 : 1);
-            if (kind == TopologyNodeKinds.Device)
-            {
-                var code = NullIfEmpty(node.DeviceCode);
-                if (code is null)
-                {
-                    continue;
-                }
-
-                var device = envDevices.FirstOrDefault(d =>
-                    d.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
-                if (device is null)
-                {
-                    continue;
-                }
-
-                idMap[node.Id] = device.Id;
-                if (!usedIds.Add(device.Id))
-                {
-                    continue;
-                }
-
-                nodes.Add(new TopologyNodeDto
-                {
-                    Id = device.Id,
-                    DeviceId = device.Id,
-                    Kind = TopologyNodeKinds.Device,
-                    Label = node.Label,
-                    X = node.X,
-                    Y = node.Y,
-                    ContainerId = node.ContainerId
-                });
-                continue;
-            }
-
-            var newId = node.Id < 0 && usedIds.Add(node.Id)
-                ? node.Id
-                : NextIspBackupId(usedIds);
-            idMap[node.Id] = newId;
-            if (kind == TopologyNodeKinds.Container)
-            {
-                nodes.Add(new TopologyNodeDto
-                {
-                    Id = newId,
-                    DeviceId = 0,
-                    Kind = TopologyNodeKinds.Container,
-                    Label = NullIfEmpty(node.Label) ?? "容器",
-                    X = node.X,
-                    Y = node.Y,
-                    Width = node.Width,
-                    Height = node.Height
-                });
-                continue;
-            }
-
-            nodes.Add(new TopologyNodeDto
-            {
-                Id = newId,
-                DeviceId = 0,
-                Kind = TopologyNodeKinds.Isp,
-                IspKey = IspPresets.Normalize(node.IspKey, node.Label),
-                Label = NullIfEmpty(node.Label) ?? IspPresets.DefaultLabel(IspPresets.Custom),
-                X = node.X,
-                Y = node.Y
-            });
-        }
-
-        foreach (var node in nodes)
-        {
-            if (node.ContainerId is int oldParent && idMap.TryGetValue(oldParent, out var mapped)
-                && nodes.Any(n => n.Id == mapped && n.IsContainer)
-                && !node.IsContainer)
-            {
-                node.ContainerId = mapped;
-            }
-            else
-            {
-                node.ContainerId = null;
-            }
-        }
-
-        var links = row.Links
-            .Select(link =>
-            {
-                if (!idMap.TryGetValue(link.FromNodeId, out var from)
-                    || !idMap.TryGetValue(link.ToNodeId, out var to))
-                {
-                    return null;
-                }
-
-                return new TopologyLinkDto
-                {
-                    FromNodeId = from,
-                    ToNodeId = to,
-                    FromDeviceId = from,
-                    ToDeviceId = to,
-                    Kind = TopologyLinkKinds.Normalize(link.Kind),
-                    Color = NullIfEmpty(link.Color),
-                    Dashed = link.Dashed,
-                    Label = NullIfEmpty(link.Label),
-                    Curve = link.Curve
-                };
-            })
-            .Where(l => l is not null)
-            .Cast<TopologyLinkDto>()
-            .ToList();
-
+        var nodes = BuildBackupNodes(row.Nodes, envDevices, idMap, usedIds);
+        RemapBackupContainerParents(nodes, idMap);
+        var links = BuildBackupLinks(row.Links, idMap);
         return new TopologyDocument
         {
             EnvironmentId = environmentId,
             Nodes = nodes,
             Links = links
         };
+    }
+
+    private static List<TopologyNodeDto> BuildBackupNodes(
+        IReadOnlyList<TopologyNodeBackupDto> rows,
+        IReadOnlyList<Device> envDevices,
+        Dictionary<int, int> idMap,
+        HashSet<int> usedIds)
+    {
+        var nodes = new List<TopologyNodeDto>();
+        foreach (var node in rows)
+        {
+            var kind = TopologyNodeKinds.Normalize(node.Kind, string.IsNullOrWhiteSpace(node.DeviceCode) ? 0 : 1);
+            if (kind == TopologyNodeKinds.Device)
+            {
+                AddBackupDeviceNode(node, envDevices, idMap, usedIds, nodes);
+            }
+            else
+            {
+                AddBackupSpecialNode(node, kind, idMap, usedIds, nodes);
+            }
+        }
+
+        return nodes;
+    }
+
+    private static void AddBackupDeviceNode(
+        TopologyNodeBackupDto node,
+        IReadOnlyList<Device> envDevices,
+        Dictionary<int, int> idMap,
+        HashSet<int> usedIds,
+        List<TopologyNodeDto> nodes)
+    {
+        var code = NullIfEmpty(node.DeviceCode);
+        if (code is null)
+        {
+            return;
+        }
+
+        var device = envDevices.FirstOrDefault(d => d.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (device is null || !usedIds.Add(device.Id))
+        {
+            return;
+        }
+
+        idMap[node.Id] = device.Id;
+        nodes.Add(new TopologyNodeDto
+        {
+            Id = device.Id,
+            DeviceId = device.Id,
+            Kind = TopologyNodeKinds.Device,
+            Label = node.Label,
+            X = node.X,
+            Y = node.Y,
+            ContainerId = node.ContainerId
+        });
+    }
+
+    private static void AddBackupSpecialNode(
+        TopologyNodeBackupDto node,
+        string kind,
+        Dictionary<int, int> idMap,
+        HashSet<int> usedIds,
+        List<TopologyNodeDto> nodes)
+    {
+        var newId = node.Id < 0 && usedIds.Add(node.Id)
+            ? node.Id
+            : NextIspBackupId(usedIds);
+        idMap[node.Id] = newId;
+        if (kind == TopologyNodeKinds.Container)
+        {
+            nodes.Add(new TopologyNodeDto
+            {
+                Id = newId,
+                DeviceId = 0,
+                Kind = TopologyNodeKinds.Container,
+                Label = NullIfEmpty(node.Label) ?? "容器",
+                X = node.X,
+                Y = node.Y,
+                Width = node.Width,
+                Height = node.Height
+            });
+            return;
+        }
+
+        nodes.Add(new TopologyNodeDto
+        {
+            Id = newId,
+            DeviceId = 0,
+            Kind = TopologyNodeKinds.Isp,
+            IspKey = IspPresets.Normalize(node.IspKey, node.Label),
+            Label = NullIfEmpty(node.Label) ?? IspPresets.DefaultLabel(IspPresets.Custom),
+            X = node.X,
+            Y = node.Y
+        });
+    }
+
+    private static void RemapBackupContainerParents(IReadOnlyList<TopologyNodeDto> nodes, IReadOnlyDictionary<int, int> idMap)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.IsContainer || node.ContainerId is not int oldParent || !idMap.TryGetValue(oldParent, out var mapped))
+            {
+                node.ContainerId = null;
+                continue;
+            }
+
+            node.ContainerId = nodes.Any(n => n.Id == mapped && n.IsContainer) ? mapped : null;
+        }
+    }
+
+    private static List<TopologyLinkDto> BuildBackupLinks(
+        IReadOnlyList<TopologyLinkBackupDto> rows,
+        IReadOnlyDictionary<int, int> idMap)
+    {
+        var links = new List<TopologyLinkDto>();
+        foreach (var link in rows)
+        {
+            if (!idMap.TryGetValue(link.FromNodeId, out var from) || !idMap.TryGetValue(link.ToNodeId, out var to))
+            {
+                continue;
+            }
+
+            links.Add(new TopologyLinkDto
+            {
+                FromNodeId = from,
+                ToNodeId = to,
+                FromDeviceId = from,
+                ToDeviceId = to,
+                Kind = TopologyLinkKinds.Normalize(link.Kind),
+                Color = NullIfEmpty(link.Color),
+                Dashed = link.Dashed,
+                Label = NullIfEmpty(link.Label),
+                Curve = link.Curve
+            });
+        }
+
+        return links;
     }
 
     private static int NextIspBackupId(HashSet<int> used)

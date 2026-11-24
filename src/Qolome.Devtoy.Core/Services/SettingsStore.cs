@@ -378,7 +378,7 @@ public sealed class SettingsStore
         }
     }
 
-    private static bool MergeEmbeddedModuleOverrides(string settingsJson, DevtoySettings settings)
+    private static void MergeEmbeddedModuleOverrides(string settingsJson, DevtoySettings settings)
     {
         try
         {
@@ -386,7 +386,7 @@ public sealed class SettingsStore
             if (!doc.RootElement.TryGetProperty("moduleOverrides", out var embedded)
                 || embedded.ValueKind != JsonValueKind.Object)
             {
-                return false;
+                return;
             }
 
             var map = JsonSerializer.Deserialize<Dictionary<string, ModuleCatalogOverride>>(
@@ -394,7 +394,7 @@ public sealed class SettingsStore
                 JsonOptions);
             if (map is null || map.Count == 0)
             {
-                return false;
+                return;
             }
 
             foreach (var (key, value) in map)
@@ -406,12 +406,10 @@ public sealed class SettingsStore
 
                 settings.ModuleOverrides[Path.GetFullPath(key)] = value;
             }
-
-            return true;
         }
         catch
         {
-            return false;
+            // ignore
         }
     }
 

@@ -30,7 +30,7 @@ public sealed class TopologyStore
     }
 
     /// <summary>保存到远程业务库。</summary>
-    public async Task SaveAsync(TopologyDocument document)
+    public static async Task SaveAsync(TopologyDocument document)
     {
         if (document.EnvironmentId <= 0)
         {
@@ -43,9 +43,9 @@ public sealed class TopologyStore
     }
 
     /// <summary>远程库中的拓扑是否不早于给定时间戳。</summary>
-    public async Task<bool> IsRemoteCurrentAsync(int environmentId, DateTime? localUpdatedAt)
+    public static async Task<bool> IsRemoteCurrentAsync(int environmentId, DateTime? localUpdatedAt)
     {
-        if (environmentId <= 0 || !IsUsable(localUpdatedAt))
+        if (environmentId <= 0 || localUpdatedAt is not DateTime localAt || !IsUsable(localAt))
         {
             return false;
         }
@@ -56,7 +56,7 @@ public sealed class TopologyStore
             return false;
         }
 
-        return remote.Timestamp >= AsUtc(localUpdatedAt!.Value).AddSeconds(-2);
+        return remote.Timestamp >= AsUtc(localAt).AddSeconds(-2);
     }
 
     public static void DeleteLocal(int environmentId)
@@ -68,143 +68,173 @@ public sealed class TopologyStore
     public static void Normalize(TopologyDocument document, IReadOnlySet<int>? validDeviceIds)
     {
         TopologyMetrics.Apply(document.CanvasWidth, document.CanvasHeight);
+        var kept = NormalizeNodes(document.Nodes, validDeviceIds);
+        ClampNodePositions(kept);
+        document.Nodes = kept;
+        TopologyMetrics.CopyTo(document);
+        ClearInvalidContainerParents(kept);
+        var validNodeIds = kept.Select(n => n.Id).ToHashSet();
+        var links = NormalizeLinks(document.Links, validNodeIds);
+        AssignLinkIds(links);
+        document.Links = links;
+    }
+
+    private static List<TopologyNodeDto> NormalizeNodes(
+        IReadOnlyList<TopologyNodeDto> nodes,
+        IReadOnlySet<int>? validDeviceIds)
+    {
         var kept = new List<TopologyNodeDto>();
         var usedIds = new HashSet<int>();
-        foreach (var node in document.Nodes)
+        foreach (var node in nodes)
         {
             node.Kind = TopologyNodeKinds.Normalize(node.Kind, node.DeviceId);
             if (node.IsDevice)
             {
-                if (node.DeviceId <= 0)
+                if (TryNormalizeDeviceNode(node, validDeviceIds, usedIds))
                 {
-                    continue;
+                    kept.Add(node);
                 }
 
-                if (validDeviceIds is not null && !validDeviceIds.Contains(node.DeviceId))
-                {
-                    continue;
-                }
-
-                node.Id = node.DeviceId;
-                node.Kind = TopologyNodeKinds.Device;
-                if (!usedIds.Add(node.Id))
-                {
-                    continue;
-                }
-
-                kept.Add(node);
                 continue;
             }
 
-            node.DeviceId = 0;
-            node.IspKey = node.IsContainer ? null : IspPresets.Normalize(node.IspKey, node.Label);
-            if (node.IsContainer)
-            {
-                node.Kind = TopologyNodeKinds.Container;
-                if (string.IsNullOrWhiteSpace(node.Label))
-                {
-                    node.Label = "容器";
-                }
-                else
-                {
-                    node.Label = node.Label.Trim();
-                }
-
-                node.Width = TopologyMetrics.WidthOf(node);
-                node.Height = TopologyMetrics.HeightOf(node);
-            }
-            else
-            {
-                node.Kind = TopologyNodeKinds.Isp;
-                node.IspKey = IspPresets.Normalize(node.IspKey, node.Label);
-                if (IspPresets.IsCarrier(node.IspKey))
-                {
-                    node.Label = IspPresets.DefaultLabel(node.IspKey);
-                }
-                else if (string.IsNullOrWhiteSpace(node.Label))
-                {
-                    node.Label = IspPresets.DefaultLabel(IspPresets.Custom);
-                }
-
-                node.Width = 0;
-                node.Height = 0;
-            }
-
-            if (node.Id >= 0 || !usedIds.Add(node.Id))
-            {
-                node.Id = NextNegativeId(usedIds);
-                usedIds.Add(node.Id);
-            }
-
+            NormalizeNonDeviceNode(node, usedIds);
             kept.Add(node);
         }
 
-        foreach (var node in kept)
+        return kept;
+    }
+
+    private static bool TryNormalizeDeviceNode(
+        TopologyNodeDto node,
+        IReadOnlySet<int>? validDeviceIds,
+        HashSet<int> usedIds)
+    {
+        if (node.DeviceId <= 0)
+        {
+            return false;
+        }
+
+        if (validDeviceIds is not null && !validDeviceIds.Contains(node.DeviceId))
+        {
+            return false;
+        }
+
+        node.Id = node.DeviceId;
+        node.Kind = TopologyNodeKinds.Device;
+        return usedIds.Add(node.Id);
+    }
+
+    private static void NormalizeNonDeviceNode(TopologyNodeDto node, HashSet<int> usedIds)
+    {
+        node.DeviceId = 0;
+        node.IspKey = node.IsContainer ? null : IspPresets.Normalize(node.IspKey, node.Label);
+        if (node.IsContainer)
+        {
+            NormalizeContainerNode(node);
+        }
+        else
+        {
+            NormalizeIspNode(node);
+        }
+
+        if (node.Id >= 0 || !usedIds.Add(node.Id))
+        {
+            node.Id = NextNegativeId(usedIds);
+            usedIds.Add(node.Id);
+        }
+    }
+
+    private static void NormalizeContainerNode(TopologyNodeDto node)
+    {
+        node.Kind = TopologyNodeKinds.Container;
+        node.Label = string.IsNullOrWhiteSpace(node.Label) ? "容器" : node.Label.Trim();
+        node.Width = TopologyMetrics.WidthOf(node);
+        node.Height = TopologyMetrics.HeightOf(node);
+    }
+
+    private static void NormalizeIspNode(TopologyNodeDto node)
+    {
+        node.Kind = TopologyNodeKinds.Isp;
+        node.IspKey = IspPresets.Normalize(node.IspKey, node.Label);
+        if (IspPresets.IsCarrier(node.IspKey))
+        {
+            node.Label = IspPresets.DefaultLabel(node.IspKey);
+        }
+        else if (string.IsNullOrWhiteSpace(node.Label))
+        {
+            node.Label = IspPresets.DefaultLabel(IspPresets.Custom);
+        }
+
+        node.Width = 0;
+        node.Height = 0;
+    }
+
+    private static void ClampNodePositions(IReadOnlyList<TopologyNodeDto> nodes)
+    {
+        foreach (var node in nodes)
         {
             TopologyMetrics.EnsureFits(node, node.X, node.Y);
             var (x, y) = TopologyMetrics.ClampPosition(node, node.X, node.Y);
             node.X = x;
             node.Y = y;
         }
+    }
 
-        document.Nodes = kept;
-        TopologyMetrics.CopyTo(document);
-        var validNodeIds = kept.Select(n => n.Id).ToHashSet();
-        var containerIds = kept.Where(n => n.IsContainer).Select(n => n.Id).ToHashSet();
-        foreach (var node in kept)
+    private static void ClearInvalidContainerParents(IReadOnlyList<TopologyNodeDto> nodes)
+    {
+        var containerIds = nodes.Where(n => n.IsContainer).Select(n => n.Id).ToHashSet();
+        foreach (var node in nodes)
         {
             if (node.IsContainer || node.ContainerId is not int parent || !containerIds.Contains(parent))
             {
                 node.ContainerId = null;
             }
         }
-        var links = document.Links
-            .Select(link =>
-            {
-                if (link.FromNodeId == 0 && link.FromDeviceId != 0)
-                {
-                    link.FromNodeId = link.FromDeviceId;
-                }
+    }
 
-                if (link.ToNodeId == 0 && link.ToDeviceId != 0)
-                {
-                    link.ToNodeId = link.ToDeviceId;
-                }
-
-                if (link.FromNodeId > link.ToNodeId)
-                {
-                    (link.FromNodeId, link.ToNodeId) = (link.ToNodeId, link.FromNodeId);
-                    link.Curve = -link.Curve;
-                }
-
-                if (double.IsNaN(link.Curve) || double.IsInfinity(link.Curve))
-                {
-                    link.Curve = 0;
-                }
-
-                link.Curve = Math.Clamp(link.Curve, -480, 480);
-
-                link.FromDeviceId = link.FromNodeId;
-                link.ToDeviceId = link.ToNodeId;
-                link.Kind = TopologyLinkKinds.Normalize(link.Kind);
-                if (string.IsNullOrWhiteSpace(link.Color))
-                {
-                    link.Color = null;
-                }
-
-                if (string.IsNullOrWhiteSpace(link.Label))
-                {
-                    link.Label = null;
-                }
-
-                return link;
-            })
+    private static List<TopologyLinkDto> NormalizeLinks(
+        IReadOnlyList<TopologyLinkDto> links,
+        IReadOnlySet<int> validNodeIds)
+    {
+        return links
+            .Select(NormalizeLinkEndpoints)
             .Where(l => validNodeIds.Contains(l.FromNodeId)
                         && validNodeIds.Contains(l.ToNodeId)
                         && l.FromNodeId != l.ToNodeId)
             .ToList();
-        AssignLinkIds(links);
-        document.Links = links;
+    }
+
+    private static TopologyLinkDto NormalizeLinkEndpoints(TopologyLinkDto link)
+    {
+        if (link.FromNodeId == 0 && link.FromDeviceId != 0)
+        {
+            link.FromNodeId = link.FromDeviceId;
+        }
+
+        if (link.ToNodeId == 0 && link.ToDeviceId != 0)
+        {
+            link.ToNodeId = link.ToDeviceId;
+        }
+
+        if (link.FromNodeId > link.ToNodeId)
+        {
+            (link.FromNodeId, link.ToNodeId) = (link.ToNodeId, link.FromNodeId);
+            link.Curve = -link.Curve;
+        }
+
+        if (double.IsNaN(link.Curve) || double.IsInfinity(link.Curve))
+        {
+            link.Curve = 0;
+        }
+
+        link.Curve = Math.Clamp(link.Curve, -480, 480);
+        link.FromDeviceId = link.FromNodeId;
+        link.ToDeviceId = link.ToNodeId;
+        link.Kind = TopologyLinkKinds.Normalize(link.Kind);
+        link.Color = string.IsNullOrWhiteSpace(link.Color) ? null : link.Color;
+        link.Label = string.IsNullOrWhiteSpace(link.Label) ? null : link.Label;
+        return link;
     }
 
     private static async Task<TopologySide> ReadDbAsync(int environmentId)
@@ -305,12 +335,9 @@ public sealed class TopologyStore
     {
         var used = new HashSet<int>();
         var next = 1;
-        foreach (var link in links)
+        foreach (var link in links.Where(link => link.Id > 0))
         {
-            if (link.Id > 0)
-            {
-                next = Math.Max(next, link.Id + 1);
-            }
+            next = Math.Max(next, link.Id + 1);
         }
 
         foreach (var link in links)

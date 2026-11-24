@@ -24,7 +24,7 @@ public partial class EnvironmentsViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var list = await _inventory.GetEnvironmentsAsync();
+        var list = await InventoryService.GetEnvironmentsAsync();
         Environments.Clear();
         foreach (var item in list)
         {
@@ -50,7 +50,7 @@ public partial class EnvironmentsViewModel : ObservableObject
             return;
         }
 
-        foreach (var group in await _inventory.GetGroupsAsync(SelectedEnvironment.Id))
+        foreach (var group in await InventoryService.GetGroupsAsync(SelectedEnvironment.Id))
         {
             Groups.Add(group);
         }
@@ -70,7 +70,7 @@ public partial class EnvironmentsViewModel : ObservableObject
             return;
         }
 
-        await _inventory.UpdateEnvironmentAsync(SelectedEnvironment.Id, name, SelectedEnvironment.Description, extra);
+        await InventoryService.UpdateEnvironmentAsync(SelectedEnvironment.Id, name, SelectedEnvironment.Description, extra);
         Status = "已更新网络环境。";
         await LoadAsync();
     }
@@ -82,7 +82,7 @@ public partial class EnvironmentsViewModel : ObservableObject
             return;
         }
 
-        await _inventory.DeleteEnvironmentAsync(SelectedEnvironment.Id);
+        await InventoryService.DeleteEnvironmentAsync(SelectedEnvironment.Id);
         Status = "已删除网络环境。";
         await LoadAsync();
     }
@@ -106,7 +106,7 @@ public partial class EnvironmentsViewModel : ObservableObject
             return;
         }
 
-        await _inventory.UpdateGroupAsync(SelectedGroup.Id, name, extra);
+        await InventoryService.UpdateGroupAsync(SelectedGroup.Id, name, extra);
         Status = "已更新分组。";
         await ReloadGroupsAsync();
     }
@@ -118,7 +118,7 @@ public partial class EnvironmentsViewModel : ObservableObject
             return;
         }
 
-        await _inventory.DeleteGroupAsync(SelectedGroup.Id);
+        await InventoryService.DeleteGroupAsync(SelectedGroup.Id);
         Status = "已删除分组。";
         await ReloadGroupsAsync();
     }

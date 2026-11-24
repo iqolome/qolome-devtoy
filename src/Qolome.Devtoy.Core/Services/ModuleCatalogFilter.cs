@@ -55,73 +55,56 @@ public static class ModuleCatalogFilter
             ? ov.DisplayName.Trim()
             : legacyName;
 
-        return BuildEntry(
-            entry,
-            settings,
-            types,
-            version,
-            isSpecified: false,
-            displayName,
-            isIgnored,
-            ov);
+        return BuildEntry(new EntryBuildContext
+        {
+            Entry = entry,
+            Settings = settings,
+            Types = types,
+            Version = version,
+            IsSpecified = false,
+            DisplayName = displayName,
+            IsIgnored = isIgnored,
+            Override = ov,
+        });
     }
 
     private static ModuleEntry ApplySpecified(ModuleEntry entry, DevtoySettings settings, bool isIgnored)
     {
         settings.ModuleOverrides.TryGetValue(Path.GetFullPath(entry.ModulePath), out var ov);
-        return BuildEntry(
-            entry,
-            settings,
-            entry.ProjectTypes,
-            entry.ProjectVersion,
-            isSpecified: true,
-            entry.CatalogDisplayName,
-            isIgnored,
-            ov);
+        return BuildEntry(new EntryBuildContext
+        {
+            Entry = entry,
+            Settings = settings,
+            Types = entry.ProjectTypes,
+            Version = entry.ProjectVersion,
+            IsSpecified = true,
+            DisplayName = entry.CatalogDisplayName,
+            IsIgnored = isIgnored,
+            Override = ov,
+        });
     }
 
-    private static ModuleEntry BuildEntry(
-        ModuleEntry entry,
-        DevtoySettings settings,
-        ProjectTypes types,
-        string version,
-        bool isSpecified,
-        string? displayName,
-        bool isIgnored,
-        ModuleCatalogOverride? ov)
+    private static ModuleEntry BuildEntry(EntryBuildContext ctx)
     {
+        var ov = ctx.Override;
         var hasCodegen = ov is not null && (
             !string.IsNullOrWhiteSpace(ov.CodegenModelName)
             || ov.CodegenDao is not null
             || ov.CodegenService is not null
             || ov.CodegenController is not null);
 
-        DateTime? createTime = null;
-        DateTime? modifyTime = null;
-        try
-        {
-            var path = Path.GetFullPath(entry.ModulePath);
-            if (settings.ModuleTimes.TryGetValue(path, out var times))
-            {
-                createTime = times.CreateTime;
-                modifyTime = times.ModifyTime;
-            }
-        }
-        catch
-        {
-            // ignore bad path
-        }
+        var (createTime, modifyTime) = ResolvePersistTimes(ctx.Settings, ctx.Entry.ModulePath);
 
         return new ModuleEntry
         {
-            WorkspaceRoot = entry.WorkspaceRoot,
-            ModulePath = entry.ModulePath,
-            Label = entry.Label,
-            ProjectTypes = types,
-            ProjectVersion = version,
-            IsSpecified = isSpecified,
-            CatalogDisplayName = displayName,
-            IsIgnored = isIgnored,
+            WorkspaceRoot = ctx.Entry.WorkspaceRoot,
+            ModulePath = ctx.Entry.ModulePath,
+            Label = ctx.Entry.Label,
+            ProjectTypes = ctx.Types,
+            ProjectVersion = ctx.Version,
+            IsSpecified = ctx.IsSpecified,
+            CatalogDisplayName = ctx.DisplayName,
+            IsIgnored = ctx.IsIgnored,
             CodegenModelName = string.IsNullOrWhiteSpace(ov?.CodegenModelName)
                 ? null
                 : ov.CodegenModelName.Trim(),
@@ -132,7 +115,7 @@ public static class ModuleCatalogFilter
             EnableCodegen = ov?.EnableCodegen == true,
             EnableEnum = ov?.EnableEnum == true,
             EnableTsDict = ov?.EnableTsDict == true,
-            TagBootStarter = ResolveTagBootStarter(entry.ModulePath, types, ov),
+            TagBootStarter = ResolveTagBootStarter(ctx.Entry.ModulePath, ctx.Types, ov),
             EnumPackagePath = string.IsNullOrWhiteSpace(ov?.EnumPackagePath)
                 ? null
                 : ov.EnumPackagePath.Trim(),
@@ -142,6 +125,45 @@ public static class ModuleCatalogFilter
             CreateTime = createTime,
             ModifyTime = modifyTime,
         };
+    }
+
+    private static (DateTime? Create, DateTime? Modify) ResolvePersistTimes(
+        DevtoySettings settings,
+        string modulePath)
+    {
+        try
+        {
+            var path = Path.GetFullPath(modulePath);
+            if (settings.ModuleTimes.TryGetValue(path, out var times))
+            {
+                return (times.CreateTime, times.ModifyTime);
+            }
+        }
+        catch
+        {
+            // ignore bad path
+        }
+
+        return (null, null);
+    }
+
+    private sealed class EntryBuildContext
+    {
+        public required ModuleEntry Entry { get; init; }
+
+        public required DevtoySettings Settings { get; init; }
+
+        public required ProjectTypes Types { get; init; }
+
+        public required string Version { get; init; }
+
+        public bool IsSpecified { get; init; }
+
+        public string? DisplayName { get; init; }
+
+        public bool IsIgnored { get; init; }
+
+        public ModuleCatalogOverride? Override { get; init; }
     }
 
     /// <summary>手动覆盖优先；未设置时 Java 模块按 AutoConfiguration.imports 自动识别。</summary>

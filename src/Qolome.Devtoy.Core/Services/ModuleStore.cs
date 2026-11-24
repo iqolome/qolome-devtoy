@@ -296,60 +296,58 @@ public static class ModuleStore
 
     private static void ApplyModuleRow(DevtoySettings settings, SqliteDataReader reader)
     {
-        var rawPath = reader.IsDBNull(0) ? "" : reader.GetString(0);
-        if (string.IsNullOrWhiteSpace(rawPath))
+        var path = NormalizeStoredPath(reader.IsDBNull(0) ? "" : reader.GetString(0));
+        if (path.Length == 0)
         {
             return;
         }
 
-        string path;
-        try
-        {
-            path = Path.GetFullPath(rawPath);
-        }
-        catch
-        {
-            path = rawPath.Trim();
-        }
-
         var source = reader.IsDBNull(2) ? SourceWorkspace : reader.GetString(2);
         var displayName = reader.IsDBNull(3) ? null : reader.GetString(3);
-        var ignored = !reader.IsDBNull(4) && reader.GetInt64(4) != 0;
+        var isSpecified = string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase);
 
-        if (string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase))
+        if (isSpecified)
         {
-            settings.SpecifiedProjects.Add(new SpecifiedProjectEntry
-            {
-                Root = path,
-                Java = ReadBool(reader, 5) == true,
-                Web = ReadBool(reader, 6) == true,
-                Flutter = ReadBool(reader, 7) == true,
-                Version = reader.IsDBNull(8) ? null : reader.GetString(8),
-                Manual = ReadBool(reader, 9) == true,
-            });
+            AddSpecifiedFromReader(settings, path, reader);
         }
 
-        if (ignored)
+        if (!reader.IsDBNull(4) && reader.GetInt64(4) != 0)
         {
             settings.IgnoredModulePaths.Add(path);
         }
 
+        ApplyOverrideFromReader(settings, path, displayName, isSpecified, reader);
+        ApplyTimesFromReader(settings, path, reader);
+    }
+
+    private static void AddSpecifiedFromReader(DevtoySettings settings, string path, SqliteDataReader reader)
+    {
+        settings.SpecifiedProjects.Add(new SpecifiedProjectEntry
+        {
+            Root = path,
+            Java = ReadBool(reader, 5) == true,
+            Web = ReadBool(reader, 6) == true,
+            Flutter = ReadBool(reader, 7) == true,
+            Version = ReadOptionalString(reader, 8),
+            Manual = ReadBool(reader, 9) == true,
+        });
+    }
+
+    private static void ApplyOverrideFromReader(
+        DevtoySettings settings,
+        string path,
+        string? displayName,
+        bool isSpecified,
+        SqliteDataReader reader)
+    {
         var ov = new ModuleCatalogOverride
         {
-            DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim(),
-            Version = string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : (reader.IsDBNull(8) ? null : NullIfWhite(reader.GetString(8))),
-            Java = string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : ReadBool(reader, 5),
-            Web = string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : ReadBool(reader, 6),
-            Flutter = string.Equals(source, SourceSpecified, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : ReadBool(reader, 7),
-            CodegenModelName = reader.IsDBNull(10) ? null : NullIfWhite(reader.GetString(10)),
+            DisplayName = NullIfWhite(displayName),
+            Version = isSpecified ? null : NullIfWhite(ReadOptionalString(reader, 8)),
+            Java = isSpecified ? null : ReadBool(reader, 5),
+            Web = isSpecified ? null : ReadBool(reader, 6),
+            Flutter = isSpecified ? null : ReadBool(reader, 7),
+            CodegenModelName = NullIfWhite(ReadOptionalString(reader, 10)),
             CodegenDao = ReadBool(reader, 11),
             CodegenService = ReadBool(reader, 12),
             CodegenController = ReadBool(reader, 13),
@@ -357,8 +355,8 @@ public static class ModuleStore
             EnableEnum = ReadBool(reader, 15),
             EnableTsDict = ReadBool(reader, 16),
             TagBootStarter = ReadBool(reader, 17),
-            EnumPackagePath = reader.IsDBNull(18) ? null : NullIfWhite(reader.GetString(18)),
-            TsDictPath = reader.IsDBNull(19) ? null : NullIfWhite(reader.GetString(19)),
+            EnumPackagePath = NullIfWhite(ReadOptionalString(reader, 18)),
+            TsDictPath = NullIfWhite(ReadOptionalString(reader, 19)),
         };
 
         if (!IsOverrideEmpty(ov))
@@ -368,43 +366,63 @@ public static class ModuleStore
             {
                 settings.ModuleDisplayNames[path] = ov.DisplayName;
             }
-        }
-        else if (!string.IsNullOrWhiteSpace(displayName))
-        {
-            settings.ModuleDisplayNames[path] = displayName.Trim();
-            settings.ModuleOverrides[path] = new ModuleCatalogOverride { DisplayName = displayName.Trim() };
+
+            return;
         }
 
-        var create = ParseTimestamp(reader.IsDBNull(20) ? null : reader.GetString(20))
-            ?? ParseTimestamp(reader.IsDBNull(22) ? null : reader.GetString(22));
-        var modify = ParseTimestamp(reader.IsDBNull(21) ? null : reader.GetString(21))
-            ?? ParseTimestamp(reader.IsDBNull(22) ? null : reader.GetString(22));
-        if (create is not null || modify is not null)
+        if (string.IsNullOrWhiteSpace(displayName))
         {
-            settings.ModuleTimes[path] = new ModulePersistTimes
-            {
-                CreateTime = create,
-                ModifyTime = modify,
-            };
+            return;
         }
+
+        var trimmed = displayName.Trim();
+        settings.ModuleDisplayNames[path] = trimmed;
+        settings.ModuleOverrides[path] = new ModuleCatalogOverride { DisplayName = trimmed };
+    }
+
+    private static void ApplyTimesFromReader(DevtoySettings settings, string path, SqliteDataReader reader)
+    {
+        var updated = ReadOptionalString(reader, 22);
+        var create = ParseTimestamp(ReadOptionalString(reader, 20)) ?? ParseTimestamp(updated);
+        var modify = ParseTimestamp(ReadOptionalString(reader, 21)) ?? ParseTimestamp(updated);
+        if (create is null && modify is null)
+        {
+            return;
+        }
+
+        settings.ModuleTimes[path] = new ModulePersistTimes
+        {
+            CreateTime = create,
+            ModifyTime = modify,
+        };
     }
 
     private static Dictionary<string, ModuleRow> BuildRows(DevtoySettings settings)
     {
         var rows = new Dictionary<string, ModuleRow>(StringComparer.OrdinalIgnoreCase);
+        MergeSpecifiedRows(settings, rows);
+        MergeIgnoredRows(settings, rows);
+        MergeDisplayNameRows(settings, rows);
+        MergeOverrideRows(settings, rows);
+        return rows
+            .Where(kv => IsPersistableRow(kv.Value))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+    }
 
-        ModuleRow GetOrAdd(string path)
+    private static ModuleRow GetOrAddRow(Dictionary<string, ModuleRow> rows, string path)
+    {
+        var full = Path.GetFullPath(path);
+        if (!rows.TryGetValue(full, out var row))
         {
-            var full = Path.GetFullPath(path);
-            if (!rows.TryGetValue(full, out var row))
-            {
-                row = new ModuleRow { Path = full, Source = SourceWorkspace };
-                rows[full] = row;
-            }
-
-            return row;
+            row = new ModuleRow { Path = full, Source = SourceWorkspace };
+            rows[full] = row;
         }
 
+        return row;
+    }
+
+    private static void MergeSpecifiedRows(DevtoySettings settings, Dictionary<string, ModuleRow> rows)
+    {
         foreach (var spec in settings.SpecifiedProjects)
         {
             if (string.IsNullOrWhiteSpace(spec.Root))
@@ -412,7 +430,7 @@ public static class ModuleStore
                 continue;
             }
 
-            var row = GetOrAdd(spec.Root);
+            var row = GetOrAddRow(rows, spec.Root);
             row.Source = SourceSpecified;
             row.Java = spec.Java;
             row.Web = spec.Web || spec.JavaScript;
@@ -420,7 +438,10 @@ public static class ModuleStore
             row.Version = NullIfWhite(spec.Version);
             row.Manual = spec.Manual;
         }
+    }
 
+    private static void MergeIgnoredRows(DevtoySettings settings, Dictionary<string, ModuleRow> rows)
+    {
         foreach (var ignored in settings.IgnoredModulePaths)
         {
             if (string.IsNullOrWhiteSpace(ignored))
@@ -428,9 +449,12 @@ public static class ModuleStore
                 continue;
             }
 
-            GetOrAdd(ignored).Ignored = true;
+            GetOrAddRow(rows, ignored).Ignored = true;
         }
+    }
 
+    private static void MergeDisplayNameRows(DevtoySettings settings, Dictionary<string, ModuleRow> rows)
+    {
         foreach (var (key, name) in settings.ModuleDisplayNames)
         {
             if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(name))
@@ -438,10 +462,12 @@ public static class ModuleStore
                 continue;
             }
 
-            var row = GetOrAdd(key);
-            row.DisplayName = name.Trim();
+            GetOrAddRow(rows, key).DisplayName = name.Trim();
         }
+    }
 
+    private static void MergeOverrideRows(DevtoySettings settings, Dictionary<string, ModuleRow> rows)
+    {
         foreach (var (key, ov) in settings.ModuleOverrides)
         {
             if (string.IsNullOrWhiteSpace(key) || ov is null || IsOverrideEmpty(ov))
@@ -449,44 +475,57 @@ public static class ModuleStore
                 continue;
             }
 
-            var row = GetOrAdd(key);
-            if (!string.IsNullOrWhiteSpace(ov.DisplayName))
-            {
-                row.DisplayName = ov.DisplayName.Trim();
-            }
+            var row = GetOrAddRow(rows, key);
+            ApplyOverrideToRow(row, ov);
+        }
+    }
 
-            if (row.Source != SourceSpecified)
-            {
-                if (!string.IsNullOrWhiteSpace(ov.Version))
-                {
-                    row.Version = ov.Version.Trim();
-                }
-
-                row.Java = ov.Java;
-                row.Web = ov.Web == true || ov.JavaScript == true ? true : ov.Web;
-                row.Flutter = ov.Flutter;
-            }
-
-            row.CodegenModelName = NullIfWhite(ov.CodegenModelName);
-            row.CodegenDao = ov.CodegenDao;
-            row.CodegenService = ov.CodegenService;
-            row.CodegenController = ov.CodegenController;
-            row.EnableCodegen = ov.EnableCodegen;
-            row.EnableEnum = ov.EnableEnum;
-            row.EnableTsDict = ov.EnableTsDict;
-            row.TagBootStarter = ov.TagBootStarter;
-            row.EnumPackagePath = NullIfWhite(ov.EnumPackagePath);
-            row.TsDictPath = NullIfWhite(ov.TsDictPath);
+    private static void ApplyOverrideToRow(ModuleRow row, ModuleCatalogOverride ov)
+    {
+        if (!string.IsNullOrWhiteSpace(ov.DisplayName))
+        {
+            row.DisplayName = ov.DisplayName.Trim();
         }
 
-        // 丢弃无任何用户状态的空行（理论上不会产生）
-        return rows
-            .Where(kv => kv.Value.Source == SourceSpecified
-                || kv.Value.Ignored
-                || !string.IsNullOrWhiteSpace(kv.Value.DisplayName)
-                || kv.Value.HasOverrideFields)
-            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        if (row.Source != SourceSpecified)
+        {
+            if (!string.IsNullOrWhiteSpace(ov.Version))
+            {
+                row.Version = ov.Version.Trim();
+            }
+
+            row.Java = ov.Java;
+            row.Web = ResolveOverrideWeb(ov);
+            row.Flutter = ov.Flutter;
+        }
+
+        row.CodegenModelName = NullIfWhite(ov.CodegenModelName);
+        row.CodegenDao = ov.CodegenDao;
+        row.CodegenService = ov.CodegenService;
+        row.CodegenController = ov.CodegenController;
+        row.EnableCodegen = ov.EnableCodegen;
+        row.EnableEnum = ov.EnableEnum;
+        row.EnableTsDict = ov.EnableTsDict;
+        row.TagBootStarter = ov.TagBootStarter;
+        row.EnumPackagePath = NullIfWhite(ov.EnumPackagePath);
+        row.TsDictPath = NullIfWhite(ov.TsDictPath);
     }
+
+    private static bool? ResolveOverrideWeb(ModuleCatalogOverride ov)
+    {
+        if (ov.Web == true || ov.JavaScript == true)
+        {
+            return true;
+        }
+
+        return ov.Web;
+    }
+
+    private static bool IsPersistableRow(ModuleRow row) =>
+        row.Source == SourceSpecified
+        || row.Ignored
+        || !string.IsNullOrWhiteSpace(row.DisplayName)
+        || row.HasOverrideFields;
 
     private static void InsertModuleRow(SqliteConnection conn, SqliteTransaction tx, ModuleRow row, string now)
     {
@@ -552,7 +591,13 @@ public static class ModuleStore
 
     private static void AddNullableBool(SqliteCommand cmd, string name, bool? value)
     {
-        cmd.Parameters.AddWithValue(name, value is null ? DBNull.Value : value.Value ? 1 : 0);
+        object dbValue = DBNull.Value;
+        if (value is not null)
+        {
+            dbValue = value.Value ? 1 : 0;
+        }
+
+        cmd.Parameters.AddWithValue(name, dbValue);
     }
 
     private static bool? ReadBool(SqliteDataReader reader, int ordinal)
@@ -563,6 +608,26 @@ public static class ModuleStore
         }
 
         return reader.GetInt64(ordinal) != 0;
+    }
+
+    private static string? ReadOptionalString(SqliteDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
+    private static string NormalizeStoredPath(string rawPath)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath))
+        {
+            return "";
+        }
+
+        try
+        {
+            return Path.GetFullPath(rawPath);
+        }
+        catch
+        {
+            return rawPath.Trim();
+        }
     }
 
     private static string? NullIfWhite(string? value) =>
@@ -589,7 +654,13 @@ public static class ModuleStore
     private static long CountRows(SqliteConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SELECT COUNT(*) FROM `{table}`";
+        cmd.CommandText = table switch
+        {
+            DevtoyTableNames.Workspace => "SELECT COUNT(*) FROM devtoy_workspace",
+            DevtoyTableNames.Module => "SELECT COUNT(*) FROM devtoy_module",
+            DevtoyTableNames.Doc => "SELECT COUNT(*) FROM devtoy_doc",
+            _ => throw new ArgumentOutOfRangeException(nameof(table), table, "未知本机配置表。"),
+        };
         var result = cmd.ExecuteScalar();
         return result is long n ? n : Convert.ToInt64(result);
     }
@@ -695,32 +766,74 @@ public static class ModuleStore
         string column,
         string typeSql)
     {
-        using var check = conn.CreateCommand();
-        if (tx is not null)
+        if (HasColumn(conn, tx, table, column))
         {
-            check.Transaction = tx;
+            return;
         }
 
-        check.CommandText = $"PRAGMA table_info(`{table}`)";
-        using var reader = check.ExecuteReader();
-        while (reader.Read())
-        {
-            var name = reader.IsDBNull(1) ? "" : reader.GetString(1);
-            if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-        }
-
-        reader.Close();
         using var alter = conn.CreateCommand();
         if (tx is not null)
         {
             alter.Transaction = tx;
         }
 
-        alter.CommandText = $"ALTER TABLE `{table}` ADD COLUMN `{column}` {typeSql}";
+        alter.CommandText = ResolveAlterAddColumnSql(table, column, typeSql);
         alter.ExecuteNonQuery();
+    }
+
+    private static bool HasColumn(
+        SqliteConnection conn,
+        SqliteTransaction? tx,
+        string table,
+        string column)
+    {
+        using var check = conn.CreateCommand();
+        if (tx is not null)
+        {
+            check.Transaction = tx;
+        }
+
+        check.CommandText = ResolvePragmaTableInfoSql(table);
+        using var reader = check.ExecuteReader();
+        while (reader.Read())
+        {
+            var name = reader.IsDBNull(1) ? "" : reader.GetString(1);
+            if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string ResolvePragmaTableInfoSql(string table) =>
+        table switch
+        {
+            DevtoyTableNames.Module => "PRAGMA table_info(devtoy_module)",
+            DevtoyTableNames.Workspace => "PRAGMA table_info(devtoy_workspace)",
+            DevtoyTableNames.Doc => "PRAGMA table_info(devtoy_doc)",
+            _ => throw new ArgumentOutOfRangeException(nameof(table), table, "未知本机配置表。"),
+        };
+
+    private static string ResolveAlterAddColumnSql(string table, string column, string typeSql)
+    {
+        if (!string.Equals(typeSql, "TEXT", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentOutOfRangeException(nameof(typeSql), typeSql, "仅支持 TEXT 列迁移。");
+        }
+
+        return (table, column) switch
+        {
+            (DevtoyTableNames.Module, "create_time") =>
+                "ALTER TABLE devtoy_module ADD COLUMN create_time TEXT",
+            (DevtoyTableNames.Module, "modify_time") =>
+                "ALTER TABLE devtoy_module ADD COLUMN modify_time TEXT",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(column),
+                column,
+                $"不支持为表 {table} 添加列。"),
+        };
     }
 
     private static Dictionary<string, string> LoadExistingCreateTimes(

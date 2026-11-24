@@ -50,7 +50,7 @@ public partial class SettingsViewModel : ObservableObject
 
     public bool OuiUpdateEnabled => !IsOuiUpdating;
 
-    public string PortConcurrencyDefaultText =>
+    public static string PortConcurrencyDefaultText =>
         $"本机 {Environment.ProcessorCount} 核，默认 {ScanOptions.DefaultPortScanConcurrency}（核心数 × 3）";
 
     public SettingsViewModel()

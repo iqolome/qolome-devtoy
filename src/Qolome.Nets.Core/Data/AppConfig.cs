@@ -204,11 +204,7 @@ public static class AppConfigStore
                 : AppDatabase.StartupWarning;
         }
 
-        if (!File.Exists(UserFilePath))
-        {
-            Save(Current);
-        }
-        else if (Current.Database.Mysql.NeedsReprotect)
+        if (!File.Exists(UserFilePath) || Current.Database.Mysql.NeedsReprotect)
         {
             Save(Current);
         }

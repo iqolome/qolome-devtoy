@@ -76,8 +76,6 @@ public sealed partial class TopologyPage : Page
     private ResizeEdges _resizeEdges;
     private Rect _resizeStart;
     private Point _resizePointerStart;
-    private UIElement? _resizeCapture;
-
     private DispatcherTimer? _edgePanTimer;
     private Point _lastPointerHost;
     private bool _hasPointerHost;
@@ -90,6 +88,8 @@ public sealed partial class TopologyPage : Page
     public TopologyPage()
     {
         InitializeComponent();
+        DeviceList.DragItemsStarting += DeviceList_DragItemsStarting;
+        DeviceList.ContainerContentChanging += DeviceList_ContainerContentChanging;
         KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         Board.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         BoardHost.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
@@ -255,7 +255,7 @@ public sealed partial class TopologyPage : Page
 
     private void SortIp_Click(object sender, RoutedEventArgs e) => ViewModel.ToggleIpSort();
 
-    private void DeviceList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    private static void DeviceList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         if (args.ItemContainer is not ListViewItem container)
         {
@@ -269,7 +269,7 @@ public sealed partial class TopologyPage : Page
         ToolTipService.SetToolTip(container, args.Item is TopologyDeviceItem item ? item.DetailTip : null);
     }
 
-    private void DeviceList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    private static void DeviceList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
         if (e.Items.OfType<TopologyDeviceItem>().FirstOrDefault() is not { } item)
         {
@@ -347,7 +347,7 @@ public sealed partial class TopologyPage : Page
         ViewModel.Status = status;
     }
 
-    private void DeviceItem_DragStarting(UIElement sender, DragStartingEventArgs args)
+    private static void DeviceItem_DragStarting(UIElement sender, DragStartingEventArgs args)
     {
         var item = ResolveDeviceItem(sender);
         if (item is null)
@@ -488,7 +488,7 @@ public sealed partial class TopologyPage : Page
         TryParseDeviceToken(view.Properties.Description, out deviceId)
         || TryParseDeviceToken(view.Properties.Title, out deviceId);
 
-    private void SuppressSystemDrag(UIElement element)
+    private static void SuppressSystemDrag(UIElement element)
     {
         element.CanDrag = false;
         element.ManipulationMode = ManipulationModes.None;
@@ -1435,7 +1435,7 @@ public sealed partial class TopologyPage : Page
         BoardHost.ChangeView(
             Math.Max(0, BoardHost.HorizontalOffset + dx),
             Math.Max(0, BoardHost.VerticalOffset + dy),
-            (float)zoom,
+            zoom,
             disableAnimation: true);
     }
 
@@ -1483,6 +1483,46 @@ public sealed partial class TopologyPage : Page
         IsTextSelectionEnabled = false
     };
 
+    private readonly record struct NodeVisualContent(
+        string Title,
+        string Subtitle,
+        string? TypeName,
+        string? Description,
+        UIElement Icon);
+
+    private NodeVisualContent ResolveNodeVisualContent(TopologyNodeDto node)
+    {
+        if (node.IsIsp)
+        {
+            var title = string.IsNullOrWhiteSpace(node.Label) ? IspPresets.DefaultLabel(node.IspKey) : node.Label;
+            var icon = CreateNodeIcon(DeviceTypeIconXaml.Isp(node.IspKey, node.Label), "\uE128");
+            return new NodeVisualContent(title, "ISP", "互联网", null, icon);
+        }
+
+        var device = ViewModel.FindDevice(node.DeviceId);
+        if (device is null)
+        {
+            var missingTitle = string.IsNullOrWhiteSpace(node.Label) ? $"设备 #{node.DeviceId}" : node.Label;
+            return new NodeVisualContent(
+                missingTitle,
+                "未在当前环境找到",
+                "—",
+                "—",
+                CreateNodeIcon(null, "\uE770"));
+        }
+
+        var displayTitle = string.IsNullOrWhiteSpace(device.Hostname) ? device.Code : device.Hostname;
+        var ips = string.Join(" / ", device.NicIps());
+        var subtitle = string.IsNullOrWhiteSpace(ips) ? device.Code : ips;
+        var description = string.IsNullOrWhiteSpace(device.Description) ? "—" : device.Description.Trim();
+        return new NodeVisualContent(
+            displayTitle,
+            subtitle,
+            device.TypeName,
+            description,
+            CreateNodeIcon(DeviceTypeIconXaml.FromType(device.DeviceType), "\uE770"));
+    }
+
     private void AddNodeVisual(TopologyNodeDto node)
     {
         if (node.IsContainer)
@@ -1491,39 +1531,12 @@ public sealed partial class TopologyPage : Page
             return;
         }
 
-        string title;
-        string subtitle;
-        string? typeName = null;
-        string? description = null;
-        UIElement icon;
-        if (node.IsIsp)
-        {
-            title = string.IsNullOrWhiteSpace(node.Label) ? IspPresets.DefaultLabel(node.IspKey) : node.Label!;
-            subtitle = "ISP";
-            typeName = "互联网";
-            icon = CreateNodeIcon(DeviceTypeIconXaml.Isp(node.IspKey, node.Label), "\uE128");
-        }
-        else
-        {
-            var device = ViewModel.FindDevice(node.DeviceId);
-            if (device is null)
-            {
-                title = string.IsNullOrWhiteSpace(node.Label) ? $"设备 #{node.DeviceId}" : node.Label!;
-                subtitle = "未在当前环境找到";
-                typeName = "—";
-                description = "—";
-                icon = CreateNodeIcon(null, "\uE770");
-            }
-            else
-            {
-                title = string.IsNullOrWhiteSpace(device.Hostname) ? device.Code : device.Hostname!;
-                var ips = string.Join(" / ", device.NicIps());
-                subtitle = string.IsNullOrWhiteSpace(ips) ? device.Code : ips;
-                typeName = device.TypeName;
-                description = string.IsNullOrWhiteSpace(device.Description) ? "—" : device.Description.Trim();
-                icon = CreateNodeIcon(DeviceTypeIconXaml.FromType(device.DeviceType), "\uE770");
-            }
-        }
+        var content = ResolveNodeVisualContent(node);
+        var title = content.Title;
+        var subtitle = content.Subtitle;
+        var typeName = content.TypeName;
+        var description = content.Description;
+        var icon = content.Icon;
 
         var stack = new StackPanel { Spacing = 1, IsHitTestVisible = false, CanDrag = false };
         stack.Children.Add(icon);
@@ -1712,7 +1725,6 @@ public sealed partial class TopologyPage : Page
         _resizeEdges = tag.Edges;
         _resizeStart = new Rect(node.X, node.Y, TopologyMetrics.WidthOf(node), TopologyMetrics.HeightOf(node));
         _resizePointerStart = e.GetCurrentPoint(Board).Position;
-        _resizeCapture = handle;
         handle.CapturePointer(e.Pointer);
         ProtectedCursor = InputSystemCursor.Create(tag.Cursor);
         RememberPointer(e);
@@ -1741,7 +1753,6 @@ public sealed partial class TopologyPage : Page
         StopEdgePan();
         ContinueContainerResize(e, snap: ViewModel.SnapToGrid);
         _resizing = false;
-        _resizeCapture = null;
         if (_dragUndoPushed)
         {
             ViewModel.DiscardUndoIfUnchanged();
@@ -2399,64 +2410,73 @@ public sealed partial class TopologyPage : Page
     {
         if (_selectedLinkId is int linkId)
         {
-            var link = ViewModel.FindLink(linkId);
-            if (link is null)
-            {
-                return;
-            }
-
-            var result = await PromptDialogs.PromptLinkEditAsync(XamlRoot, link);
-            if (result is null)
-            {
-                return;
-            }
-
-            ViewModel.SetLinkAnnotation(linkId, result.Value.Label, result.Value.ColorHex, result.Value.Dashed);
-            RebuildCanvas();
+            await EditSelectedLinkAsync(linkId);
             return;
         }
 
         if (_selectedNodeId is int nodeId)
         {
-            var node = ViewModel.FindNode(nodeId);
-            if (node is null)
-            {
-                ViewModel.Status = "请先点选连线、容器或互联网节点。";
-                return;
-            }
-
-            if (node.IsContainer)
-            {
-                var name = await PromptDialogs.PromptContainerNameAsync(XamlRoot, node.Label);
-                if (name is null)
-                {
-                    return;
-                }
-
-                ViewModel.SetNodeLabel(nodeId, name);
-                RebuildCanvas();
-                return;
-            }
-
-            if (!node.IsIsp)
-            {
-                ViewModel.Status = "设备节点批注请在设备列表中编辑；容器可改名称，互联网节点可改运营商。";
-                return;
-            }
-
-            var result = await PromptDialogs.PromptIspAsync(XamlRoot, node.Label, node.IspKey);
-            if (result is null)
-            {
-                return;
-            }
-
-            ViewModel.SetNodeLabel(nodeId, result.Value.Label, result.Value.IspKey);
-            RebuildCanvas();
+            await EditSelectedNodeAsync(nodeId);
+            return;
         }
-        else
+
+        ViewModel.Status = "请先点选连线、容器或互联网节点。";
+    }
+
+    private async Task EditSelectedLinkAsync(int linkId)
+    {
+        var link = ViewModel.FindLink(linkId);
+        if (link is null)
+        {
+            return;
+        }
+
+        var result = await PromptDialogs.PromptLinkEditAsync(XamlRoot, link);
+        if (result is null)
+        {
+            return;
+        }
+
+        ViewModel.SetLinkAnnotation(linkId, result.Value.Label, result.Value.ColorHex, result.Value.Dashed);
+        RebuildCanvas();
+    }
+
+    private async Task EditSelectedNodeAsync(int nodeId)
+    {
+        var node = ViewModel.FindNode(nodeId);
+        if (node is null)
         {
             ViewModel.Status = "请先点选连线、容器或互联网节点。";
+            return;
         }
+
+        if (node.IsContainer)
+        {
+            var name = await PromptDialogs.PromptContainerNameAsync(XamlRoot, node.Label);
+            if (name is null)
+            {
+                return;
+            }
+
+            ViewModel.SetNodeLabel(nodeId, name);
+            RebuildCanvas();
+            return;
+        }
+
+        if (!node.IsIsp)
+        {
+            ViewModel.Status = "设备节点批注请在设备列表中编辑；容器可改名称，互联网节点可改运营商。";
+            return;
+        }
+
+        var result = await PromptDialogs.PromptIspAsync(XamlRoot, node.Label, node.IspKey);
+        if (result is null)
+        {
+            return;
+        }
+
+        ViewModel.SetNodeLabel(nodeId, result.Value.Label, result.Value.IspKey);
+        RebuildCanvas();
     }
 
     private void UpdateNodePosition(int nodeId)

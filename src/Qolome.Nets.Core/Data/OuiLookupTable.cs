@@ -68,7 +68,7 @@ internal sealed class OuiLookupTable
             builder.Add(row.Prefix, row.BitLength, row.Vendor);
         }
 
-        return builder.Build();
+        return builder.ToTable();
     }
 
     internal sealed class Builder
@@ -101,7 +101,7 @@ internal sealed class OuiLookupTable
             }
         }
 
-        public OuiLookupTable Build()
+        public OuiLookupTable ToTable()
         {
             var (p24, v24) = Compact(_l24);
             var (p28, v28) = Compact(_l28);
@@ -126,6 +126,130 @@ internal sealed class OuiLookupTable
             _vendors.Add(name);
             return id;
         }
+
+        private static (uint[] Prefixes, ushort[] Vendors) Compact(List<(uint Prefix, ushort Vendor)> list)
+        {
+            list.Sort((a, b) => a.Prefix.CompareTo(b.Prefix));
+            Dedupe(list);
+            var keys = new uint[list.Count];
+            var values = new ushort[list.Count];
+            for (var i = 0; i < list.Count; i++)
+            {
+                keys[i] = list[i].Prefix;
+                values[i] = list[i].Vendor;
+            }
+
+            return (keys, values);
+        }
+
+        private static (ulong[] Prefixes, ushort[] Vendors) Compact(List<(ulong Prefix, ushort Vendor)> list)
+        {
+            list.Sort((a, b) => a.Prefix.CompareTo(b.Prefix));
+            Dedupe(list);
+            var keys = new ulong[list.Count];
+            var values = new ushort[list.Count];
+            for (var i = 0; i < list.Count; i++)
+            {
+                keys[i] = list[i].Prefix;
+                values[i] = list[i].Vendor;
+            }
+
+            return (keys, values);
+        }
+
+        private static void Dedupe(List<(uint Prefix, ushort Vendor)> list)
+        {
+            var w = 0;
+            for (var r = 0; r < list.Count; r++)
+            {
+                if (w == 0 || list[r].Prefix != list[w - 1].Prefix)
+                {
+                    list[w++] = list[r];
+                }
+                else
+                {
+                    list[w - 1] = list[r];
+                }
+            }
+
+            if (w < list.Count)
+            {
+                list.RemoveRange(w, list.Count - w);
+            }
+        }
+
+        private static void Dedupe(List<(ulong Prefix, ushort Vendor)> list)
+        {
+            var w = 0;
+            for (var r = 0; r < list.Count; r++)
+            {
+                if (w == 0 || list[r].Prefix != list[w - 1].Prefix)
+                {
+                    list[w++] = list[r];
+                }
+                else
+                {
+                    list[w - 1] = list[r];
+                }
+            }
+
+            if (w < list.Count)
+            {
+                list.RemoveRange(w, list.Count - w);
+            }
+        }
+
+        private static bool TryParseUInt(string hex, int length, out uint value)
+        {
+            value = 0;
+            if (hex.Length < length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < length; i++)
+            {
+                var nibble = ParseHexNibble(hex[i]);
+                if (nibble < 0)
+                {
+                    return false;
+                }
+
+                value = (value << 4) | (uint)nibble;
+            }
+
+            return true;
+        }
+
+        private static bool TryParseULong(string hex, int length, out ulong value)
+        {
+            value = 0;
+            if (hex.Length < length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < length; i++)
+            {
+                var nibble = ParseHexNibble(hex[i]);
+                if (nibble < 0)
+                {
+                    return false;
+                }
+
+                value = (value << 4) | (uint)nibble;
+            }
+
+            return true;
+        }
+
+        private static int ParseHexNibble(char c) => c switch
+        {
+            >= '0' and <= '9' => c - '0',
+            >= 'a' and <= 'f' => c - 'a' + 10,
+            >= 'A' and <= 'F' => c - 'A' + 10,
+            _ => -1
+        };
     }
 
     private string? Find(uint[] prefixes, ushort[] vendors, uint key)
@@ -138,78 +262,6 @@ internal sealed class OuiLookupTable
     {
         var i = Array.BinarySearch(prefixes, key);
         return i >= 0 ? _vendors[vendors[i]] : null;
-    }
-
-    private static (uint[] Prefixes, ushort[] Vendors) Compact(List<(uint Prefix, ushort Vendor)> list)
-    {
-        list.Sort((a, b) => a.Prefix.CompareTo(b.Prefix));
-        Dedupe(list);
-        var keys = new uint[list.Count];
-        var values = new ushort[list.Count];
-        for (var i = 0; i < list.Count; i++)
-        {
-            keys[i] = list[i].Prefix;
-            values[i] = list[i].Vendor;
-        }
-
-        return (keys, values);
-    }
-
-    private static (ulong[] Prefixes, ushort[] Vendors) Compact(List<(ulong Prefix, ushort Vendor)> list)
-    {
-        list.Sort((a, b) => a.Prefix.CompareTo(b.Prefix));
-        Dedupe(list);
-        var keys = new ulong[list.Count];
-        var values = new ushort[list.Count];
-        for (var i = 0; i < list.Count; i++)
-        {
-            keys[i] = list[i].Prefix;
-            values[i] = list[i].Vendor;
-        }
-
-        return (keys, values);
-    }
-
-    private static void Dedupe(List<(uint Prefix, ushort Vendor)> list)
-    {
-        var w = 0;
-        for (var r = 0; r < list.Count; r++)
-        {
-            if (w == 0 || list[r].Prefix != list[w - 1].Prefix)
-            {
-                list[w++] = list[r];
-            }
-            else
-            {
-                list[w - 1] = list[r];
-            }
-        }
-
-        if (w < list.Count)
-        {
-            list.RemoveRange(w, list.Count - w);
-        }
-    }
-
-    private static void Dedupe(List<(ulong Prefix, ushort Vendor)> list)
-    {
-        var w = 0;
-        for (var r = 0; r < list.Count; r++)
-        {
-            if (w == 0 || list[r].Prefix != list[w - 1].Prefix)
-            {
-                list[w++] = list[r];
-            }
-            else
-            {
-                list[w - 1] = list[r];
-            }
-        }
-
-        if (w < list.Count)
-        {
-            list.RemoveRange(w, list.Count - w);
-        }
     }
 
     private static bool TryReadLeadingHex(string? mac, out ulong value, out int digits)
@@ -238,50 +290,6 @@ internal sealed class OuiLookupTable
         }
 
         return digits >= 6;
-    }
-
-    private static bool TryParseUInt(string hex, int length, out uint value)
-    {
-        value = 0;
-        if (hex.Length < length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < length; i++)
-        {
-            var nibble = HexNibble(hex[i]);
-            if (nibble < 0)
-            {
-                return false;
-            }
-
-            value = (value << 4) | (uint)nibble;
-        }
-
-        return true;
-    }
-
-    private static bool TryParseULong(string hex, int length, out ulong value)
-    {
-        value = 0;
-        if (hex.Length < length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < length; i++)
-        {
-            var nibble = HexNibble(hex[i]);
-            if (nibble < 0)
-            {
-                return false;
-            }
-
-            value = (value << 4) | (uint)nibble;
-        }
-
-        return true;
     }
 
     private static int HexNibble(char c) => c switch

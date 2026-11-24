@@ -7,7 +7,8 @@ public static class SvgColorTint
 {
     private static readonly Regex ColorAttribute = new(
         """(?<name>fill|stroke)\s*=\s*(?<q>['"])(?<value>[^'"]+)\k<q>""",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(2));
 
     public static string Apply(string svg, string? groupHex)
     {
@@ -145,11 +146,7 @@ public static class SvgColorTint
 
     private static bool TryNibble(char c, out int value)
     {
-        var hex = c is >= '0' and <= '9' ? c - '0'
-            : c is >= 'a' and <= 'f' ? c - 'a' + 10
-            : c is >= 'A' and <= 'F' ? c - 'A' + 10
-            : -1;
-        if (hex < 0)
+        if (!TryHexValue(c, out var hex))
         {
             value = 0;
             return false;
@@ -157,5 +154,29 @@ public static class SvgColorTint
 
         value = hex * 17;
         return true;
+    }
+
+    private static bool TryHexValue(char c, out int hex)
+    {
+        if (c is >= '0' and <= '9')
+        {
+            hex = c - '0';
+            return true;
+        }
+
+        if (c is >= 'a' and <= 'f')
+        {
+            hex = c - 'a' + 10;
+            return true;
+        }
+
+        if (c is >= 'A' and <= 'F')
+        {
+            hex = c - 'A' + 10;
+            return true;
+        }
+
+        hex = -1;
+        return false;
     }
 }

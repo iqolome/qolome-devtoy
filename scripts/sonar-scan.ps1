@@ -104,6 +104,7 @@ function Invoke-ScannerCli {
 
 function Invoke-DotnetSonarScanner {
     Write-Host "==> SonarScanner for .NET begin: $projectKey ($projectVersion)" -ForegroundColor Cyan
+    # 忽略 IDE Roslyn 附加规则（CA*/CsWinRT*），避免 INFO 占满 new_violations；Sonar C# 规则仍生效
     dotnet sonarscanner begin `
         /k:"$projectKey" `
         /n:"$projectName" `
@@ -111,6 +112,7 @@ function Invoke-DotnetSonarScanner {
         /d:sonar.host.url="$hostUrl" `
         /d:sonar.token="$token" `
         /d:sonar.qualitygate.wait=true `
+        /d:sonar.cs.roslyn.ignoreIssues=true `
         /d:sonar.exclusions="**/bin/**,**/obj/**,**/dist/**,**/*.g.cs,**/*.g.i.cs,**/Generated Files/**,**/scripts/**,**/docs/**" `
         /d:sonar.coverage.exclusions="**/*" `
         /d:sonar.python.version="3.11"

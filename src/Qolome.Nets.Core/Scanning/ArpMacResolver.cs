@@ -5,9 +5,9 @@ using Qolome.Nets.Core.Data;
 
 namespace Qolome.Nets.Core.Scanning;
 
-public sealed class ArpMacResolver
+public static class ArpMacResolver
 {
-    public string? Resolve(IPAddress address)
+    public static string? Resolve(IPAddress address)
     {
         if (address.AddressFamily != AddressFamily.InterNetwork)
         {
@@ -29,7 +29,7 @@ public sealed class ArpMacResolver
         return TrySendArp(address);
     }
 
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> SnapshotMacToIps()
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> SnapshotMacToIps()
     {
         var map = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (ip, mac) in EnumerateNeighbors())
@@ -54,7 +54,7 @@ public sealed class ArpMacResolver
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public IReadOnlyDictionary<string, string> SnapshotMacToIp()
+    public static IReadOnlyDictionary<string, string> SnapshotMacToIp()
     {
         return SnapshotMacToIps().ToDictionary(
             kv => kv.Key,
@@ -62,7 +62,7 @@ public sealed class ArpMacResolver
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public string? FindIpByMac(string? mac)
+    public static string? FindIpByMac(string? mac)
     {
         var key = InventoryService.NormalizeMac(mac);
         if (key is null)

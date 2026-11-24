@@ -8,8 +8,6 @@ public sealed class ScanSession
 {
     private readonly IcmpPingService _ping = new();
     private readonly HostDiscoveryService _discovery;
-    private readonly ArpMacResolver _mac = new();
-    private readonly OuiVendorLookup _oui = new();
     private readonly PortScanner _ports;
     private readonly UdpPortScanner _udp;
     private readonly PortPurposeStore _purposes;
@@ -62,9 +60,7 @@ public sealed class ScanSession
                     host.Status = "扫描端口…";
                     onHost(Clone(host));
                     await ScanPortsAsync(host, address, request, token).ConfigureAwait(false);
-                    host.Status = host.OpenPorts.Count == 0
-                        ? (host.DiscoveryMethod == "TCP" ? "在线（ICMP 超时）" : "在线")
-                        : $"在线 · {host.OpenPorts.Count} 个端口";
+                    host.Status = FormatAliveStatus(host);
                     onHost(Clone(host));
                 }
                 finally
@@ -104,15 +100,24 @@ public sealed class ScanSession
         if (scanPorts)
         {
             await ScanPortsAsync(host, address, request, cancellationToken).ConfigureAwait(false);
-            host.Status = host.OpenPorts.Count == 0
-                ? (host.DiscoveryMethod == "TCP" ? "在线（ICMP 超时）" : "在线")
-                : $"在线 · {host.OpenPorts.Count} 个端口";
+            host.Status = FormatAliveStatus(host);
         }
 
         return host;
     }
 
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> SnapshotArpMacToIps() => _mac.SnapshotMacToIps();
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> SnapshotArpMacToIps() =>
+        ArpMacResolver.SnapshotMacToIps();
+
+    private static string FormatAliveStatus(HostScanResult host)
+    {
+        if (host.OpenPorts.Count > 0)
+        {
+            return $"在线 · {host.OpenPorts.Count} 个端口";
+        }
+
+        return host.DiscoveryMethod == "TCP" ? "在线（ICMP 超时）" : "在线";
+    }
 
     private async Task ScanPortsAsync(
         HostScanResult host,
@@ -151,13 +156,13 @@ public sealed class ScanSession
         }
     }
 
-    private async Task EnrichAsync(HostScanResult host, CancellationToken cancellationToken)
+    private static async Task EnrichAsync(HostScanResult host, CancellationToken cancellationToken)
     {
         var dnsTask = ResolveHostnameAsync(host.Address, cancellationToken);
         string? mac = null;
         try
         {
-            mac = _mac.Resolve(host.Address);
+            mac = ArpMacResolver.Resolve(host.Address);
         }
         catch
         {
@@ -176,7 +181,7 @@ public sealed class ScanSession
         }
         else
         {
-            host.Vendor = _oui.Lookup(mac);
+            host.Vendor = OuiVendorLookup.Lookup(mac);
         }
 
         host.OsType = OsTypeGuess.FromTtl(host.Ping.LastTtl);
@@ -208,12 +213,9 @@ public sealed class ScanSession
         var existing = host.OpenPorts
             .Select(p => (p.Port, p.ProtocolKey))
             .ToHashSet();
-        foreach (var port in ports)
+        foreach (var port in ports.Where(port => existing.Add((port.Port, port.ProtocolKey))))
         {
-            if (existing.Add((port.Port, port.ProtocolKey)))
-            {
-                host.OpenPorts.Add(port);
-            }
+            host.OpenPorts.Add(port);
         }
 
         host.OpenPorts.Sort((a, b) =>

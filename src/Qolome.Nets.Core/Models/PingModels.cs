@@ -2,6 +2,13 @@ using System.Net.NetworkInformation;
 
 namespace Qolome.Nets.Core.Models;
 
+internal static class PingRttDisplay
+{
+    internal const string SubMillisecond = "<1ms";
+
+    internal static string Format(long rttMs) => rttMs < 1 ? SubMillisecond : $"{rttMs}ms";
+}
+
 public enum PingReplyStatus
 {
     Success,
@@ -24,9 +31,7 @@ public sealed class PingReplyInfo
 
     public string SizeDisplay => Status == PingReplyStatus.Success ? $"{Size} 字节" : "—";
 
-    public string RttDisplay => Status == PingReplyStatus.Success
-        ? (RttMs < 1 ? "<1ms" : $"{RttMs}ms")
-        : "—";
+    public string RttDisplay => Status == PingReplyStatus.Success ? PingRttDisplay.Format(RttMs) : "—";
 
     public string TtlDisplay => Status == PingReplyStatus.Success && Ttl is int ttl ? ttl.ToString() : "—";
 
@@ -48,11 +53,23 @@ public sealed class PingSummary
     public int? LastTtl { get; init; }
     public bool HasSuccess => Received > 0;
 
-    public string LatencyDisplay =>
-        !HasSuccess ? "—" :
-        MinRttMs is long min && min < 1 ? "<1ms" :
-        AvgRttMs is double avg ? $"{Math.Round(avg)}ms" :
-        "—";
+    public string LatencyDisplay
+    {
+        get
+        {
+            if (!HasSuccess)
+            {
+                return "—";
+            }
+
+            if (MinRttMs is long min && min < 1)
+            {
+                return PingRttDisplay.SubMillisecond;
+            }
+
+            return AvgRttMs is double avg ? $"{Math.Round(avg)}ms" : "—";
+        }
+    }
 
     public string TtlDisplay => LastTtl?.ToString() ?? "—";
 
@@ -70,11 +87,22 @@ public sealed class PingSummary
         }
     }
 
-    private static string FormatRtt(long? value) =>
-        value is null ? "—" : value.Value < 1 ? "<1ms" : $"{value}ms";
+    private static string FormatRtt(long? value) => value is null ? "—" : PingRttDisplay.Format(value.Value);
 
-    private static string FormatAvg(double? value) =>
-        value is null ? "—" : value.Value < 1 ? "<1ms" : $"{Math.Round(value.Value)}ms";
+    private static string FormatAvg(double? value)
+    {
+        if (value is null)
+        {
+            return "—";
+        }
+
+        if (value.Value < 1)
+        {
+            return PingRttDisplay.SubMillisecond;
+        }
+
+        return $"{Math.Round(value.Value)}ms";
+    }
 
     public static PingSummary Empty { get; } = new();
 

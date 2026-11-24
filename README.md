@@ -1,4 +1,4 @@
-# Qolome Devtoy
+# Qolome DevToy
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
@@ -37,13 +37,13 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 | | |
 | --- | --- |
-| **产品** | Qolome Devtoy |
+| **产品** | Qolome DevToy |
 | **开发商** | 忻州市尖锋达科技有限公司（Xinzhou jfonda Technology Co., Ltd.） |
 | **官网** | [https://www.jfonda.com/](https://www.jfonda.com/) |
 | **许可协议** | [Apache License 2.0](LICENSE) |
 | **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.0.0`） |
 
-应用内 **关于** 页可查看版本与链接。
+应用内 **关于** 页可查看版本、服务协议与链接。
 
 ## 环境要求
 
@@ -51,7 +51,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | --- | --- |
 | OS | Windows 10 1809+ / Windows 11（x64） |
 | [.NET SDK 10](https://dotnet.microsoft.com/download) | 与 `Qolome.Devtoy.*` 的 `net10.0` 一致 |
-| 数据库 | 本地统一库 + 远程多方言（MySQL / PostgreSQL / Oracle / SQLite / **ODBC**，见 **数据源设置** / **网络设置**） |
+| 数据库 | **本机 SQLite** 仅存应用配置；**远程库**（数据源设置）为唯一业务库（网络日常读写当前重点支持 MySQL） |
 | Inno Setup 6 | 可选，制作安装包 |
 | 企业代码签名 PFX | 可选，见 [packaging/README.md](packaging/README.md) |
 | SonarScanner | 可选；全局工具 `dotnet-sonarscanner`，或 `SONAR_SCANNER_HOME` |
@@ -62,28 +62,36 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 | 数据库 | 本工具 .NET 包 | 版本 | 默认端口 | 状态 |
 | --- | --- | --- | --- | --- |
-| MySQL | [MySqlConnector](https://www.nuget.org/packages/MySqlConnector) | `3.0.0` | `3306` | 测试连接、字典、表列表、代码生成、初始化 SQL |
+| MySQL | [MySqlConnector](https://www.nuget.org/packages/MySqlConnector) | `3.0.0` | `3306` | 测试连接、字典、表列表、代码生成、初始化 SQL；**网络业务读写** |
 | PostgreSQL | [Npgsql](https://www.nuget.org/packages/Npgsql) | `9.0.3` | `5432` | 测试连接、表列表、表结构读取 |
 | Oracle | [Oracle.ManagedDataAccess.Core](https://www.nuget.org/packages/Oracle.ManagedDataAccess.Core) | `23.7.0` | `1521` | 测试连接、表列表、表结构读取 |
-| SQLite | [Microsoft.Data.Sqlite](https://www.nuget.org/packages/Microsoft.Data.Sqlite) | `9.0.0` | — | 测试连接、表列表、表结构读取 |
+| SQLite | [Microsoft.Data.Sqlite](https://www.nuget.org/packages/Microsoft.Data.Sqlite) | `9.0.0` | — | **本机配置库**；亦可作数据源测连 / 列库表 |
 | ODBC | [System.Data.Odbc](https://www.nuget.org/packages/System.Data.Odbc) | `9.0.0` | — | 测试连接；表列表走 `information_schema`（依赖目标驱动） |
 
 对齐参考：`qolome-codegen` IDEA 插件 JDBC（`build.gradle.kts`）：`mysql-connector-j:9.1.0` / `postgresql:42.7.4` / `ojdbc11:23.6.0.24.10` / `sqlite-jdbc:3.47.1.0`。
 
-说明：字典表 CRUD 与「初始化」DDL 以 MySQL 方言为主（表名带 `devtoy_` 前缀）；其它库可先测连、列库表与生成实体。网络资产日常读写落**本地 SQLite**；远程库用于代码生成 / 字典与资产**覆盖同步**。
+说明：字典 CRUD 与「初始化」DDL 以 MySQL 方言为主，表名与业务库 / Java codegen 一致为 `qolome_dict_*`；网络库存、拓扑、OUI 等业务数据一律读写 **数据源设置** 中的远程库，**不再**做本地 ↔ 远程整库同步。
 
 ## 数据与表约定
 
 | 项 | 约定 |
 | --- | --- |
-| 本地库文件 | `%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db` |
-| 应用配置 | 写入本地库表 `devtoy_doc`（由旧 `settings.json` / `module-overrides.json` 自动迁移） |
-| 网络资产 | 日常读写本地 SQLite；可与「数据源设置」中的远程库 **双向整库覆盖同步**（本地 → 远程 / 远程 → 本地） |
-| 远程方言 | 与 Devtoy 数据源一致：MySQL / PostgreSQL / Oracle / ODBC（同步首期重点保证 MySQL、PostgreSQL） |
-| 表名前缀 | 业务表统一 `devtoy_`（如 `devtoy_qolome_dict_item`、`devtoy_device`）；配置表 `devtoy_doc` |
+| 本机库文件 | `%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db` |
+| 本机配置 | `devtoy_doc`（应用 / codegen / 数据源 JSON）；`devtoy_workspace`（工作区根）；`devtoy_module`（忽略、指定工程、覆盖项、创建/修改时间） |
+| 业务库 | 「配置管理 → 数据源设置」配置的远程库；网络库存、拓扑、OUI、字典、代码生成均使用该库 |
+| 字典表 | `qolome_dict_item` / `qolome_dict_val`（对齐 `qolome-dict` / Java codegen，**无** `devtoy_` 前缀） |
+| 网络业务表 | 远程库中的 `devtoy_device*`、拓扑、OUI 等（由网络模块 Schema 维护） |
+| 导入导出 | **仅**本机配置 SQL（`devtoy_doc` / `devtoy_workspace` / `devtoy_module`），不含远程业务表 |
 | 与独立 Q网络 | **不**共用 `%LocalAppData%\qolome\qolome-nets`；`qolome-nets` 仓代码独立演进 |
 
 模板文件仍落在 `%LocalAppData%\Qolome\Devtoy\templates\`（非数据库）。
+
+```text
+本机 SQLite                         远程业务库（数据源设置）
+├─ devtoy_doc                       ├─ qolome_dict_*
+├─ devtoy_workspace                 ├─ 网络库存 / 拓扑 / OUI …
+└─ devtoy_module                    └─ （代码生成读表结构）
+```
 
 ## 仓库结构
 
@@ -92,10 +100,10 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | `src/Qolome.Devtoy.App` | WinUI 3 壳层：导航、页面、主题 / 图标、控制台、打包入口 |
 | `src/Qolome.Devtoy.App/Nets/` | 网络工具 UI（自 `qolome-nets` 复制，命名空间 `Qolome.Nets.App`）及 DeviceTypes / Oui / Topology 资源 |
 | `src/Qolome.Devtoy.App/Assets/Fonts/` | **Fluent UI System Icons** 字体（`Regular` / `Filled`），侧栏等 `FontIcon` 使用 |
-| `src/Qolome.Devtoy.Core` | 业务核心：模块扫描、配置（SQLite）、ADO 数据源、字典、`CodegenEngine`（纯 C#） |
-| `src/Qolome.Nets.Core` | 网络扫描 / 库存 / 拓扑 / 多方言资产同步（自 `qolome-nets` 复制并适配 Devtoy 路径） |
+| `src/Qolome.Devtoy.Core` | 业务核心：模块扫描、本机配置（SQLite）、ADO 数据源、字典、`CodegenEngine`（纯 C#） |
+| `src/Qolome.Nets.Core` | 网络扫描 / 库存 / 拓扑（读写远程业务库；自 `qolome-nets` 复制并适配） |
 | `templates/` | 默认 Velocity 模板（`.vm`），可复制到本机后在「模板管理」编辑 |
-| `sql/` | 初始化 DDL（如 `qolome_devtoy_mysql_init.sql`，表名已带 `devtoy_` 前缀） |
+| `sql/` | 初始化 DDL（如 `qolome_devtoy_mysql_init.sql`，字典表为 `qolome_dict_*`） |
 | `icons/` | 应用图标 variant；`icons/svg/` 备用 SVG 资源 |
 | `docs/segoe-fluent-icons.md` | Segoe Fluent Icons 离线清单（与应用内 **图标库** 同源） |
 | `packaging/` | `package.ps1`、MSIX / ZIP / Inno 与签名脚本 |
@@ -109,31 +117,31 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 ## 功能概览
 
-侧栏分组：**开发工具** → **网络工具** → **配置管理** → **关于** / **图标库**。界面主题统一在 **配置管理 → 主题设置** 维护（网络设置不再含外观项）。
+侧栏分组：**开发工具** → **网络工具** → **配置管理** → **关于**。界面主题统一在 **配置管理 → 主题设置** 维护。
 
 | 分组 | 导航 | 能力 |
 | --- | --- | --- |
 | 开发工具 | **Java代码生成** | 可搜索 Java **输出项目**；填写 / 保存 **模块名** 与 Dao·Service·Controller **习惯**；查询库表（含表注释）、勾选后生成；生成中按钮 loading 禁点，完成后弹框提示 |
-| 开发工具 | **字典管理** | 加载 `devtoy_qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（**二次确认**，删除钮为红色）、字典值维护；可生成 Java 枚举 / TS 字典 |
-| 开发工具 | **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；**标签**（Java：代码生成/枚举/`boot-starter`；Web：字典）；`boot-starter` 按 `AutoConfiguration.imports` 自动识别，生成 Controller/Service 时写入 imports 并自动生成 Convert；忽略列表；已有项目配置只追加不覆盖 |
+| 开发工具 | **字典管理** | 读写远程 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（**二次确认**，删除钮为红色）、字典值维护；可生成 Java 枚举 / TS 字典 |
+| 开发工具 | **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；标签；忽略列表；列排序（含创建/修改时间）；名称 / 类型 / 标签筛选 |
+| 开发工具 | **图标库** | 浏览 Segoe Fluent Icons；可筛 **仅 Symbol 枚举**；优先复制 `Symbol.Xxx`，否则 `\uXXXX` |
 | 配置管理 | **主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
 | 配置管理 | **代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
-| 配置管理 | **数据源设置** | 多库种（MySQL / PostgreSQL / Oracle / SQLite / ODBC）、测试连接；**生成初始化 SQL** / **初始化**；远程连接供生成、字典与网络资产同步 |
+| 配置管理 | **数据源设置** | 多库种、测试连接；**生成初始化 SQL** / **初始化**；保存后准备远程业务库 Schema |
 | 配置管理 | **模板管理** | 从仓库默认 `.vm` 复制到本机，可编辑 / 还原 |
-| 配置管理 | **导入导出** | 全局配置导入导出 |
-| 网络工具 | **扫描** | 本机网卡 / CIDR / IP 段主机发现、TCP·UDP 端口、ICMP；勾选写入本地库存 |
+| 配置管理 | **导入导出** | 本机配置 SQL（`devtoy_doc` / `devtoy_workspace` / `devtoy_module`）导入 / 导出 |
+| 网络工具 | **扫描** | 本机网卡 / CIDR / IP 段主机发现、TCP·UDP 端口、ICMP；勾选写入远程库存 |
 | 网络工具 | **设备列表** | 按网络环境管理设备、分组、刷新、Excel |
-| 网络工具 | **网络拓扑** | 按环境 Canvas 拓扑；可与远程按时间戳云同步 |
+| 网络工具 | **网络拓扑** | 按环境 Canvas 拓扑（读写远程库） |
 | 网络工具 | **网络环境** / **设备类型** | 环境、分组、设备类型与图标 |
-| 网络工具 | **网络设置** | 扫描偏好、外观、**本地 ↔ 远程覆盖同步**、配置 / SQL 导入导出 |
-| — | **关于** | 产品、版本、官网、许可 |
-| — | **图标库** | 浏览全部 Segoe Fluent Icons；可筛 **仅 Symbol 枚举**；有枚举时点击优先复制 `Symbol.Xxx`，否则复制 `\uXXXX` |
+| 网络工具 | **网络设置** | 扫描偏好、OUI 更新 |
+| — | **关于** | 产品、版本、服务协议、官网、许可 |
 
 生成逻辑在 Core 的 `CodegenEngine` + `Codegen/*Generator` 中实现（对照 `qolome-codegen`，NVelocity 渲染同款 `.vm`）。
 
 ### 界面与图标约定
 
-- 按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖。
+- 按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖；支持点击列头排序。
 - 底部 **控制台**：标题栏为 **图标 +「控制台」** 一体按钮；隐藏时 `HideBcc`（点开）、显示时 `ShowBcc`（点关）。
 - 浅色主题下自定义标题栏系统按钮配色。
 - 删除类 `ContentDialog` 主按钮文案为 **删除**，使用红色危险样式（`DevtoyDangerButtonStyle`）。
@@ -150,7 +158,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 ### 代码生成配置说明
 
-持久化于本地 SQLite `devtoy_doc`（库文件见上文），生成时写入实体注解与包路径。作者有邮箱时，注释自动为 `<a href="mailto:邮箱">作者</a>`。
+持久化于本机 SQLite `devtoy_doc`（库文件见上文），生成时写入实体注解与包路径。作者有邮箱时，注释自动为 `<a href="mailto:邮箱">作者</a>`。
 
 | 项 | 默认 | 说明 |
 | --- | --- | --- |
@@ -163,14 +171,15 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | 修改日期 / 修改人 | `modify_time` / `modifier_id` | `FieldFill.INSERT_UPDATE` |
 | 主键生成类型 | `ASSIGN_ID` | 对齐 MyBatis-Plus `IdType`：`AUTO` / `NONE` / `INPUT` / `ASSIGN_ID` / `ASSIGN_UUID` |
 
-项目级覆盖：在 **项目管理** 启用功能后，可编辑 Java 生成配置 / 枚举路径 / 字典路径；生成页仅列出已启用「代码生成」的 Java 项目；字典生成可多选已启用枚举/字典的项目。
+项目级覆盖：在 **项目管理** 启用功能后，可编辑 Java 生成配置 / 枚举路径 / 字典路径；生成页仅列出已启用「代码生成」的 Java 项目；字典生成可多选已启用枚举/字典的项目。模块偏好落在本机 `devtoy_module`。
 
 ### 模块扫描约定
 
-- 工作区可 **叠加多个根目录**，扫描结果合并去重。
+- 工作区可 **叠加多个根目录**（`devtoy_workspace`），扫描结果合并去重。
 - 带 `packaging=pom` 的 Maven 聚合模块本身不作为生成目标，但仍会下钻子模块。
 - Gradle 工程按插件识别；无源码的包装工程会跳过。
 - **忽略** 的模块仍出现在「忽略列表」，但不出现在代码生成 / 字典生成的目标下拉中。
+- 列表支持按名称、工作区、路径、类型、版本、创建/修改时间排序。
 
 ## 常用命令
 
@@ -198,15 +207,15 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 
 | 路径 | 用途 |
 | --- | --- |
-| `%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db` | 本地统一库：应用配置、网络资产；字典也可落本地 |
+| `%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db` | 本机配置库（`devtoy_doc` / `devtoy_workspace` / `devtoy_module`） |
 | `%LocalAppData%\Qolome\Devtoy\crash.log` | 崩溃日志 |
 | `%LocalAppData%\Qolome\Devtoy\templates\` | 「模板管理」落地的可编辑 `.vm` |
 
-首次启动会尝试将旧版 `settings.json` / `module-overrides.json` 迁入 `devtoy_doc`。若本地库仍是未加 `devtoy_` 前缀的旧表，请备份后删除 `qolome-devtoy.db` 再启动以重建，或自行迁移。
+首次启动会尝试将旧版 `settings.json` / `module-overrides.json` 以及 `devtoy_doc` 内嵌的模块字段迁入 `devtoy_workspace` / `devtoy_module`。
 
-字典 / 表生成：在 **数据源设置** 中配置目标库（本地 SQLite 或远程），可用 **初始化** 写入 `devtoy_qolome_dict_*`。参考 DDL：[`sql/qolome_devtoy_mysql_init.sql`](sql/qolome_devtoy_mysql_init.sql)。
+字典 / 表生成：在 **数据源设置** 中配置远程业务库（通常为 MySQL）。空库可用 **初始化** 写入 `qolome_dict_*`；已有业务库（如 `qolome_epsims_dev`）直接使用现有字典表。参考 DDL：[`sql/qolome_devtoy_mysql_init.sql`](sql/qolome_devtoy_mysql_init.sql)。
 
-网络资产同步：配置远程后，在 **网络设置** 使用「本地 → 远程」或「远程 → 本地」（整库覆盖）。
+网络资产：配置并保存数据源后，由应用准备远程 Schema；扫描 / 设备 / 拓扑 / OUI 均读写该远程库。本机配置备份请用 **导入导出**。
 
 ## 打包发布
 
@@ -224,9 +233,9 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 
 | 仓库 | 路径（本机示例） | 关系 |
 | --- | --- | --- |
-| 后端 / codegen 参考 | `E:\workspace\cloud-workspace`（`qolome-codegen`） | 生成逻辑与 `.vm` 对齐来源 |
+| 后端 / codegen 参考 | `E:\workspace\cloud-workspace`（`qolome-codegen`） | 生成逻辑与 `.vm` 对齐来源；字典表 `qolome_dict_*` |
 | Web / 字典包 | `E:\workspace\webfx-workspace`（如 `qolome-webfx-dict`） | TS 字典消费方 |
-| 局域网工具（独立） | `E:\workspace\net-workspace\qolome-nets` | 网络功能源码来源；与 Devtoy **数据目录分离** |
+| 局域网工具（独立） | `E:\workspace\net-workspace\qolome-nets` | 网络功能源码来源；与 DevToy **数据目录分离** |
 | 本工具 | `E:\workspace\webfx-workspace\qolome-devtoy` | 当前仓库 |
 
 跨仓联调上下文见 webfx 仓 `.cursor/qolome-sibling-workspaces.md`（由 `qolome-cli scan` 维护）。

@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:Qolome.Nets.App.ViewModels"
     mc:Ignorable="d">
 
     <ScrollViewer Padding="16">
@@ -22,7 +23,7 @@
                     <TextBlock
                         TextWrapping="Wrap"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind ViewModel.PortConcurrencyDefaultText}" />
+                        Text="{x:Bind viewmodels:SettingsViewModel.PortConcurrencyDefaultText, Mode=OneWay}" />
                     <Grid ColumnSpacing="16" RowSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

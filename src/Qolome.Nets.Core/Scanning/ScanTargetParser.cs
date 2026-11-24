@@ -11,7 +11,8 @@ public static class ScanTargetParser
 
     private static readonly Regex RangeRegex = new(
         @"^(?<start>\d{1,3}(?:\.\d{1,3}){3})\s*-\s*(?<end>(?:\d{1,3}(?:\.\d{1,3}){3})|\d{1,3})$",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(2));
 
     public static IReadOnlyList<IPAddress> Parse(string input)
     {

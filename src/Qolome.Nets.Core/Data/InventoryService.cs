@@ -9,7 +9,12 @@ namespace Qolome.Nets.Core.Data;
 
 public sealed class InventoryService
 {
-    public async Task<IReadOnlyList<NetworkEnvironment>> GetEnvironmentsAsync()
+    private const string MsgEnvironmentMissing = "网络环境不存在。";
+    private const string MsgGroupMissing = "分组不存在。";
+    private const string MsgDeviceTypeMissing = "设备类型不存在。";
+    private const string MsgDeviceMissing = "设备不存在。";
+    private const string MsgSelectEnvironment = "请先选择网络环境。";
+    public static async Task<IReadOnlyList<NetworkEnvironment>> GetEnvironmentsAsync()
     {
         await using var db = AppDatabase.CreateContext();
         return await db.Environments.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
@@ -38,12 +43,12 @@ public sealed class InventoryService
         return entity;
     }
 
-    public async Task UpdateEnvironmentAsync(int id, string name, string? description, string? defaultCidr)
+    public static async Task UpdateEnvironmentAsync(int id, string name, string? description, string? defaultCidr)
     {
         name = RequireName(name, "网络环境名称");
         await using var db = AppDatabase.CreateContext();
         var entity = await db.Environments.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("网络环境不存在。");
+            ?? throw new ScanException(MsgEnvironmentMissing);
         if (await db.Environments.AnyAsync(x => x.Name == name && x.Id != id))
         {
             throw new ScanException($"网络环境「{name}」已存在。");
@@ -56,7 +61,7 @@ public sealed class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteEnvironmentAsync(int id)
+    public static async Task DeleteEnvironmentAsync(int id)
     {
         await using var db = AppDatabase.CreateContext();
         if (await db.Devices.AnyAsync(x => x.NetworkEnvironmentId == id))
@@ -65,7 +70,7 @@ public sealed class InventoryService
         }
 
         var entity = await db.Environments.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("网络环境不存在。");
+            ?? throw new ScanException(MsgEnvironmentMissing);
         var groups = await db.Groups.Where(x => x.NetworkEnvironmentId == id).ToListAsync();
         db.Groups.RemoveRange(groups);
         var topology = await db.Topologies.FirstOrDefaultAsync(x => x.NetworkEnvironmentId == id);
@@ -79,7 +84,7 @@ public sealed class InventoryService
         TopologyStore.DeleteLocal(id);
     }
 
-    public async Task<IReadOnlyList<DeviceGroup>> GetGroupsAsync(int environmentId)
+    public static async Task<IReadOnlyList<DeviceGroup>> GetGroupsAsync(int environmentId)
     {
         await using var db = AppDatabase.CreateContext();
         return await db.Groups.AsNoTracking()
@@ -94,7 +99,7 @@ public sealed class InventoryService
         await using var db = AppDatabase.CreateContext();
         if (!await db.Environments.AnyAsync(x => x.Id == environmentId))
         {
-            throw new ScanException("网络环境不存在。");
+            throw new ScanException(MsgEnvironmentMissing);
         }
 
         if (await db.Groups.AnyAsync(x => x.NetworkEnvironmentId == environmentId && x.Name == name))
@@ -114,12 +119,12 @@ public sealed class InventoryService
         return entity;
     }
 
-    public async Task UpdateGroupAsync(int id, string name, string? description)
+    public static async Task UpdateGroupAsync(int id, string name, string? description)
     {
         name = RequireName(name, "分组名称");
         await using var db = AppDatabase.CreateContext();
         var entity = await db.Groups.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("分组不存在。");
+            ?? throw new ScanException(MsgGroupMissing);
         if (await db.Groups.AnyAsync(x =>
                 x.NetworkEnvironmentId == entity.NetworkEnvironmentId && x.Name == name && x.Id != id))
         {
@@ -131,16 +136,16 @@ public sealed class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteGroupAsync(int id)
+    public static async Task DeleteGroupAsync(int id)
     {
         await using var db = AppDatabase.CreateContext();
         var entity = await db.Groups.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("分组不存在。");
+            ?? throw new ScanException(MsgGroupMissing);
         db.Groups.Remove(entity);
         await db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<DeviceType>> GetDeviceTypesAsync()
+    public static async Task<IReadOnlyList<DeviceType>> GetDeviceTypesAsync()
     {
         await using var db = AppDatabase.CreateContext();
         return await db.DeviceTypes.AsNoTracking().OrderBy(x => x.SortOrder).ThenBy(x => x.Name).ToListAsync();
@@ -177,21 +182,13 @@ public sealed class InventoryService
         return entity;
     }
 
-    public async Task UpdateDeviceTypeAsync(
-        int id,
-        string code,
-        string name,
-        string? description,
-        string? iconSourcePath = null,
-        bool restoreDefaultIcon = false,
-        string? builtinIconKey = null,
-        string? colorGroup = null)
+    public static async Task UpdateDeviceTypeAsync(int id, DeviceTypeEditInput input)
     {
-        code = RequireName(code, "设备类型编码").ToLowerInvariant();
-        name = RequireName(name, "设备类型名称");
+        var code = RequireName(input.Code, "设备类型编码").ToLowerInvariant();
+        var name = RequireName(input.Name, "设备类型名称");
         await using var db = AppDatabase.CreateContext();
         var entity = await db.DeviceTypes.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("设备类型不存在。");
+            ?? throw new ScanException(MsgDeviceTypeMissing);
         if (await db.DeviceTypes.AnyAsync(x => (x.Code == code || x.Name == name) && x.Id != id))
         {
             throw new ScanException("设备类型编码或名称已存在。");
@@ -199,17 +196,17 @@ public sealed class InventoryService
 
         entity.Code = code;
         entity.Name = name;
-        entity.Description = NullIfEmpty(description);
-        entity.ColorGroup = DeviceTypeColorGroups.Normalize(colorGroup, code);
-        DeviceTypeIconStore.ApplyChange(entity, iconSourcePath, restoreDefaultIcon, builtinIconKey);
+        entity.Description = NullIfEmpty(input.Description);
+        entity.ColorGroup = DeviceTypeColorGroups.Normalize(input.ColorGroup, code);
+        DeviceTypeIconStore.ApplyChange(entity, input.IconSourcePath, input.RestoreDefaultIcon, input.BuiltinIconKey);
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteDeviceTypeAsync(int id)
+    public static async Task DeleteDeviceTypeAsync(int id)
     {
         await using var db = AppDatabase.CreateContext();
         var entity = await db.DeviceTypes.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new ScanException("设备类型不存在。");
+            ?? throw new ScanException(MsgDeviceTypeMissing);
         if (entity.IsCustomIcon)
         {
             DeviceTypeIconStore.DeleteCustom(entity.IconFile);
@@ -219,7 +216,7 @@ public sealed class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<Device>> GetDevicesAsync(int environmentId, int? groupId)
+    public static async Task<IReadOnlyList<Device>> GetDevicesAsync(int environmentId, int? groupId)
     {
         await using var db = AppDatabase.CreateContext();
         var query = db.Devices.AsNoTracking()
@@ -247,16 +244,16 @@ public sealed class InventoryService
         return ip != 0 ? ip : string.Compare(left.Code, right.Code, StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task AssignDeviceGroupAsync(int deviceId, int? groupId)
+    public static async Task AssignDeviceGroupAsync(int deviceId, int? groupId)
     {
         var updated = await AssignDeviceGroupsAsync([deviceId], groupId);
         if (updated == 0)
         {
-            throw new ScanException("设备不存在。");
+            throw new ScanException(MsgDeviceMissing);
         }
     }
 
-    public async Task<int> AssignDeviceGroupsAsync(IReadOnlyList<int> deviceIds, int? groupId)
+    public static async Task<int> AssignDeviceGroupsAsync(IReadOnlyList<int> deviceIds, int? groupId)
     {
         var ids = deviceIds.Distinct().ToList();
         if (ids.Count == 0)
@@ -275,7 +272,7 @@ public sealed class InventoryService
         if (groupId is int gid)
         {
             group = await db.Groups.FirstOrDefaultAsync(x => x.Id == gid)
-                ?? throw new ScanException("分组不存在。");
+                ?? throw new ScanException(MsgGroupMissing);
         }
 
         var now = DateTime.UtcNow;
@@ -294,16 +291,16 @@ public sealed class InventoryService
         return devices.Count;
     }
 
-    public async Task DeleteDeviceAsync(int deviceId)
+    public static async Task DeleteDeviceAsync(int deviceId)
     {
         var deleted = await DeleteDevicesAsync([deviceId]);
         if (deleted == 0)
         {
-            throw new ScanException("设备不存在。");
+            throw new ScanException(MsgDeviceMissing);
         }
     }
 
-    public async Task<int> DeleteDevicesAsync(IReadOnlyList<int> deviceIds)
+    public static async Task<int> DeleteDevicesAsync(IReadOnlyList<int> deviceIds)
     {
         var ids = deviceIds.Distinct().ToList();
         if (ids.Count == 0)
@@ -328,7 +325,7 @@ public sealed class InventoryService
         await using var db = AppDatabase.CreateContext();
         if (!await db.Environments.AnyAsync(x => x.Id == environmentId))
         {
-            throw new ScanException("请先选择网络环境。");
+            throw new ScanException(MsgSelectEnvironment);
         }
 
         await EnsureGroupInEnvironmentAsync(db, environmentId, input.DeviceGroupId);
@@ -371,14 +368,14 @@ public sealed class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task UpdateDeviceAsync(int deviceId, DeviceEditInput input)
+    public static async Task UpdateDeviceAsync(int deviceId, DeviceEditInput input)
     {
         await using var db = AppDatabase.CreateContext();
         var entity = await db.Devices
             .Include(x => x.Domains)
             .Include(x => x.Nics)
             .FirstOrDefaultAsync(x => x.Id == deviceId)
-            ?? throw new ScanException("设备不存在。");
+            ?? throw new ScanException(MsgDeviceMissing);
 
         await EnsureGroupInEnvironmentAsync(db, entity.NetworkEnvironmentId, input.DeviceGroupId);
         await EnsureDeviceTypeAsync(db, input.DeviceTypeId);
@@ -409,7 +406,7 @@ public sealed class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task<DeviceRefreshResult> RefreshDevicesAsync(
+    public static async Task<DeviceRefreshResult> RefreshDevicesAsync(
         int environmentId,
         IReadOnlyList<int> deviceIds,
         DeviceRefreshOptions options,
@@ -428,7 +425,7 @@ public sealed class InventoryService
         await using var db = AppDatabase.CreateContext();
         if (!await db.Environments.AnyAsync(x => x.Id == environmentId, cancellationToken))
         {
-            throw new ScanException("请先选择网络环境。");
+            throw new ScanException(MsgSelectEnvironment);
         }
 
         var wanted = deviceIds.Distinct().ToList();
@@ -456,47 +453,20 @@ public sealed class InventoryService
         progress?.Report(new ScanProgress(0, devices.Count, $"准备更新 {devices.Count} 台设备…"));
 
         var probes = new ConcurrentDictionary<string, HostScanResult>(StringComparer.OrdinalIgnoreCase);
-        ScanSession? session = null;
-        if (options.NeedsNetwork)
-        {
-            session = new ScanSession(purposes);
-            var firstIps = UniqueIpv4(devices.SelectMany(d => d.NicIps()));
-            await ProbeIpsAsync(
-                    session,
-                    request,
-                    firstIps,
-                    options.Ports,
-                    probes,
-                    progress,
-                    devices.Count,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            var macToIps = MergeArpMap(session.SnapshotArpMacToIps(), probes.Values);
-            var extraIps = UniqueIpv4(devices.SelectMany(d =>
-                    d.OrderedNics().Select(n => PickIpFromArp(n.Mac, n.Ip, macToIps))))
-                .Where(ip => !probes.ContainsKey(ip))
-                .ToList();
-            if (extraIps.Count > 0)
-            {
-                await ProbeIpsAsync(
-                        session,
-                        request,
-                        extraIps,
-                        options.Ports,
-                        probes,
-                        progress,
-                        devices.Count,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
+        var session = await RunRefreshNetworkProbesAsync(
+            options,
+            request,
+            devices,
+            probes,
+            progress,
+            purposes,
+            cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(new ScanProgress(devices.Count, devices.Count, "正在保存…"));
 
         var macToIpsFinal = options.Ip && session is not null
-            ? MergeArpMap(session.SnapshotArpMacToIps(), probes.Values)
+            ? MergeArpMap(ScanSession.SnapshotArpMacToIps(), probes.Values)
             : new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         var updated = 0;
@@ -504,88 +474,9 @@ public sealed class InventoryService
         var offline = 0;
         foreach (var device in devices)
         {
-            var changed = false;
-            EnsureNicRows(device);
-            HostScanResult? host = null;
-            var hadIp = false;
-            var anyAlive = false;
-            foreach (var nic in device.Nics.OrderBy(x => x.SortOrder).ThenBy(x => x.Id).ToList())
-            {
-                var candidateIp = options.Ip
-                    ? PickIpFromArp(nic.Mac, nic.Ip, macToIpsFinal) ?? nic.Ip
-                    : nic.Ip;
-                if (!string.IsNullOrWhiteSpace(candidateIp))
-                {
-                    hadIp = true;
-                    if (probes.TryGetValue(candidateIp, out var probed) ||
-                        (!string.IsNullOrWhiteSpace(nic.Ip) && probes.TryGetValue(nic.Ip, out probed)))
-                    {
-                        if (probed.IsAlive)
-                        {
-                            anyAlive = true;
-                            host ??= probed;
-                        }
-                    }
-                }
-
-                if (options.Ip)
-                {
-                    changed |= TryAssignNicIp(device, nic, candidateIp, all);
-                }
-            }
-
-            if (options.Ip)
-            {
-                SyncPrimaryFromNics(device);
-            }
-
-            if (options.NeedsNetwork && hadIp && !anyAlive)
-            {
-                offline++;
-            }
-
-            if (options.Vendor && string.IsNullOrWhiteSpace(device.Vendor))
-            {
-                foreach (var mac in device.NicMacs())
-                {
-                    var vendor = OsTypeGuess.MeaningfulVendor(OuiStore.Lookup(mac));
-                    if (string.IsNullOrWhiteSpace(vendor))
-                    {
-                        continue;
-                    }
-
-                    device.Vendor = vendor;
-                    changed = true;
-                    break;
-                }
-            }
-
-            if (options.OsType && host is { IsAlive: true })
-            {
-                if (!string.IsNullOrWhiteSpace(host.OsType) && device.OsType != host.OsType)
-                {
-                    device.OsType = host.OsType;
-                    changed = true;
-                }
-
-                if (!string.IsNullOrWhiteSpace(host.DeviceInfo) && device.DeviceInfo != host.DeviceInfo)
-                {
-                    device.DeviceInfo = host.DeviceInfo;
-                    changed = true;
-                }
-            }
-
-            if (options.Ports && host is { IsAlive: true } && host.OpenPorts.Count > 0)
-            {
-                var ports = host.PortsDisplay;
-                if (!string.Equals(device.OpenPorts, ports, StringComparison.Ordinal))
-                {
-                    device.OpenPorts = ports;
-                    changed = true;
-                }
-            }
-
-            if (changed)
+            var outcome = ApplyRefreshToDevice(device, options, probes, macToIpsFinal, all);
+            offline += outcome.OfflineDelta;
+            if (outcome.Changed)
             {
                 device.UpdatedAtUtc = DateTime.UtcNow;
                 updated++;
@@ -604,27 +495,201 @@ public sealed class InventoryService
         return new DeviceRefreshResult(updated, unchanged, offline);
     }
 
-    private static async Task ProbeIpsAsync(
-        ScanSession session,
+    private readonly record struct DeviceRefreshOutcome(bool Changed, int OfflineDelta);
+
+    private static async Task<ScanSession?> RunRefreshNetworkProbesAsync(
+        DeviceRefreshOptions options,
         ScanRequest request,
-        IReadOnlyList<string> ips,
-        bool scanPorts,
+        IReadOnlyList<Device> devices,
         ConcurrentDictionary<string, HostScanResult> probes,
         IProgress<ScanProgress>? progress,
-        int deviceCount,
+        PortPurposeStore? purposes,
         CancellationToken cancellationToken)
     {
-        if (ips.Count == 0)
+        if (!options.NeedsNetwork)
+        {
+            return null;
+        }
+
+        var session = new ScanSession(purposes);
+        var firstIps = UniqueIpv4(devices.SelectMany(d => d.NicIps()));
+        await ProbeIpsAsync(new ProbeIpsRequest(
+                session,
+                request,
+                firstIps,
+                options.Ports,
+                probes,
+                progress,
+                devices.Count,
+                cancellationToken))
+            .ConfigureAwait(false);
+
+        var macToIps = MergeArpMap(ScanSession.SnapshotArpMacToIps(), probes.Values);
+        var extraIps = UniqueIpv4(devices.SelectMany(d =>
+                d.OrderedNics().Select(n => PickIpFromArp(n.Mac, n.Ip, macToIps))))
+            .Where(ip => !probes.ContainsKey(ip))
+            .ToList();
+        if (extraIps.Count > 0)
+        {
+            await ProbeIpsAsync(new ProbeIpsRequest(
+                    session,
+                    request,
+                    extraIps,
+                    options.Ports,
+                    probes,
+                    progress,
+                    devices.Count,
+                    cancellationToken))
+                .ConfigureAwait(false);
+        }
+
+        return session;
+    }
+
+    private static DeviceRefreshOutcome ApplyRefreshToDevice(
+        Device device,
+        DeviceRefreshOptions options,
+        IReadOnlyDictionary<string, HostScanResult> probes,
+        IReadOnlyDictionary<string, HashSet<string>> macToIpsFinal,
+        IReadOnlyList<Device> allInEnvironment)
+    {
+        var changed = false;
+        EnsureNicRows(device);
+        HostScanResult? host = null;
+        var hadIp = false;
+        var anyAlive = false;
+        foreach (var nic in device.Nics.OrderBy(x => x.SortOrder).ThenBy(x => x.Id).ToList())
+        {
+            var candidateIp = options.Ip
+                ? PickIpFromArp(nic.Mac, nic.Ip, macToIpsFinal) ?? nic.Ip
+                : nic.Ip;
+            if (!string.IsNullOrWhiteSpace(candidateIp))
+            {
+                hadIp = true;
+                if (TryGetAliveProbe(probes, candidateIp, nic.Ip, out var probed))
+                {
+                    anyAlive = true;
+                    host ??= probed;
+                }
+            }
+
+            if (options.Ip)
+            {
+                changed |= TryAssignNicIp(device, nic, candidateIp, allInEnvironment);
+            }
+        }
+
+        if (options.Ip)
+        {
+            SyncPrimaryFromNics(device);
+        }
+
+        var offlineDelta = options.NeedsNetwork && hadIp && !anyAlive ? 1 : 0;
+        changed |= TryApplyVendorFromOui(device, options);
+        changed |= TryApplyHostMetadata(device, options, host);
+        changed |= TryApplyHostPorts(device, options, host);
+        return new DeviceRefreshOutcome(changed, offlineDelta);
+    }
+
+    private static bool TryGetAliveProbe(
+        IReadOnlyDictionary<string, HostScanResult> probes,
+        string candidateIp,
+        string? nicIp,
+        out HostScanResult probed)
+    {
+        if (probes.TryGetValue(candidateIp, out var candidateHit) && candidateHit.IsAlive)
+        {
+            probed = candidateHit;
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(nicIp)
+            && probes.TryGetValue(nicIp, out var nicHit)
+            && nicHit.IsAlive)
+        {
+            probed = nicHit;
+            return true;
+        }
+
+        probed = null!;
+        return false;
+    }
+
+    private static bool TryApplyVendorFromOui(Device device, DeviceRefreshOptions options)
+    {
+        if (!options.Vendor || !string.IsNullOrWhiteSpace(device.Vendor))
+        {
+            return false;
+        }
+
+        foreach (var mac in device.NicMacs())
+        {
+            var vendor = OsTypeGuess.MeaningfulVendor(OuiStore.Lookup(mac));
+            if (string.IsNullOrWhiteSpace(vendor))
+            {
+                continue;
+            }
+
+            device.Vendor = vendor;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryApplyHostMetadata(Device device, DeviceRefreshOptions options, HostScanResult? host)
+    {
+        if (!options.OsType || host is not { IsAlive: true })
+        {
+            return false;
+        }
+
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(host.OsType) && device.OsType != host.OsType)
+        {
+            device.OsType = host.OsType;
+            changed = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(host.DeviceInfo) && device.DeviceInfo != host.DeviceInfo)
+        {
+            device.DeviceInfo = host.DeviceInfo;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool TryApplyHostPorts(Device device, DeviceRefreshOptions options, HostScanResult? host)
+    {
+        if (!options.Ports || host is not { IsAlive: true } || host.OpenPorts.Count == 0)
+        {
+            return false;
+        }
+
+        var ports = host.PortsDisplay;
+        if (string.Equals(device.OpenPorts, ports, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        device.OpenPorts = ports;
+        return true;
+    }
+
+    private static async Task ProbeIpsAsync(ProbeIpsRequest probe)
+    {
+        if (probe.Ips.Count == 0)
         {
             return;
         }
 
         var completed = 0;
-        var concurrency = Math.Clamp(request.HostConcurrency, 1, 64);
-        await Parallel.ForEachAsync(ips, new ParallelOptions
+        var concurrency = Math.Clamp(probe.Request.HostConcurrency, 1, 64);
+        await Parallel.ForEachAsync(probe.Ips, new ParallelOptions
         {
             MaxDegreeOfParallelism = concurrency,
-            CancellationToken = cancellationToken
+            CancellationToken = probe.CancellationToken
         }, async (ip, token) =>
         {
             try
@@ -635,20 +700,30 @@ public sealed class InventoryService
                     return;
                 }
 
-                var host = await session.RefreshHostAsync(address, request, scanPorts, enrich: true, token)
+                var host = await probe.Session.RefreshHostAsync(address, probe.Request, probe.ScanPorts, enrich: true, token)
                     .ConfigureAwait(false);
-                probes[address.ToString()] = host;
+                probe.Probes[address.ToString()] = host;
             }
             finally
             {
                 var done = Interlocked.Increment(ref completed);
-                progress?.Report(new ScanProgress(
-                    Math.Min(done, deviceCount),
-                    deviceCount,
-                    $"已探测 {done}/{ips.Count}"));
+                probe.Progress?.Report(new ScanProgress(
+                    Math.Min(done, probe.DeviceCount),
+                    probe.DeviceCount,
+                    $"已探测 {done}/{probe.Ips.Count}"));
             }
         }).ConfigureAwait(false);
     }
+
+    private sealed record ProbeIpsRequest(
+        ScanSession Session,
+        ScanRequest Request,
+        IReadOnlyList<string> Ips,
+        bool ScanPorts,
+        ConcurrentDictionary<string, HostScanResult> Probes,
+        IProgress<ScanProgress>? Progress,
+        int DeviceCount,
+        CancellationToken CancellationToken);
 
     private static Dictionary<string, HashSet<string>> MergeArpMap(
         IReadOnlyDictionary<string, IReadOnlyList<string>> snapshot,
@@ -664,12 +739,9 @@ public sealed class InventoryService
                 map[key] = set;
             }
 
-            foreach (var ip in ips)
+            foreach (var ip in ips.Where(ip => !string.IsNullOrWhiteSpace(ip)))
             {
-                if (!string.IsNullOrWhiteSpace(ip))
-                {
-                    set.Add(ip);
-                }
+                set.Add(ip);
             }
         }
 
@@ -777,7 +849,7 @@ public sealed class InventoryService
         }
 
         var group = await db.Groups.FirstOrDefaultAsync(x => x.Id == gid)
-            ?? throw new ScanException("分组不存在。");
+            ?? throw new ScanException(MsgGroupMissing);
         if (group.NetworkEnvironmentId != environmentId)
         {
             throw new ScanException("分组不属于当前网络环境。");
@@ -788,7 +860,7 @@ public sealed class InventoryService
     {
         if (typeId is int tid && !await db.DeviceTypes.AnyAsync(x => x.Id == tid))
         {
-            throw new ScanException("设备类型不存在。");
+            throw new ScanException(MsgDeviceTypeMissing);
         }
     }
 
@@ -800,15 +872,12 @@ public sealed class InventoryService
     {
         var bluetooth = await IsBluetoothTypeAsync(db, input.DeviceTypeId);
         var nics = NormalizeNicInputs(input);
-        if (!bluetooth)
+        if (!bluetooth && (nics.Count == 0 || nics.All(n => string.IsNullOrWhiteSpace(n.Ip))))
         {
-            if (nics.Count == 0 || nics.All(n => string.IsNullOrWhiteSpace(n.Ip)))
-            {
-                throw new ScanException("请至少填写一个 IP。");
-            }
+            throw new ScanException("请至少填写一个 IP。");
         }
-        else if (nics.Count == 0
-            && NullIfEmpty(input.Hostname) is null)
+
+        if (bluetooth && nics.Count == 0 && NullIfEmpty(input.Hostname) is null)
         {
             throw new ScanException("蓝牙设备请至少填写主机名或一块网卡的 MAC（蓝牙地址）。");
         }
@@ -893,11 +962,11 @@ public sealed class InventoryService
 
         await using var db = AppDatabase.CreateContext();
         var env = await db.Environments.FirstOrDefaultAsync(x => x.Id == environmentId)
-            ?? throw new ScanException("请先选择网络环境。");
+            ?? throw new ScanException(MsgSelectEnvironment);
         if (groupId is int gid)
         {
             var group = await db.Groups.FirstOrDefaultAsync(x => x.Id == gid)
-                ?? throw new ScanException("分组不存在。");
+                ?? throw new ScanException(MsgGroupMissing);
             if (group.NetworkEnvironmentId != environmentId)
             {
                 throw new ScanException("分组不属于当前网络环境。");
@@ -953,7 +1022,7 @@ public sealed class InventoryService
         await using var db = AppDatabase.CreateContext();
         if (!await db.Environments.AnyAsync(x => x.Id == environmentId))
         {
-            throw new ScanException("请先选择网络环境。");
+            throw new ScanException(MsgSelectEnvironment);
         }
 
         var types = await db.DeviceTypes.ToListAsync();
@@ -1024,7 +1093,7 @@ public sealed class InventoryService
         await using var db = AppDatabase.CreateContext();
         if (!await db.Environments.AnyAsync(x => x.Id == environmentId))
         {
-            throw new ScanException("请先选择网络环境。");
+            throw new ScanException(MsgSelectEnvironment);
         }
 
         var devices = await db.Devices
@@ -1194,18 +1263,12 @@ public sealed class InventoryService
             .Include(x => x.Nics)
             .Where(x => x.NetworkEnvironmentId == environmentId)
             .ToListAsync();
-        foreach (var mac in wanted)
+        var conflict = wanted.FirstOrDefault(mac =>
+            others.Any(d => d.Id != excludeDeviceId && DeviceHasMac(d, mac)));
+        if (conflict is not null)
         {
-            if (others.Any(d => d.Id != excludeDeviceId && DeviceHasMac(d, mac)))
-            {
-                throw new ScanException($"MAC「{mac}」在当前环境已存在，设备以 MAC 作为唯一标识。");
-            }
+            throw new ScanException($"MAC「{conflict}」在当前环境已存在，设备以 MAC 作为唯一标识。");
         }
-    }
-
-    private static async Task EnsureUniqueMacAsync(NetsDbContext db, int environmentId, string? mac, int? excludeDeviceId)
-    {
-        await EnsureUniqueMacsAsync(db, environmentId, [mac], excludeDeviceId);
     }
 
     private static async Task<DeviceType?> ResolveTypeAsync(NetsDbContext db, List<DeviceType> types, string? nameOrCode)
@@ -1279,56 +1342,78 @@ public sealed class InventoryService
         ip = NullIfEmpty(ip);
         mac = NormalizeMac(mac);
         EnsureNicRows(device);
-        if (mac is not null)
+        if (TryUpsertNicByMac(device, ip, mac) || TryUpsertNicByIp(device, ip, mac))
         {
-            var byMac = device.Nics.FirstOrDefault(n => NormalizeMac(n.Mac) == mac);
-            if (byMac is not null)
-            {
-                if (ip is not null)
-                {
-                    byMac.Ip = ip;
-                }
+            return;
+        }
 
-                SyncPrimaryFromNics(device);
-                return;
-            }
+        ApplyNicToPrimaryOrAdd(device, ip, mac);
+        SyncPrimaryFromNics(device);
+    }
+
+    private static bool TryUpsertNicByMac(Device device, string? ip, string? mac)
+    {
+        if (mac is null)
+        {
+            return false;
+        }
+
+        var byMac = device.Nics.FirstOrDefault(n => NormalizeMac(n.Mac) == mac);
+        if (byMac is null)
+        {
+            return false;
         }
 
         if (ip is not null)
         {
-            var byIp = device.Nics.FirstOrDefault(n =>
-                string.Equals(n.Ip, ip, StringComparison.OrdinalIgnoreCase));
-            if (byIp is not null)
-            {
-                if (mac is not null)
-                {
-                    byIp.Mac = mac;
-                }
-
-                SyncPrimaryFromNics(device);
-                return;
-            }
-        }
-
-        if (device.Nics.Count == 0)
-        {
-            device.Nics.Add(new DeviceNic { Ip = ip, Mac = mac, SortOrder = 0 });
-        }
-        else
-        {
-            var primary = device.Nics.OrderBy(x => x.SortOrder).ThenBy(x => x.Id).First();
-            if (ip is not null)
-            {
-                primary.Ip = ip;
-            }
-
-            if (mac is not null)
-            {
-                primary.Mac = mac;
-            }
+            byMac.Ip = ip;
         }
 
         SyncPrimaryFromNics(device);
+        return true;
+    }
+
+    private static bool TryUpsertNicByIp(Device device, string? ip, string? mac)
+    {
+        if (ip is null)
+        {
+            return false;
+        }
+
+        var byIp = device.Nics.FirstOrDefault(n =>
+            string.Equals(n.Ip, ip, StringComparison.OrdinalIgnoreCase));
+        if (byIp is null)
+        {
+            return false;
+        }
+
+        if (mac is not null)
+        {
+            byIp.Mac = mac;
+        }
+
+        SyncPrimaryFromNics(device);
+        return true;
+    }
+
+    private static void ApplyNicToPrimaryOrAdd(Device device, string? ip, string? mac)
+    {
+        if (device.Nics.Count == 0)
+        {
+            device.Nics.Add(new DeviceNic { Ip = ip, Mac = mac, SortOrder = 0 });
+            return;
+        }
+
+        var primary = device.Nics.OrderBy(x => x.SortOrder).ThenBy(x => x.Id).First();
+        if (ip is not null)
+        {
+            primary.Ip = ip;
+        }
+
+        if (mac is not null)
+        {
+            primary.Mac = mac;
+        }
     }
 
     private static void SyncPrimaryFromNics(Device device)

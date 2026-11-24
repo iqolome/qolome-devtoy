@@ -118,9 +118,15 @@ public sealed class InventorySnapshot
 
     private static async Task SetForeignKeyChecksAsync(NetsDbContext db, bool mysql, bool enabled)
     {
-        var sql = mysql
-            ? (enabled ? "SET FOREIGN_KEY_CHECKS=1" : "SET FOREIGN_KEY_CHECKS=0")
-            : (enabled ? "PRAGMA foreign_keys=ON" : "PRAGMA foreign_keys=OFF");
+        string sql;
+        if (mysql)
+        {
+            sql = enabled ? "SET FOREIGN_KEY_CHECKS=1" : "SET FOREIGN_KEY_CHECKS=0";
+        }
+        else
+        {
+            sql = enabled ? "PRAGMA foreign_keys=ON" : "PRAGMA foreign_keys=OFF";
+        }
         await db.Database.ExecuteSqlRawAsync(sql).ConfigureAwait(false);
     }
 

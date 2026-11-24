@@ -76,14 +76,14 @@ public partial class DevicesViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var environments = await _inventory.GetEnvironmentsAsync();
+        var environments = await InventoryService.GetEnvironmentsAsync();
         Environments.Clear();
         foreach (var env in environments)
         {
             Environments.Add(env);
         }
 
-        DeviceTypes = await _inventory.GetDeviceTypesAsync();
+        DeviceTypes = await InventoryService.GetDeviceTypesAsync();
 
         SelectedEnvironment = Environments.FirstOrDefault(e => e.Id == AppServices.SelectedEnvironmentId)
             ?? Environments.FirstOrDefault();
@@ -91,10 +91,10 @@ public partial class DevicesViewModel : ObservableObject
 
     public async Task<(IReadOnlyList<DeviceType> Types, IReadOnlyList<DeviceGroup> Groups)> GetEditorLookupsAsync()
     {
-        DeviceTypes = await _inventory.GetDeviceTypesAsync();
+        DeviceTypes = await InventoryService.GetDeviceTypesAsync();
         IReadOnlyList<DeviceGroup> groups = SelectedEnvironment is null
             ? []
-            : await _inventory.GetGroupsAsync(SelectedEnvironment.Id);
+            : await InventoryService.GetGroupsAsync(SelectedEnvironment.Id);
         return (DeviceTypes, groups);
     }
 
@@ -118,7 +118,7 @@ public partial class DevicesViewModel : ObservableObject
         }
 
         var id = SelectedDevice.Id;
-        await _inventory.UpdateDeviceAsync(id, input);
+        await InventoryService.UpdateDeviceAsync(id, input);
         Status = "已更新设备。";
         await ReloadDevicesAsync();
         SelectedDevice = Devices.FirstOrDefault(d => d.Id == id);
@@ -200,7 +200,7 @@ public partial class DevicesViewModel : ObservableObject
                 return;
             }
 
-            foreach (var group in await _inventory.GetGroupsAsync(SelectedEnvironment.Id))
+            foreach (var group in await InventoryService.GetGroupsAsync(SelectedEnvironment.Id))
             {
                 Groups.Add(group);
                 GroupFilters.Add(new DeviceGroupFilter { GroupId = group.Id, Name = group.Name });
@@ -225,7 +225,7 @@ public partial class DevicesViewModel : ObservableObject
             return;
         }
 
-        _allDevices = [.. await _inventory.GetDevicesAsync(SelectedEnvironment.Id, SelectedGroupFilter?.GroupId)];
+        _allDevices = [.. await InventoryService.GetDevicesAsync(SelectedEnvironment.Id, SelectedGroupFilter?.GroupId)];
         ApplyView();
     }
 
@@ -269,11 +269,19 @@ public partial class DevicesViewModel : ObservableObject
             filters.Add("MAC");
         }
 
-        var scope = SelectedGroupFilter?.GroupId is 0
-            ? "未分组"
-            : SelectedGroupFilter?.GroupId is > 0
-                ? $"分组「{SelectedGroupFilter.Name}」"
-                : "当前环境";
+        string scope;
+        if (SelectedGroupFilter?.GroupId is 0)
+        {
+            scope = "未分组";
+        }
+        else if (SelectedGroupFilter?.GroupId is > 0)
+        {
+            scope = $"分组「{SelectedGroupFilter.Name}」";
+        }
+        else
+        {
+            scope = "当前环境";
+        }
         Status = filters.Count == 0
             ? $"{scope} {Devices.Count} 台设备。"
             : $"{string.Join("、", filters)}匹配 {Devices.Count} / {_allDevices.Count} 台设备。";
@@ -312,7 +320,7 @@ public partial class DevicesViewModel : ObservableObject
             throw new InvalidOperationException("请先选择设备。");
         }
 
-        var count = await _inventory.AssignDeviceGroupsAsync(ids, AssignGroup?.Id);
+        var count = await InventoryService.AssignDeviceGroupsAsync(ids, AssignGroup?.Id);
         var groupName = AssignGroup?.Name ?? "未分组";
         Status = count == 1
             ? $"已将 1 台设备分到「{groupName}」。"
@@ -328,7 +336,7 @@ public partial class DevicesViewModel : ObservableObject
             return;
         }
 
-        var count = await _inventory.DeleteDevicesAsync(ids);
+        var count = await InventoryService.DeleteDevicesAsync(ids);
         Status = count == 1 ? "已删除 1 台设备。" : $"已删除 {count} 台设备。";
         await ReloadDevicesAsync();
     }
@@ -346,8 +354,8 @@ public partial class DevicesViewModel : ObservableObject
             return;
         }
 
-        var list = await _inventory.GetDevicesAsync(SelectedEnvironment.Id, null);
-        var types = await _inventory.GetDeviceTypesAsync();
+        var list = await InventoryService.GetDevicesAsync(SelectedEnvironment.Id, null);
+        var types = await InventoryService.GetDeviceTypesAsync();
         ExcelInventory.WriteDevices(path, list, types);
         Status = $"已导出 {list.Count} 台设备。";
     }
@@ -379,7 +387,7 @@ public partial class DevicesViewModel : ObservableObject
             return;
         }
 
-        var types = await _inventory.GetDeviceTypesAsync();
+        var types = await InventoryService.GetDeviceTypesAsync();
         ExcelInventory.WriteDeviceTemplate(path, types);
         Status = $"已保存导入模板：{path}";
     }
@@ -427,7 +435,7 @@ public partial class DevicesViewModel : ObservableObject
         var progress = new Progress<ScanProgress>(p => Status = p.Message);
         try
         {
-            var result = await _inventory.RefreshDevicesAsync(
+            var result = await InventoryService.RefreshDevicesAsync(
                 SelectedEnvironment.Id,
                 ids,
                 options,

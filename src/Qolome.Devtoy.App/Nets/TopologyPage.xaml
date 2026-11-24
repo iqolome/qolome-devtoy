@@ -349,11 +349,9 @@
                     CanDragItems="True"
                     CanReorderItems="False"
                     AllowDrop="False"
-                    DragItemsStarting="DeviceList_DragItemsStarting"
                     DoubleTapped="DeviceList_DoubleTapped"
                     ItemsSource="{x:Bind ViewModel.Devices}"
-                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
-                    ContainerContentChanging="DeviceList_ContainerContentChanging">
+                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="CanDrag" Value="True" />

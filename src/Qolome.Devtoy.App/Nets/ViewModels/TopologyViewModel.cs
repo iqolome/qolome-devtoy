@@ -22,7 +22,6 @@ public enum TopologyTool
 public partial class TopologyViewModel : ObservableObject
 {
     private const int MaxUndo = 50;
-    private readonly InventoryService _inventory = AppServices.Inventory;
     private readonly TopologyStore _store = new();
     private readonly List<TopologyDocument> _undo = [];
     private bool _suppressGridDirty;
@@ -175,7 +174,7 @@ public partial class TopologyViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var environments = await _inventory.GetEnvironmentsAsync();
+        var environments = await InventoryService.GetEnvironmentsAsync();
         Environments.Clear();
         foreach (var env in environments)
         {
@@ -223,16 +222,16 @@ public partial class TopologyViewModel : ObservableObject
         }
 
         AppServices.SelectedEnvironmentId = newValue.Id;
-        _ = SwitchEnvironmentAsync(oldValue, newValue);
+        _ = SwitchEnvironmentAsync(oldValue);
     }
 
-    private async Task SwitchEnvironmentAsync(NetworkEnvironment? oldValue, NetworkEnvironment? newValue)
+    private async Task SwitchEnvironmentAsync(NetworkEnvironment? oldValue)
     {
         if (IsDirty && oldValue is not null && Document.EnvironmentId == oldValue.Id)
         {
             try
             {
-                await _store.SaveAsync(Document);
+                await TopologyStore.SaveAsync(Document);
                 IsDirty = false;
             }
             catch (Exception ex)
@@ -262,7 +261,7 @@ public partial class TopologyViewModel : ObservableObject
             return;
         }
 
-        SourceDevices = await _inventory.GetDevicesAsync(SelectedEnvironment.Id, null);
+        SourceDevices = await InventoryService.GetDevicesAsync(SelectedEnvironment.Id, null);
         var ids = SourceDevices.Select(d => d.Id).ToHashSet();
         Document = await _store.LoadAsync(SelectedEnvironment.Id, ids);
         TopologyMetrics.Apply(Document.CanvasWidth, Document.CanvasHeight);
@@ -270,7 +269,7 @@ public partial class TopologyViewModel : ObservableObject
         TopologyMetrics.CopyTo(Document);
         SyncGridFlags();
         RefreshDeviceList();
-        _cloudSynced = await _store.IsRemoteCurrentAsync(SelectedEnvironment.Id, Document.UpdatedAtUtc);
+        _cloudSynced = await TopologyStore.IsRemoteCurrentAsync(SelectedEnvironment.Id, Document.UpdatedAtUtc);
         IsDirty = false;
         RefreshCloudSync();
         var devices = Document.Nodes.Count(n => n.IsDevice);
@@ -417,7 +416,7 @@ public partial class TopologyViewModel : ObservableObject
         var key = IspPresets.Normalize(ispKey, label);
         var text = IspPresets.IsCarrier(key)
             ? IspPresets.DefaultLabel(key)
-            : (string.IsNullOrWhiteSpace(label) ? IspPresets.DefaultLabel(IspPresets.Custom) : label.Trim());
+            : ResolveCustomIspLabel(label);
         var index = Document.Nodes.Count;
         var (sx, sy) = SnapClamp(DefaultSlotX(index), DefaultSlotY(index));
         var node = new TopologyNodeDto
@@ -511,13 +510,15 @@ public partial class TopologyViewModel : ObservableObject
             node.IspKey = IspPresets.Normalize(ispKey, label);
             node.Label = IspPresets.IsCarrier(node.IspKey)
                 ? IspPresets.DefaultLabel(node.IspKey)
-                : (string.IsNullOrWhiteSpace(label) ? IspPresets.DefaultLabel(IspPresets.Custom) : label.Trim());
+                : ResolveCustomIspLabel(label);
+        }
+        else if (string.IsNullOrWhiteSpace(label))
+        {
+            node.Label = node.IsContainer ? "容器" : null;
         }
         else
         {
-            node.Label = string.IsNullOrWhiteSpace(label)
-                ? (node.IsContainer ? "容器" : null)
-                : label.Trim();
+            node.Label = label.Trim();
         }
 
         IsDirty = true;
@@ -573,9 +574,18 @@ public partial class TopologyViewModel : ObservableObject
         Document.Links.RemoveAll(l => l.FromNodeId == nodeId || l.ToNodeId == nodeId);
         IsDirty = true;
         RefreshDeviceList();
-        Status = node.IsContainer
-            ? "已删除容器，内部节点仍保留。"
-            : node.IsIsp ? "已从画布移除互联网节点。" : "已从画布移除设备。";
+        if (node.IsContainer)
+        {
+            Status = "已删除容器，内部节点仍保留。";
+        }
+        else if (node.IsIsp)
+        {
+            Status = "已从画布移除互联网节点。";
+        }
+        else
+        {
+            Status = "已从画布移除设备。";
+        }
     }
 
     public TopologyLinkDto? Connect(int fromId, int toId)
@@ -940,37 +950,60 @@ public partial class TopologyViewModel : ObservableObject
 
     private static void PlaceLayerGroups(List<List<TopologyNodeDto>> groups, bool leftToRight)
     {
-        const double pad = 48;
-        const double gap = 24;
-        var layerGap = 36.0;
         if (leftToRight)
         {
-            var x = pad;
-            foreach (var ordered in groups)
-            {
-                var y = pad;
-                var colW = ordered.Count == 0 ? TopologyMetrics.NodeWidth : ordered.Max(TopologyMetrics.WidthOf);
-                foreach (var node in ordered)
-                {
-                    var h = TopologyMetrics.LayoutHeightOf(node);
-                    if (y + h > TopologyMetrics.MinCanvasHeight - pad && y > pad)
-                    {
-                        y = pad;
-                        x += colW + gap;
-                        colW = TopologyMetrics.WidthOf(node);
-                    }
-
-                    colW = Math.Max(colW, TopologyMetrics.WidthOf(node));
-                    ApplyLayoutPosition(node, x, y);
-                    y += h + gap;
-                }
-
-                x += colW + layerGap;
-            }
-
+            PlaceLayerGroupsLeftToRight(groups);
             return;
         }
 
+        PlaceLayerGroupsTopToBottom(groups);
+    }
+
+    private static void PlaceLayerGroupsLeftToRight(List<List<TopologyNodeDto>> groups)
+    {
+        const double pad = 48;
+        const double gap = 24;
+        const double layerGap = 36.0;
+        var x = pad;
+        foreach (var ordered in groups)
+        {
+            var y = pad;
+            var colW = ordered.Count == 0 ? TopologyMetrics.NodeWidth : ordered.Max(TopologyMetrics.WidthOf);
+            foreach (var node in ordered)
+            {
+                PlaceInColumn(node, pad, gap, ref x, ref y, ref colW);
+            }
+
+            x += colW + layerGap;
+        }
+    }
+
+    private static void PlaceInColumn(
+        TopologyNodeDto node,
+        double pad,
+        double gap,
+        ref double x,
+        ref double y,
+        ref double colW)
+    {
+        var h = TopologyMetrics.LayoutHeightOf(node);
+        if (y + h > TopologyMetrics.MinCanvasHeight - pad && y > pad)
+        {
+            y = pad;
+            x += colW + gap;
+            colW = TopologyMetrics.WidthOf(node);
+        }
+
+        colW = Math.Max(colW, TopologyMetrics.WidthOf(node));
+        ApplyLayoutPosition(node, x, y);
+        y += h + gap;
+    }
+
+    private static void PlaceLayerGroupsTopToBottom(List<List<TopologyNodeDto>> groups)
+    {
+        const double pad = 48;
+        const double gap = 24;
+        const double layerGap = 36.0;
         var yCursor = pad;
         foreach (var ordered in groups)
         {
@@ -978,21 +1011,32 @@ public partial class TopologyViewModel : ObservableObject
             var rowH = ordered.Count == 0 ? TopologyMetrics.NodeHeight : ordered.Max(TopologyMetrics.LayoutHeightOf);
             foreach (var node in ordered)
             {
-                var w = TopologyMetrics.WidthOf(node);
-                if (x + w > TopologyMetrics.MinCanvasWidth - pad && x > pad)
-                {
-                    x = pad;
-                    yCursor += rowH + gap;
-                    rowH = TopologyMetrics.LayoutHeightOf(node);
-                }
-
-                rowH = Math.Max(rowH, TopologyMetrics.LayoutHeightOf(node));
-                ApplyLayoutPosition(node, x, yCursor);
-                x += w + gap;
+                PlaceInRow(node, pad, gap, ref x, ref yCursor, ref rowH);
             }
 
             yCursor += rowH + layerGap;
         }
+    }
+
+    private static void PlaceInRow(
+        TopologyNodeDto node,
+        double pad,
+        double gap,
+        ref double x,
+        ref double yCursor,
+        ref double rowH)
+    {
+        var w = TopologyMetrics.WidthOf(node);
+        if (x + w > TopologyMetrics.MinCanvasWidth - pad && x > pad)
+        {
+            x = pad;
+            yCursor += rowH + gap;
+            rowH = TopologyMetrics.LayoutHeightOf(node);
+        }
+
+        rowH = Math.Max(rowH, TopologyMetrics.LayoutHeightOf(node));
+        ApplyLayoutPosition(node, x, yCursor);
+        x += w + gap;
     }
 
     private void PackContainerChildren(TopologyNodeDto container)
@@ -1062,7 +1106,7 @@ public partial class TopologyViewModel : ObservableObject
         TopologyMetrics.CopyTo(Document);
         try
         {
-            await _store.SaveAsync(Document);
+            await TopologyStore.SaveAsync(Document);
             _cloudSynced = true;
             IsDirty = false;
             Status = $"已保存到远程库：{Document.Nodes.Count} 个节点，{Document.Links.Count} 条连线。";
@@ -1209,6 +1253,13 @@ public partial class TopologyViewModel : ObservableObject
 
     private void RefreshCanUndo() => CanUndo = _undo.Count > 0;
 
+    private static string ResolveCustomIspLabel(string? label) =>
+        string.IsNullOrWhiteSpace(label) ? IspPresets.DefaultLabel(IspPresets.Custom) : label.Trim();
+
+    private const double GraphCoordEpsilon = 1e-5;
+
+    private static bool CoordEqual(double a, double b) => Math.Abs(a - b) <= GraphCoordEpsilon;
+
     private static bool GraphEquals(TopologyDocument a, TopologyDocument b)
     {
         if (a.Nodes.Count != b.Nodes.Count || a.Links.Count != b.Links.Count)
@@ -1220,14 +1271,14 @@ public partial class TopologyViewModel : ObservableObject
         {
             var other = b.Nodes.FirstOrDefault(n => n.Id == node.Id);
             if (other is null
-                || other.X != node.X
-                || other.Y != node.Y
+                || !CoordEqual(other.X, node.X)
+                || !CoordEqual(other.Y, node.Y)
                 || other.Kind != node.Kind
                 || other.DeviceId != node.DeviceId
                 || other.IspKey != node.IspKey
                 || other.Label != node.Label
-                || other.Width != node.Width
-                || other.Height != node.Height
+                || !CoordEqual(other.Width, node.Width)
+                || !CoordEqual(other.Height, node.Height)
                 || other.ContainerId != node.ContainerId)
             {
                 return false;
@@ -1240,7 +1291,7 @@ public partial class TopologyViewModel : ObservableObject
             if (other is null
                 || other.FromNodeId != link.FromNodeId
                 || other.ToNodeId != link.ToNodeId
-                || other.Curve != link.Curve
+                || !CoordEqual(other.Curve, link.Curve)
                 || other.Kind != link.Kind
                 || other.Label != link.Label
                 || other.Color != link.Color
@@ -1265,8 +1316,8 @@ public sealed class TopologyDeviceItem
     public Device Device { get; }
     public bool IsPlaced { get; }
     public ImageSource? Icon => DeviceTypeIconXaml.FromType(Device.DeviceType);
-    public string Title => string.IsNullOrWhiteSpace(Device.Hostname) ? Device.Code : Device.Hostname!;
-    public string Subtitle => string.IsNullOrWhiteSpace(Device.Ip) ? Device.Code : Device.Ip!;
+    public string Title => string.IsNullOrWhiteSpace(Device.Hostname) ? Device.Code : Device.Hostname;
+    public string Subtitle => string.IsNullOrWhiteSpace(Device.Ip) ? Device.Code : Device.Ip;
     public string TypeName => Device.TypeName;
     public string DescriptionText =>
         string.IsNullOrWhiteSpace(Device.Description) ? "—" : Device.Description.Trim();

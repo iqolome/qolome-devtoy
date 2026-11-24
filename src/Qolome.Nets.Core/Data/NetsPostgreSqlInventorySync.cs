@@ -7,6 +7,9 @@ namespace Qolome.Nets.Core.Data;
 /// <summary>PostgreSQL 侧网络资产表结构准备与快照读写（ADO，无 EF）。</summary>
 internal static class NetsPostgreSqlInventorySync
 {
+    private const string PName = "@name";
+    private const string PDesc = "@desc";
+
     private static readonly string[] ResetTables = NetsTableNames.PgInventoryTables;
 
     public static async Task EnsureSchemaAsync(NpgsqlConnection conn)
@@ -164,8 +167,8 @@ internal static class NetsPostgreSqlInventorySync
                     VALUES (@id, @name, @desc, @cidr, @created, @updated)
                     """;
                 Add(cmd, "@id", row.Id);
-                Add(cmd, "@name", row.Name);
-                Add(cmd, "@desc", row.Description);
+                Add(cmd, PName, row.Name);
+                Add(cmd, PDesc, row.Description);
                 Add(cmd, "@cidr", row.DefaultCidr);
                 Add(cmd, "@created", row.CreatedAtUtc);
                 Add(cmd, "@updated", row.UpdatedAtUtc);
@@ -183,8 +186,8 @@ internal static class NetsPostgreSqlInventorySync
                     """;
                 Add(cmd, "@id", row.Id);
                 Add(cmd, "@code", row.Code);
-                Add(cmd, "@name", row.Name);
-                Add(cmd, "@desc", row.Description);
+                Add(cmd, PName, row.Name);
+                Add(cmd, PDesc, row.Description);
                 Add(cmd, "@sort", row.SortOrder);
                 Add(cmd, "@icon", row.IconFile);
                 Add(cmd, "@custom", row.IsCustomIcon);
@@ -203,8 +206,8 @@ internal static class NetsPostgreSqlInventorySync
                     """;
                 Add(cmd, "@id", row.Id);
                 Add(cmd, "@env", row.NetworkEnvironmentId);
-                Add(cmd, "@name", row.Name);
-                Add(cmd, "@desc", row.Description);
+                Add(cmd, PName, row.Name);
+                Add(cmd, PDesc, row.Description);
                 Add(cmd, "@created", row.CreatedAtUtc);
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
@@ -233,7 +236,7 @@ internal static class NetsPostgreSqlInventorySync
                 Add(cmd, "@vendor", row.Vendor);
                 Add(cmd, "@brand", row.Brand);
                 Add(cmd, "@model", row.Model);
-                Add(cmd, "@desc", row.Description);
+                Add(cmd, PDesc, row.Description);
                 Add(cmd, "@ip", row.Ip);
                 Add(cmd, "@mac", row.Mac);
                 Add(cmd, "@os", row.OsType);
@@ -269,7 +272,7 @@ internal static class NetsPostgreSqlInventorySync
                     """;
                 Add(cmd, "@id", row.Id);
                 Add(cmd, "@device", row.DeviceId);
-                Add(cmd, "@name", row.Name);
+                Add(cmd, PName, row.Name);
                 Add(cmd, "@ip", row.Ip);
                 Add(cmd, "@mac", row.Mac);
                 Add(cmd, "@sort", row.SortOrder);
@@ -289,7 +292,7 @@ internal static class NetsPostgreSqlInventorySync
                 Add(cmd, "@port", row.Port);
                 Add(cmd, "@protocol", row.Protocol);
                 Add(cmd, "@service", row.Service);
-                Add(cmd, "@desc", row.Description);
+                Add(cmd, PDesc, row.Description);
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
 
@@ -312,13 +315,7 @@ internal static class NetsPostgreSqlInventorySync
             {
                 await using var cmd = conn.CreateCommand();
                 cmd.Transaction = tx;
-                cmd.CommandText =
-                    $"""
-                     SELECT setval(
-                         pg_get_serial_sequence('{table}', 'Id'),
-                         COALESCE((SELECT MAX("Id") FROM {table}), 1),
-                         (SELECT COUNT(*) > 0 FROM {table}))
-                     """;
+                cmd.CommandText = ResolvePgSerialResetSql(table);
                 try
                 {
                     await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -454,32 +451,34 @@ internal static class NetsPostgreSqlInventorySync
         await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            list.Add(new Device
-            {
-                Id = reader.GetInt32(0),
-                Code = reader.GetString(1),
-                NetworkEnvironmentId = reader.GetInt32(2),
-                DeviceGroupId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
-                DeviceTypeId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                Hostname = reader.IsDBNull(5) ? null : reader.GetString(5),
-                Vendor = reader.IsDBNull(6) ? null : reader.GetString(6),
-                Brand = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Model = reader.IsDBNull(8) ? null : reader.GetString(8),
-                Description = reader.IsDBNull(9) ? null : reader.GetString(9),
-                Ip = reader.IsDBNull(10) ? null : reader.GetString(10),
-                Mac = reader.IsDBNull(11) ? null : reader.GetString(11),
-                OsType = reader.IsDBNull(12) ? null : reader.GetString(12),
-                DeviceInfo = reader.IsDBNull(13) ? null : reader.GetString(13),
-                OpenPorts = reader.IsDBNull(14) ? null : reader.GetString(14),
-                Remarks = reader.IsDBNull(15) ? null : reader.GetString(15),
-                Source = reader.IsDBNull(16) ? "Scan" : reader.GetString(16),
-                CreatedAtUtc = reader.GetDateTime(17),
-                UpdatedAtUtc = reader.GetDateTime(18),
-            });
+            list.Add(ReadDeviceRow(reader));
         }
 
         return list;
     }
+
+    private static Device ReadDeviceRow(NpgsqlDataReader reader) => new()
+    {
+        Id = reader.GetInt32(0),
+        Code = reader.GetString(1),
+        NetworkEnvironmentId = reader.GetInt32(2),
+        DeviceGroupId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+        DeviceTypeId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+        Hostname = reader.IsDBNull(5) ? null : reader.GetString(5),
+        Vendor = reader.IsDBNull(6) ? null : reader.GetString(6),
+        Brand = reader.IsDBNull(7) ? null : reader.GetString(7),
+        Model = reader.IsDBNull(8) ? null : reader.GetString(8),
+        Description = reader.IsDBNull(9) ? null : reader.GetString(9),
+        Ip = reader.IsDBNull(10) ? null : reader.GetString(10),
+        Mac = reader.IsDBNull(11) ? null : reader.GetString(11),
+        OsType = reader.IsDBNull(12) ? null : reader.GetString(12),
+        DeviceInfo = reader.IsDBNull(13) ? null : reader.GetString(13),
+        OpenPorts = reader.IsDBNull(14) ? null : reader.GetString(14),
+        Remarks = reader.IsDBNull(15) ? null : reader.GetString(15),
+        Source = reader.IsDBNull(16) ? "Scan" : reader.GetString(16),
+        CreatedAtUtc = reader.GetDateTime(17),
+        UpdatedAtUtc = reader.GetDateTime(18),
+    };
 
     private static async Task<List<DeviceDomain>> ReadDomainsAsync(NpgsqlConnection conn)
     {
@@ -564,4 +563,58 @@ internal static class NetsPostgreSqlInventorySync
 
         return list;
     }
+
+    private static string ResolvePgSerialResetSql(string table) => table switch
+    {
+        NetsTableNames.NetworkEnvironment =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_network_environment', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_network_environment), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_network_environment))
+            """,
+        NetsTableNames.DeviceType =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_device_type', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_device_type), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_device_type))
+            """,
+        NetsTableNames.DeviceGroup =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_device_group', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_device_group), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_device_group))
+            """,
+        NetsTableNames.Device =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_device', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_device), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_device))
+            """,
+        NetsTableNames.DeviceDomain =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_device_domain', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_device_domain), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_device_domain))
+            """,
+        NetsTableNames.DeviceNic =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_device_nic', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_device_nic), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_device_nic))
+            """,
+        NetsTableNames.PortPurpose =>
+            """
+            SELECT setval(
+                pg_get_serial_sequence('devtoy_port_purpose', 'Id'),
+                COALESCE((SELECT MAX("Id") FROM devtoy_port_purpose), 1),
+                (SELECT COUNT(*) > 0 FROM devtoy_port_purpose))
+            """,
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "未知 PostgreSQL 清单表。"),
+    };
 }

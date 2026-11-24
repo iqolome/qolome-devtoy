@@ -5,16 +5,50 @@ using Qolome.Nets.Core.Models;
 
 namespace Qolome.Nets.Core.Data;
 
-public sealed class SqlDumpService
+public static class SqlDumpService
 {
-    public async Task ExportAsync(string path)
+    private static class SqlColumns
+    {
+        public const string Id = "Id";
+        public const string Name = "Name";
+        public const string Description = "Description";
+        public const string Code = "Code";
+        public const string SortOrder = "SortOrder";
+        public const string IconFile = "IconFile";
+        public const string IsCustomIcon = "IsCustomIcon";
+        public const string ColorGroup = "ColorGroup";
+        public const string NetworkEnvironmentId = "NetworkEnvironmentId";
+        public const string DeviceGroupId = "DeviceGroupId";
+        public const string DeviceTypeId = "DeviceTypeId";
+        public const string DefaultCidr = "DefaultCidr";
+        public const string CreatedAtUtc = "CreatedAtUtc";
+        public const string UpdatedAtUtc = "UpdatedAtUtc";
+        public const string Hostname = "Hostname";
+        public const string Vendor = "Vendor";
+        public const string Brand = "Brand";
+        public const string Model = "Model";
+        public const string Ip = "Ip";
+        public const string Mac = "Mac";
+        public const string OsType = "OsType";
+        public const string DeviceInfo = "DeviceInfo";
+        public const string OpenPorts = "OpenPorts";
+        public const string Remarks = "Remarks";
+        public const string Source = "Source";
+        public const string DeviceId = "DeviceId";
+        public const string Domain = "Domain";
+        public const string Port = "Port";
+        public const string Protocol = "Protocol";
+        public const string Service = "Service";
+        public const string Json = "Json";
+    }
+    public static async Task ExportAsync(string path)
     {
         await using var db = AppDatabase.CreateContext();
         var snapshot = await InventorySnapshot.LoadAsync(db);
         await File.WriteAllTextAsync(path, ToPortableSql(snapshot), new UTF8Encoding(false));
     }
 
-    public async Task<int> ImportAsync(string path)
+    public static async Task<int> ImportAsync(string path)
     {
         if (!File.Exists(path))
         {
@@ -56,68 +90,68 @@ public sealed class SqlDumpService
         sql.AppendLine();
 
         AppendInserts(sql, NetsTableNames.NetworkEnvironment, snapshot.Environments, x => Columns(
-            ("Id", x.Id),
-            ("Name", x.Name),
-            ("Description", x.Description),
-            ("DefaultCidr", x.DefaultCidr),
-            ("CreatedAtUtc", x.CreatedAtUtc),
-            ("UpdatedAtUtc", x.UpdatedAtUtc)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.Name, x.Name),
+            (SqlColumns.Description, x.Description),
+            (SqlColumns.DefaultCidr, x.DefaultCidr),
+            (SqlColumns.CreatedAtUtc, x.CreatedAtUtc),
+            (SqlColumns.UpdatedAtUtc, x.UpdatedAtUtc)));
         AppendInserts(sql, NetsTableNames.DeviceType, snapshot.DeviceTypes, x => Columns(
-            ("Id", x.Id),
-            ("Code", x.Code),
-            ("Name", x.Name),
-            ("Description", x.Description),
-            ("SortOrder", x.SortOrder),
-            ("IconFile", x.IconFile),
-            ("IsCustomIcon", x.IsCustomIcon),
-            ("ColorGroup", x.ColorGroup)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.Code, x.Code),
+            (SqlColumns.Name, x.Name),
+            (SqlColumns.Description, x.Description),
+            (SqlColumns.SortOrder, x.SortOrder),
+            (SqlColumns.IconFile, x.IconFile),
+            (SqlColumns.IsCustomIcon, x.IsCustomIcon),
+            (SqlColumns.ColorGroup, x.ColorGroup)));
         AppendInserts(sql, NetsTableNames.DeviceGroup, snapshot.Groups, x => Columns(
-            ("Id", x.Id),
-            ("NetworkEnvironmentId", x.NetworkEnvironmentId),
-            ("Name", x.Name),
-            ("Description", x.Description),
-            ("CreatedAtUtc", x.CreatedAtUtc)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.NetworkEnvironmentId, x.NetworkEnvironmentId),
+            (SqlColumns.Name, x.Name),
+            (SqlColumns.Description, x.Description),
+            (SqlColumns.CreatedAtUtc, x.CreatedAtUtc)));
         AppendInserts(sql, NetsTableNames.Device, snapshot.Devices, x => Columns(
-            ("Id", x.Id),
-            ("Code", x.Code),
-            ("NetworkEnvironmentId", x.NetworkEnvironmentId),
-            ("DeviceGroupId", x.DeviceGroupId),
-            ("DeviceTypeId", x.DeviceTypeId),
-            ("Hostname", x.Hostname),
-            ("Vendor", x.Vendor),
-            ("Brand", x.Brand),
-            ("Model", x.Model),
-            ("Description", x.Description),
-            ("Ip", x.Ip),
-            ("Mac", x.Mac),
-            ("OsType", x.OsType),
-            ("DeviceInfo", x.DeviceInfo),
-            ("OpenPorts", x.OpenPorts),
-            ("Remarks", x.Remarks),
-            ("Source", x.Source),
-            ("CreatedAtUtc", x.CreatedAtUtc),
-            ("UpdatedAtUtc", x.UpdatedAtUtc)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.Code, x.Code),
+            (SqlColumns.NetworkEnvironmentId, x.NetworkEnvironmentId),
+            (SqlColumns.DeviceGroupId, x.DeviceGroupId),
+            (SqlColumns.DeviceTypeId, x.DeviceTypeId),
+            (SqlColumns.Hostname, x.Hostname),
+            (SqlColumns.Vendor, x.Vendor),
+            (SqlColumns.Brand, x.Brand),
+            (SqlColumns.Model, x.Model),
+            (SqlColumns.Description, x.Description),
+            (SqlColumns.Ip, x.Ip),
+            (SqlColumns.Mac, x.Mac),
+            (SqlColumns.OsType, x.OsType),
+            (SqlColumns.DeviceInfo, x.DeviceInfo),
+            (SqlColumns.OpenPorts, x.OpenPorts),
+            (SqlColumns.Remarks, x.Remarks),
+            (SqlColumns.Source, x.Source),
+            (SqlColumns.CreatedAtUtc, x.CreatedAtUtc),
+            (SqlColumns.UpdatedAtUtc, x.UpdatedAtUtc)));
         AppendInserts(sql, NetsTableNames.DeviceDomain, snapshot.Domains, x => Columns(
-            ("Id", x.Id),
-            ("DeviceId", x.DeviceId),
-            ("Domain", x.Domain)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.DeviceId, x.DeviceId),
+            (SqlColumns.Domain, x.Domain)));
         AppendInserts(sql, NetsTableNames.DeviceNic, snapshot.Nics, x => Columns(
-            ("Id", x.Id),
-            ("DeviceId", x.DeviceId),
-            ("Name", x.Name),
-            ("Ip", x.Ip),
-            ("Mac", x.Mac),
-            ("SortOrder", x.SortOrder)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.DeviceId, x.DeviceId),
+            (SqlColumns.Name, x.Name),
+            (SqlColumns.Ip, x.Ip),
+            (SqlColumns.Mac, x.Mac),
+            (SqlColumns.SortOrder, x.SortOrder)));
         AppendInserts(sql, NetsTableNames.PortPurpose, snapshot.PortPurposes, x => Columns(
-            ("Id", x.Id),
-            ("Port", x.Port),
-            ("Protocol", x.Protocol),
-            ("Service", x.Service),
-            ("Description", x.Description)));
+            (SqlColumns.Id, x.Id),
+            (SqlColumns.Port, x.Port),
+            (SqlColumns.Protocol, x.Protocol),
+            (SqlColumns.Service, x.Service),
+            (SqlColumns.Description, x.Description)));
         AppendInserts(sql, NetsTableNames.NetworkTopology, snapshot.Topologies, x => Columns(
-            ("NetworkEnvironmentId", x.NetworkEnvironmentId),
-            ("Json", x.Json),
-            ("UpdatedAtUtc", x.UpdatedAtUtc)));
+            (SqlColumns.NetworkEnvironmentId, x.NetworkEnvironmentId),
+            (SqlColumns.Json, x.Json),
+            (SqlColumns.UpdatedAtUtc, x.UpdatedAtUtc)));
 
         sql.AppendLine("COMMIT;");
         return sql.ToString();
@@ -365,7 +399,8 @@ public sealed class SqlDumpService
         var values = new List<object?>();
         var buffer = new StringBuilder();
         var inString = false;
-        for (var i = 0; i < text.Length; i++)
+        var i = 0;
+        while (i < text.Length)
         {
             var c = text[i];
             if (inString)
@@ -373,7 +408,7 @@ public sealed class SqlDumpService
                 if (c == '\'' && i + 1 < text.Length && text[i + 1] == '\'')
                 {
                     buffer.Append('\'');
-                    i++;
+                    i += 2;
                     continue;
                 }
 
@@ -382,16 +417,19 @@ public sealed class SqlDumpService
                     inString = false;
                     values.Add(buffer.ToString().Trim());
                     buffer.Clear();
+                    i++;
                     continue;
                 }
 
                 buffer.Append(c);
+                i++;
                 continue;
             }
 
             if (c == '\'')
             {
                 inString = true;
+                i++;
                 continue;
             }
 
@@ -399,10 +437,12 @@ public sealed class SqlDumpService
             {
                 AddToken(values, buffer.ToString());
                 buffer.Clear();
+                i++;
                 continue;
             }
 
             buffer.Append(c);
+            i++;
         }
 
         AddToken(values, buffer.ToString());
@@ -434,89 +474,89 @@ public sealed class SqlDumpService
 
     private static NetworkEnvironment MapEnvironment(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        Name = Str(row, "Name") ?? "",
-        Description = Str(row, "Description"),
-        DefaultCidr = Str(row, "DefaultCidr"),
-        CreatedAtUtc = Time(row, "CreatedAtUtc"),
-        UpdatedAtUtc = Time(row, "UpdatedAtUtc")
+        Id = Int(row, SqlColumns.Id),
+        Name = Str(row, SqlColumns.Name) ?? "",
+        Description = Str(row, SqlColumns.Description),
+        DefaultCidr = Str(row, SqlColumns.DefaultCidr),
+        CreatedAtUtc = Time(row, SqlColumns.CreatedAtUtc),
+        UpdatedAtUtc = Time(row, SqlColumns.UpdatedAtUtc)
     };
 
     private static DeviceType MapDeviceType(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        Code = (Str(row, "Code") ?? "").Trim(),
-        Name = (Str(row, "Name") ?? "").Trim(),
-        Description = Str(row, "Description"),
-        SortOrder = Int(row, "SortOrder"),
-        IconFile = Str(row, "IconFile"),
-        IsCustomIcon = Flag(row, "IsCustomIcon"),
-        ColorGroup = DeviceTypeColorGroups.Normalize(Str(row, "ColorGroup"), Str(row, "Code"))
+        Id = Int(row, SqlColumns.Id),
+        Code = (Str(row, SqlColumns.Code) ?? "").Trim(),
+        Name = (Str(row, SqlColumns.Name) ?? "").Trim(),
+        Description = Str(row, SqlColumns.Description),
+        SortOrder = Int(row, SqlColumns.SortOrder),
+        IconFile = Str(row, SqlColumns.IconFile),
+        IsCustomIcon = Flag(row, SqlColumns.IsCustomIcon),
+        ColorGroup = DeviceTypeColorGroups.Normalize(Str(row, SqlColumns.ColorGroup), Str(row, SqlColumns.Code))
     };
 
     private static DeviceGroup MapGroup(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        NetworkEnvironmentId = Int(row, "NetworkEnvironmentId"),
-        Name = Str(row, "Name") ?? "",
-        Description = Str(row, "Description"),
-        CreatedAtUtc = Time(row, "CreatedAtUtc")
+        Id = Int(row, SqlColumns.Id),
+        NetworkEnvironmentId = Int(row, SqlColumns.NetworkEnvironmentId),
+        Name = Str(row, SqlColumns.Name) ?? "",
+        Description = Str(row, SqlColumns.Description),
+        CreatedAtUtc = Time(row, SqlColumns.CreatedAtUtc)
     };
 
     private static Device MapDevice(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        Code = Str(row, "Code") ?? "",
-        NetworkEnvironmentId = Int(row, "NetworkEnvironmentId"),
-        DeviceGroupId = NInt(row, "DeviceGroupId"),
-        DeviceTypeId = NInt(row, "DeviceTypeId"),
-        Hostname = Str(row, "Hostname"),
-        Vendor = Str(row, "Vendor"),
-        Brand = Str(row, "Brand"),
-        Model = Str(row, "Model"),
-        Description = Str(row, "Description"),
-        Ip = Str(row, "Ip"),
-        Mac = Str(row, "Mac"),
-        OsType = Str(row, "OsType"),
-        DeviceInfo = Str(row, "DeviceInfo"),
-        OpenPorts = Str(row, "OpenPorts"),
-        Remarks = Str(row, "Remarks"),
-        Source = Str(row, "Source") ?? "Import",
-        CreatedAtUtc = Time(row, "CreatedAtUtc"),
-        UpdatedAtUtc = Time(row, "UpdatedAtUtc")
+        Id = Int(row, SqlColumns.Id),
+        Code = Str(row, SqlColumns.Code) ?? "",
+        NetworkEnvironmentId = Int(row, SqlColumns.NetworkEnvironmentId),
+        DeviceGroupId = NInt(row, SqlColumns.DeviceGroupId),
+        DeviceTypeId = NInt(row, SqlColumns.DeviceTypeId),
+        Hostname = Str(row, SqlColumns.Hostname),
+        Vendor = Str(row, SqlColumns.Vendor),
+        Brand = Str(row, SqlColumns.Brand),
+        Model = Str(row, SqlColumns.Model),
+        Description = Str(row, SqlColumns.Description),
+        Ip = Str(row, SqlColumns.Ip),
+        Mac = Str(row, SqlColumns.Mac),
+        OsType = Str(row, SqlColumns.OsType),
+        DeviceInfo = Str(row, SqlColumns.DeviceInfo),
+        OpenPorts = Str(row, SqlColumns.OpenPorts),
+        Remarks = Str(row, SqlColumns.Remarks),
+        Source = Str(row, SqlColumns.Source) ?? "Import",
+        CreatedAtUtc = Time(row, SqlColumns.CreatedAtUtc),
+        UpdatedAtUtc = Time(row, SqlColumns.UpdatedAtUtc)
     };
 
     private static DeviceDomain MapDomain(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        DeviceId = Int(row, "DeviceId"),
-        Domain = Str(row, "Domain") ?? ""
+        Id = Int(row, SqlColumns.Id),
+        DeviceId = Int(row, SqlColumns.DeviceId),
+        Domain = Str(row, SqlColumns.Domain) ?? ""
     };
 
     private static DeviceNic MapNic(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        DeviceId = Int(row, "DeviceId"),
-        Name = Str(row, "Name"),
-        Ip = Str(row, "Ip"),
-        Mac = Str(row, "Mac"),
-        SortOrder = Int(row, "SortOrder")
+        Id = Int(row, SqlColumns.Id),
+        DeviceId = Int(row, SqlColumns.DeviceId),
+        Name = Str(row, SqlColumns.Name),
+        Ip = Str(row, SqlColumns.Ip),
+        Mac = Str(row, SqlColumns.Mac),
+        SortOrder = Int(row, SqlColumns.SortOrder)
     };
 
     private static PortPurpose MapPortPurpose(Dictionary<string, object?> row) => new()
     {
-        Id = Int(row, "Id"),
-        Port = Int(row, "Port"),
-        Protocol = Str(row, "Protocol") ?? "TCP",
-        Service = Str(row, "Service"),
-        Description = Str(row, "Description")
+        Id = Int(row, SqlColumns.Id),
+        Port = Int(row, SqlColumns.Port),
+        Protocol = Str(row, SqlColumns.Protocol) ?? "TCP",
+        Service = Str(row, SqlColumns.Service),
+        Description = Str(row, SqlColumns.Description)
     };
 
     private static NetworkTopology MapTopology(Dictionary<string, object?> row) => new()
     {
-        NetworkEnvironmentId = Int(row, "NetworkEnvironmentId"),
-        Json = Str(row, "Json") ?? "",
-        UpdatedAtUtc = Time(row, "UpdatedAtUtc")
+        NetworkEnvironmentId = Int(row, SqlColumns.NetworkEnvironmentId),
+        Json = Str(row, SqlColumns.Json) ?? "",
+        UpdatedAtUtc = Time(row, SqlColumns.UpdatedAtUtc)
     };
 
     private static int Int(Dictionary<string, object?> row, string key) =>
@@ -556,40 +596,28 @@ public sealed class SqlDumpService
     {
         var buffer = new StringBuilder();
         var inString = false;
-        for (var i = 0; i < sql.Length; i++)
+        var i = 0;
+        while (i < sql.Length)
         {
-            var c = sql[i];
             if (inString)
             {
-                buffer.Append(c);
-                if (c == '\'' && i + 1 < sql.Length && sql[i + 1] == '\'')
-                {
-                    buffer.Append(sql[++i]);
-                    continue;
-                }
-
-                if (c == '\'')
-                {
-                    inString = false;
-                }
-
+                i = AppendInsideString(sql, buffer, ref inString, i);
+                i++;
                 continue;
             }
 
-            if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            if (TrySkipLineComment(sql, ref i))
             {
-                while (i < sql.Length && sql[i] != '\n')
-                {
-                    i++;
-                }
-
+                i++;
                 continue;
             }
 
+            var c = sql[i];
             if (c == '\'')
             {
                 inString = true;
                 buffer.Append(c);
+                i++;
                 continue;
             }
 
@@ -602,10 +630,12 @@ public sealed class SqlDumpService
                     yield return statement;
                 }
 
+                i++;
                 continue;
             }
 
             buffer.Append(c);
+            i++;
         }
 
         var last = buffer.ToString().Trim();
@@ -613,5 +643,37 @@ public sealed class SqlDumpService
         {
             yield return last;
         }
+    }
+
+    private static int AppendInsideString(string sql, StringBuilder buffer, ref bool inString, int i)
+    {
+        var c = sql[i];
+        buffer.Append(c);
+        if (c == '\'' && i + 1 < sql.Length && sql[i + 1] == '\'')
+        {
+            buffer.Append(sql[i + 1]);
+            return i + 1;
+        }
+
+        if (c == '\'')
+        {
+            inString = false;
+        }
+
+        return i;
+    }
+
+    private static bool TrySkipLineComment(string sql, ref int i) =>
+        sql[i] == '-' && i + 1 < sql.Length && sql[i + 1] == '-'
+        && AdvancePastLineEnd(sql, ref i);
+
+    private static bool AdvancePastLineEnd(string sql, ref int i)
+    {
+        while (i < sql.Length && sql[i] != '\n')
+        {
+            i++;
+        }
+
+        return true;
     }
 }

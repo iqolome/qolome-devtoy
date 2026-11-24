@@ -59,7 +59,7 @@ public partial class DeviceTypesViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        _allTypes = [.. await _inventory.GetDeviceTypesAsync()];
+        _allTypes = [.. await InventoryService.GetDeviceTypesAsync()];
         ApplyView();
     }
 
@@ -148,15 +148,7 @@ public partial class DeviceTypesViewModel : ObservableObject
         }
 
         var id = SelectedType.Id;
-        await _inventory.UpdateDeviceTypeAsync(
-            SelectedType.Id,
-            input.Code,
-            input.Name,
-            input.Description,
-            input.IconSourcePath,
-            input.RestoreDefaultIcon,
-            input.BuiltinIconKey,
-            input.ColorGroup);
+        await InventoryService.UpdateDeviceTypeAsync(SelectedType.Id, input);
         await LoadAsync();
         SelectedType = Types.FirstOrDefault(t => t.Id == id);
         Status = "已更新设备类型。";
@@ -169,7 +161,7 @@ public partial class DeviceTypesViewModel : ObservableObject
             return;
         }
 
-        await _inventory.DeleteDeviceTypeAsync(SelectedType.Id);
+        await InventoryService.DeleteDeviceTypeAsync(SelectedType.Id);
         await LoadAsync();
         Status = "已删除设备类型。";
     }
@@ -182,7 +174,7 @@ public partial class DeviceTypesViewModel : ObservableObject
             return;
         }
 
-        ExcelInventory.WriteDeviceTypes(path, await _inventory.GetDeviceTypesAsync());
+        ExcelInventory.WriteDeviceTypes(path, await InventoryService.GetDeviceTypesAsync());
         Status = $"已导出：{path}";
     }
 

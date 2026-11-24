@@ -95,23 +95,44 @@ public static class TopologyLayerLayout
         }
 
         var byId = nodes.ToDictionary(n => n.Id);
+        var layers = SeedLayerBuckets(nodes, layerById, orderAlongX);
+        var adj = BuildLayerAdjacency(nodes, links, layerById, layers);
+        MinimizeCrossings(layers, adj);
+
+        return layers
+            .Select(layer => layer.Where(byId.ContainsKey).Select(id => byId[id]).ToList())
+            .Where(layer => layer.Count > 0)
+            .ToList();
+    }
+
+    private static List<int>[] SeedLayerBuckets(
+        IReadOnlyList<TopologyNodeDto> nodes,
+        IReadOnlyDictionary<int, int> layerById,
+        bool orderAlongX)
+    {
         var maxLayer = layerById.Values.DefaultIfEmpty(0).Max();
         var layers = Enumerable.Range(0, maxLayer + 1).Select(_ => new List<int>()).ToArray();
-        foreach (var node in nodes
+        foreach (var id in nodes
                      .OrderBy(n => n.IsIsp ? 0 : 1)
                      .ThenBy(n => orderAlongX ? n.X : n.Y)
                      .ThenBy(n => orderAlongX ? n.Y : n.X)
-                     .ThenBy(n => n.Id))
+                     .ThenBy(n => n.Id)
+                     .Select(node => node.Id)
+                     .Where(id => layerById.GetValueOrDefault(id, 0) is var depth && depth >= 0
+                                  && depth < layers.Length))
         {
-            var depth = layerById.GetValueOrDefault(node.Id, 0);
-            if (depth < 0 || depth >= layers.Length)
-            {
-                continue;
-            }
-
-            layers[depth].Add(node.Id);
+            layers[layerById.GetValueOrDefault(id, 0)].Add(id);
         }
 
+        return layers;
+    }
+
+    private static Dictionary<int, List<int>> BuildLayerAdjacency(
+        IReadOnlyList<TopologyNodeDto> nodes,
+        IReadOnlyList<TopologyLinkDto> links,
+        IReadOnlyDictionary<int, int> layerById,
+        List<int>[] layers)
+    {
         var adj = new Dictionary<int, List<int>>();
         foreach (var node in nodes)
         {
@@ -121,36 +142,43 @@ public static class TopologyLayerLayout
         var dummyId = DummyIdBase;
         foreach (var (from, to) in UniqueEdges(nodes, links))
         {
-            var fromLayer = layerById.GetValueOrDefault(from, 0);
-            var toLayer = layerById.GetValueOrDefault(to, 0);
-            if (fromLayer == toLayer)
-            {
-                Connect(adj, from, to);
-                continue;
-            }
-
-            var (upper, lower) = fromLayer < toLayer ? (from, to) : (to, from);
-            var upperLayer = Math.Min(fromLayer, toLayer);
-            var lowerLayer = Math.Max(fromLayer, toLayer);
-            var prev = upper;
-            for (var depth = upperLayer + 1; depth < lowerLayer; depth++)
-            {
-                var dummy = dummyId--;
-                layers[depth].Add(dummy);
-                adj[dummy] = [];
-                Connect(adj, prev, dummy);
-                prev = dummy;
-            }
-
-            Connect(adj, prev, lower);
+            dummyId = ConnectAcrossLayers(adj, layers, layerById, from, to, dummyId);
         }
 
-        MinimizeCrossings(layers, adj);
+        return adj;
+    }
 
-        return layers
-            .Select(layer => layer.Where(byId.ContainsKey).Select(id => byId[id]).ToList())
-            .Where(layer => layer.Count > 0)
-            .ToList();
+    private static int ConnectAcrossLayers(
+        Dictionary<int, List<int>> adj,
+        List<int>[] layers,
+        IReadOnlyDictionary<int, int> layerById,
+        int from,
+        int to,
+        int dummyId)
+    {
+        var fromLayer = layerById.GetValueOrDefault(from, 0);
+        var toLayer = layerById.GetValueOrDefault(to, 0);
+        if (fromLayer == toLayer)
+        {
+            Connect(adj, from, to);
+            return dummyId;
+        }
+
+        var (upper, lower) = fromLayer < toLayer ? (from, to) : (to, from);
+        var upperLayer = Math.Min(fromLayer, toLayer);
+        var lowerLayer = Math.Max(fromLayer, toLayer);
+        var prev = upper;
+        for (var depth = upperLayer + 1; depth < lowerLayer; depth++)
+        {
+            var dummy = dummyId--;
+            layers[depth].Add(dummy);
+            adj[dummy] = [];
+            Connect(adj, prev, dummy);
+            prev = dummy;
+        }
+
+        Connect(adj, prev, lower);
+        return dummyId;
     }
 
     private static void MinimizeCrossings(List<int>[] layers, Dictionary<int, List<int>> adj)
@@ -169,37 +197,43 @@ public static class TopologyLayerLayout
 
         for (var sweep = 0; sweep < MaxSweeps; sweep++)
         {
-            if (sweep % 2 == 0)
-            {
-                for (var i = 1; i < layers.Length; i++)
-                {
-                    SortByBarycenter(layers[i], layers[i - 1], adj);
-                }
-            }
-            else
-            {
-                for (var i = layers.Length - 2; i >= 0; i--)
-                {
-                    SortByBarycenter(layers[i], layers[i + 1], adj);
-                }
-            }
-
+            RunBarycenterSweep(layers, adj, sweep % 2 == 0);
             Transpose(layers, adj);
             var score = Score(layers, adj);
-            if (IsBetter(score, bestScore))
+            if (!IsBetter(score, bestScore))
             {
-                bestScore = score;
-                best = Clone(layers);
-                if (bestScore.Crossings == 0 && bestScore.Span == 0)
-                {
-                    break;
-                }
+                continue;
+            }
+
+            bestScore = score;
+            best = Clone(layers);
+            if (bestScore.Crossings == 0 && bestScore.Span == 0)
+            {
+                break;
             }
         }
 
         for (var i = 0; i < layers.Length; i++)
         {
             layers[i] = best[i];
+        }
+    }
+
+    private static void RunBarycenterSweep(List<int>[] layers, Dictionary<int, List<int>> adj, bool topDown)
+    {
+        if (topDown)
+        {
+            for (var i = 1; i < layers.Length; i++)
+            {
+                SortByBarycenter(layers[i], layers[i - 1], adj);
+            }
+
+            return;
+        }
+
+        for (var i = layers.Length - 2; i >= 0; i--)
+        {
+            SortByBarycenter(layers[i], layers[i + 1], adj);
         }
     }
 
@@ -396,15 +430,15 @@ public static class TopologyLayerLayout
         return index;
     }
 
-    private static void Connect(Dictionary<int, List<int>> adj, int from, int to)
+    private static void Connect(Dictionary<int, List<int>> adj, int a, int b)
     {
-        if (from == to)
+        if (a == b)
         {
             return;
         }
 
-        AddNeighbor(adj, from, to);
-        AddNeighbor(adj, to, from);
+        AddNeighbor(adj, a, b);
+        AddNeighbor(adj, b, a);
     }
 
     private static void AddNeighbor(Dictionary<int, List<int>> adj, int from, int to)

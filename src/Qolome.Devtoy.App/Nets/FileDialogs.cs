@@ -6,6 +6,7 @@ namespace Qolome.Nets.App;
 
 public static class FileDialogs
 {
+    private const string JsonExtension = ".json";
     public static async Task<string?> PickSaveExcelAsync(string suggestedName)
     {
         var picker = new FileSavePicker();
@@ -35,7 +36,7 @@ public static class FileDialogs
         picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         picker.SuggestedFileName = suggestedName;
         picker.FileTypeChoices.Add("配置备份 (ZIP)", [".zip"]);
-        picker.FileTypeChoices.Add("JSON 配置备份", [".json"]);
+        picker.FileTypeChoices.Add("JSON 配置备份", [JsonExtension]);
         var file = await picker.PickSaveFileAsync();
         return file?.Path;
     }
@@ -57,7 +58,7 @@ public static class FileDialogs
         InitializeWithWindow.Initialize(picker, App.WindowHandle);
         picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         picker.FileTypeFilter.Add(".zip");
-        picker.FileTypeFilter.Add(".json");
+        picker.FileTypeFilter.Add(JsonExtension);
         var file = await picker.PickSingleFileAsync();
         return file?.Path;
     }
@@ -114,7 +115,7 @@ public static class FileDialogs
         InitializeWithWindow.Initialize(picker, App.WindowHandle);
         picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         picker.SuggestedFileName = suggestedName;
-        picker.FileTypeChoices.Add("JSON 配置备份", [".json"]);
+        picker.FileTypeChoices.Add("JSON 配置备份", [JsonExtension]);
         var file = await picker.PickSaveFileAsync();
         return file?.Path;
     }
@@ -124,7 +125,7 @@ public static class FileDialogs
         var picker = new FileOpenPicker();
         InitializeWithWindow.Initialize(picker, App.WindowHandle);
         picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add(".json");
+        picker.FileTypeFilter.Add(JsonExtension);
         var file = await picker.PickSingleFileAsync();
         return file?.Path;
     }

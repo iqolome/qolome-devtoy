@@ -17,7 +17,6 @@ public static class MachineBoundSecret
 
     private static readonly AsyncLocal<int> OmitPasswordDepth = new();
     private static readonly object FingerprintLock = new();
-    private static string? _fingerprint;
     private static byte[]? _key;
 
     public static bool LastUnprotectFailed { get; private set; }
@@ -105,7 +104,6 @@ public static class MachineBoundSecret
             }
 
             var fingerprint = ReadMotherboardFingerprint();
-            _fingerprint = fingerprint;
             _key = SHA256.HashData(Encoding.UTF8.GetBytes(Purpose + "\n" + fingerprint));
             return _key;
         }
@@ -132,7 +130,7 @@ public static class MachineBoundSecret
                 using var obj = (ManagementObject)raw;
                 var parts = properties
                     .Select(name => obj[name]?.ToString()?.Trim())
-                    .Where(value => !string.IsNullOrWhiteSpace(value) && !IsPlaceholder(value!));
+                    .Where(text => text is { Length: > 0 } && !IsPlaceholder(text));
                 var joined = string.Join("|", parts);
                 if (!string.IsNullOrWhiteSpace(joined))
                 {
@@ -165,7 +163,7 @@ public static class MachineBoundSecret
             ];
             var parts = names
                 .Select(name => key.GetValue(name)?.ToString()?.Trim())
-                .Where(value => !string.IsNullOrWhiteSpace(value) && !IsPlaceholder(value!));
+                .Where(text => text is { Length: > 0 } && !IsPlaceholder(text));
             var joined = string.Join("|", parts);
             return string.IsNullOrWhiteSpace(joined) ? null : "BIOS:" + joined;
         }
