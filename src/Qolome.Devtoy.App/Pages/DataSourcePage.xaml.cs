@@ -12,12 +12,15 @@ namespace Qolome_Devtoy_App.Pages;
 public sealed partial class DataSourcePage : Page
 {
     private const int ModeUrl = 0;
-
     private const int ModeFields = 1;
 
-    private readonly DevtoySession _session = AppServices.Session;
+    private const string GlyphReveal = "\uE7B3";
+    private const string GlyphHide = "\uE9A9";
 
+    private readonly DevtoySession _session = AppServices.Session;
     private bool _binding;
+    private bool _passwordRevealed;
+    private bool _syncingPassword;
 
     public DataSourcePage()
     {
@@ -25,6 +28,7 @@ public sealed partial class DataSourcePage : Page
         DbKindBox.ItemsSource = Enum.GetNames<DatabaseKind>();
         DbKindBox.SelectionChanged += OnDbKindChanged;
         Loaded += (_, _) => Bind();
+        Unloaded += (_, _) => HidePassword();
     }
 
     private void OnDbKindChanged(object sender, SelectionChangedEventArgs e)
@@ -39,14 +43,36 @@ public sealed partial class DataSourcePage : Page
             return;
         }
 
-        PortBox.Text = parsed switch
+        if (parsed == DatabaseKind.Sqlite)
         {
-            DatabaseKind.PostgreSql => "5432",
-            DatabaseKind.Oracle => "1521",
-            DatabaseKind.Sqlite => "",
-            DatabaseKind.Odbc => "",
-            _ => "3306",
-        };
+            if (string.IsNullOrWhiteSpace(SqlitePathBox.Text))
+            {
+                SqlitePathBox.Text = DevtoyPaths.EnsureMigratedDefaultSqlitePath();
+            }
+
+            if (string.IsNullOrWhiteSpace(UserBox.Text))
+            {
+                UserBox.Text = "devtoy";
+            }
+
+            if (string.IsNullOrWhiteSpace(GetPasswordValue()))
+            {
+                SetPasswordValue(Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))
+                    .ToLowerInvariant());
+            }
+
+            ModeFieldsRadio.IsChecked = true;
+        }
+        else
+        {
+            PortBox.Text = parsed switch
+            {
+                DatabaseKind.PostgreSql => "5432",
+                DatabaseKind.Oracle => "1521",
+                DatabaseKind.Odbc => "",
+                _ => string.IsNullOrWhiteSpace(PortBox.Text) ? "3306" : PortBox.Text,
+            };
+        }
 
         if (parsed == DatabaseKind.Odbc)
         {
@@ -64,30 +90,42 @@ public sealed partial class DataSourcePage : Page
             JdbcUrlBox.PlaceholderText = "jdbc:mysql://127.0.0.1:3306/qolome";
             JdbcLabel.Text = "JDBC 连接";
         }
+
+        ApplyKindVisibility(parsed);
     }
 
     private void Bind()
     {
         _binding = true;
+        HidePassword();
         var ds = _session.Settings.DataSource;
+        DataSourceRuntime.Normalize(ds);
         DbKindBox.SelectedItem = ds.DatabaseKind.ToString();
         HostBox.Text = ds.Host;
         PortBox.Text = ds.Port;
         DatabaseBox.Text = ds.Database;
+        SqlitePathBox.Text = ds.IsSqlite
+            ? DataSourceRuntime.ResolveSqlitePath(ds)
+            : DevtoyPaths.EnsureMigratedDefaultSqlitePath();
         ParamsBox.Text = ds.ConnectionParams;
         JdbcUrlBox.Text = ds.JdbcUrl;
         UserBox.Text = ds.Username;
-        PasswordBox.Password = ds.Password;
-        var byUrl = ds.InputMode == JdbcInputMode.Url;
+        SetPasswordValue(ds.Password);
+        var byUrl = ds.InputMode == JdbcInputMode.Url && !ds.IsSqlite;
         ModeUrlRadio.IsChecked = byUrl;
         ModeFieldsRadio.IsChecked = !byUrl;
-        ApplyPanelVisibility(byUrl ? ModeUrl : ModeFields);
+        ApplyKindVisibility(ds.DatabaseKind);
+        if (!ds.IsSqlite)
+        {
+            ApplyPanelVisibility(byUrl ? ModeUrl : ModeFields);
+        }
+
         _binding = false;
     }
 
     private void OnInputModeRadioChecked(object sender, RoutedEventArgs e)
     {
-        if (_binding)
+        if (_binding || IsSqliteSelected())
         {
             return;
         }
@@ -95,11 +133,61 @@ public sealed partial class DataSourcePage : Page
         ApplyPanelVisibility(GetInputModeIndex());
     }
 
+    private bool IsSqliteSelected() =>
+        DbKindBox.SelectedItem is string kind
+        && Enum.TryParse<DatabaseKind>(kind, out var parsed)
+        && parsed == DatabaseKind.Sqlite;
+
     private int GetInputModeIndex() =>
         ModeUrlRadio.IsChecked == true ? ModeUrl : ModeFields;
 
+    private void ApplyKindVisibility(DatabaseKind kind)
+    {
+        var sqlite = kind == DatabaseKind.Sqlite;
+        var sqliteVis = sqlite ? Visibility.Visible : Visibility.Collapsed;
+        var remoteVis = sqlite ? Visibility.Collapsed : Visibility.Visible;
+
+        SqlitePathLabel.Visibility = sqliteVis;
+        SqlitePathPanel.Visibility = sqliteVis;
+
+        InputModeLabel.Visibility = remoteVis;
+        InputModePanel.Visibility = remoteVis;
+        GenerateInitSqlButton.Visibility = remoteVis;
+
+        if (sqlite)
+        {
+            JdbcLabel.Visibility = Visibility.Collapsed;
+            JdbcUrlBox.Visibility = Visibility.Collapsed;
+            HostLabel.Visibility = Visibility.Collapsed;
+            HostBox.Visibility = Visibility.Collapsed;
+            PortLabel.Visibility = Visibility.Collapsed;
+            PortBox.Visibility = Visibility.Collapsed;
+            DatabaseLabel.Visibility = Visibility.Collapsed;
+            DatabaseBox.Visibility = Visibility.Collapsed;
+            ParamsLabel.Visibility = Visibility.Collapsed;
+            ParamsBox.Visibility = Visibility.Collapsed;
+            UserBox.IsReadOnly = true;
+            PasswordBox.IsEnabled = false;
+            PasswordPlainBox.IsReadOnly = true;
+        }
+        else
+        {
+            UserBox.IsReadOnly = false;
+            PasswordBox.IsEnabled = true;
+            PasswordPlainBox.IsReadOnly = false;
+            ApplyPanelVisibility(GetInputModeIndex());
+        }
+
+        HidePassword();
+    }
+
     private void ApplyPanelVisibility(int selectedIndex)
     {
+        if (IsSqliteSelected())
+        {
+            return;
+        }
+
         var byUrl = selectedIndex == ModeUrl;
         var urlVis = byUrl ? Visibility.Visible : Visibility.Collapsed;
         var fieldVis = byUrl ? Visibility.Collapsed : Visibility.Visible;
@@ -107,8 +195,8 @@ public sealed partial class DataSourcePage : Page
         JdbcLabel.Visibility = urlVis;
         JdbcUrlBox.Visibility = urlVis;
 
-        DbKindLabel.Visibility = fieldVis;
-        DbKindBox.Visibility = fieldVis;
+        DbKindLabel.Visibility = Visibility.Visible;
+        DbKindBox.Visibility = Visibility.Visible;
         HostLabel.Visibility = fieldVis;
         HostBox.Visibility = fieldVis;
         PortLabel.Visibility = fieldVis;
@@ -119,30 +207,154 @@ public sealed partial class DataSourcePage : Page
         ParamsBox.Visibility = fieldVis;
     }
 
+    private async void OnBrowseSqlite(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            ViewMode = PickerViewMode.List,
+        };
+        picker.FileTypeFilter.Add(".db");
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null)
+        {
+            SqlitePathBox.Text = file.Path;
+            return;
+        }
+
+        var folderPicker = new FolderPicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+        };
+        folderPicker.FileTypeFilter.Add("*");
+        WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+        var folder = await folderPicker.PickSingleFolderAsync();
+        if (folder is not null)
+        {
+            SqlitePathBox.Text = Path.Combine(folder.Path, DevtoyPaths.DefaultSqliteFileName);
+        }
+    }
+
     private void ApplyToModel()
     {
         var ds = _session.Settings.DataSource;
-        ds.InputMode = GetInputModeIndex() == ModeUrl
-            ? JdbcInputMode.Url
-            : JdbcInputMode.Fields;
         if (DbKindBox.SelectedItem is string kind
             && Enum.TryParse<DatabaseKind>(kind, out var parsed))
         {
             ds.DatabaseKind = parsed;
         }
 
+        if (ds.IsSqlite)
+        {
+            ds.InputMode = JdbcInputMode.Fields;
+            ds.SqlitePath = string.IsNullOrWhiteSpace(SqlitePathBox.Text)
+                ? DevtoyPaths.EnsureMigratedDefaultSqlitePath()
+                : SqlitePathBox.Text.Trim();
+            ds.Username = UserBox.Text.Trim();
+            ds.Password = GetPasswordValue();
+            DataSourceRuntime.Normalize(ds);
+            SqlitePathBox.Text = ds.SqlitePath;
+            UserBox.Text = ds.Username;
+            SetPasswordValue(ds.Password);
+            return;
+        }
+
+        ds.InputMode = GetInputModeIndex() == ModeUrl
+            ? JdbcInputMode.Url
+            : JdbcInputMode.Fields;
         ds.Host = HostBox.Text.Trim();
         ds.Port = PortBox.Text.Trim();
         ds.Database = DatabaseBox.Text.Trim();
         ds.ConnectionParams = ParamsBox.Text.Trim();
         ds.JdbcUrl = JdbcUrlBox.Text.Trim();
         ds.Username = UserBox.Text.Trim();
-        ds.Password = PasswordBox.Password;
+        ds.Password = GetPasswordValue();
+        ds.SqlitePath = "";
+    }
+
+    private async void OnRevealPassword(object sender, RoutedEventArgs e)
+    {
+        if (_passwordRevealed)
+        {
+            HidePassword();
+            return;
+        }
+
+        var (ok, error) = await WindowsHelloGate.VerifyAsync("查看数据库连接密码需要验证你的身份。")
+            .ConfigureAwait(true);
+        if (!ok)
+        {
+            await ShowMessageAsync("查看密码", error ?? "验证未通过。").ConfigureAwait(true);
+            return;
+        }
+
+        ShowPassword();
+    }
+
+    private void OnPasswordPlainChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_syncingPassword || !_passwordRevealed || PasswordPlainBox.IsReadOnly)
+        {
+            return;
+        }
+
+        _syncingPassword = true;
+        PasswordBox.Password = PasswordPlainBox.Text;
+        _syncingPassword = false;
+    }
+
+    private string GetPasswordValue() =>
+        _passwordRevealed ? PasswordPlainBox.Text : PasswordBox.Password;
+
+    private void SetPasswordValue(string password)
+    {
+        _syncingPassword = true;
+        PasswordBox.Password = password ?? "";
+        PasswordPlainBox.Text = password ?? "";
+        _syncingPassword = false;
+    }
+
+    private void ShowPassword()
+    {
+        _syncingPassword = true;
+        PasswordPlainBox.Text = PasswordBox.Password;
+        PasswordBox.Visibility = Visibility.Collapsed;
+        PasswordPlainBox.Visibility = Visibility.Visible;
+        RevealPasswordIcon.Glyph = GlyphHide;
+        ToolTipService.SetToolTip(RevealPasswordButton, "隐藏密码");
+        _passwordRevealed = true;
+        _syncingPassword = false;
+    }
+
+    private void HidePassword()
+    {
+        if (!_passwordRevealed && PasswordPlainBox.Visibility == Visibility.Collapsed)
+        {
+            RevealPasswordIcon.Glyph = GlyphReveal;
+            return;
+        }
+
+        _syncingPassword = true;
+        if (_passwordRevealed && !PasswordPlainBox.IsReadOnly)
+        {
+            PasswordBox.Password = PasswordPlainBox.Text;
+        }
+
+        PasswordPlainBox.Visibility = Visibility.Collapsed;
+        PasswordBox.Visibility = Visibility.Visible;
+        RevealPasswordIcon.Glyph = GlyphReveal;
+        ToolTipService.SetToolTip(RevealPasswordButton, "查看密码（需 Windows Hello 验证）");
+        _passwordRevealed = false;
+        _syncingPassword = false;
     }
 
     private async void OnSave(object sender, RoutedEventArgs e)
     {
         ApplyToModel();
+        DataSourceRuntime.PersistCurrent(_session.Settings.DataSource);
         _session.SaveSettings();
         try
         {
@@ -229,9 +441,20 @@ public sealed partial class DataSourcePage : Page
     private async void OnInitializeSchema(object sender, RoutedEventArgs e)
     {
         ApplyToModel();
+        DataSourceRuntime.PersistCurrent(_session.Settings.DataSource);
         try
         {
-            await UiBusy.RunAsync("正在初始化数据库…", () => _session.InitializeSchemaAsync())
+            await UiBusy.RunAsync(
+                    "正在初始化数据库…",
+                    async () =>
+                    {
+                        await _session.InitializeSchemaAsync().ConfigureAwait(false);
+                        await AppDatabase.PrepareRuntimeAsync().ConfigureAwait(false);
+                        if (string.IsNullOrWhiteSpace(AppDatabase.StartupWarning))
+                        {
+                            await AppDatabase.LoadStartupDataAsync().ConfigureAwait(false);
+                        }
+                    })
                 .ConfigureAwait(true);
         }
         catch (Exception ex)

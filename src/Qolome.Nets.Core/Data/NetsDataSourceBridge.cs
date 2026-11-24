@@ -6,42 +6,48 @@ namespace Qolome.Nets.Core.Data;
 /// <summary>Devtoy <see cref="DataSourceSettings"/> 与 Nets <see cref="DatabaseConfig"/> 互转。</summary>
 public static class NetsDataSourceBridge
 {
-    /// <summary>本地 SQLite 仅用于少量配置（非业务库存）。</summary>
+    /// <summary>当前 Sqlite 业务/配置库路径。</summary>
     public static DatabaseConfig LocalSqliteConfig() => new()
     {
         Provider = DatabaseProviders.Sqlite,
-        Sqlite = new SqliteConfig { Path = DevtoyPaths.LocalDbPath },
+        Sqlite = new SqliteConfig { Path = DataSourceRuntime.ResolvedSqlitePath },
     };
 
-    /// <summary>业务库连接：日常 CRUD / Schema 使用（当前 EF 路径支持 MySQL）。</summary>
+    /// <summary>业务库连接：Sqlite 或 MySQL。</summary>
     public static DatabaseConfig ToBusinessDatabaseConfig(DataSourceSettings ds)
     {
-        if (ds.DatabaseKind == DatabaseKind.MySql)
+        if (ds.DatabaseKind == DatabaseKind.Sqlite || ds.DatabaseKind == DatabaseKind.MySql)
         {
             return ToDatabaseConfig(ds);
         }
 
-        if (ds.DatabaseKind == DatabaseKind.Sqlite)
-        {
-            throw new InvalidOperationException(
-                "业务数据不能使用本地 SQLite。请在「数据源设置」中配置 MySQL（或受支持的远程库）。");
-        }
-
         throw new InvalidOperationException(
-            $"网络业务库日常读写目前仅支持 MySQL（当前为 {ds.DatabaseKind}）。字典等 ADO 路径仍可按数据源类型使用。");
+            $"网络业务库日常读写目前仅支持 Sqlite 或 MySQL（当前为 {ds.DatabaseKind}）。字典等 ADO 路径仍可按数据源类型使用。");
     }
 
     public static DatabaseConfig ToDatabaseConfig(DataSourceSettings ds)
     {
+        DataSourceRuntime.Normalize(ds);
         if (ds.DatabaseKind == DatabaseKind.Sqlite)
         {
-            return LocalSqliteConfig();
+            var path = DataSourceRuntime.ResolveSqlitePath(ds);
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            return new DatabaseConfig
+            {
+                Provider = DatabaseProviders.Sqlite,
+                Sqlite = new SqliteConfig { Path = path },
+            };
         }
 
         if (ds.DatabaseKind != DatabaseKind.MySql)
         {
             throw new InvalidOperationException(
-                $"Nets EF 连接仅支持 MySQL，当前为 {ds.DatabaseKind}。");
+                $"Nets EF 连接仅支持 MySQL / Sqlite，当前为 {ds.DatabaseKind}。");
         }
 
         var mysql = new MySqlConfig
@@ -56,7 +62,7 @@ public static class NetsDataSourceBridge
         return new DatabaseConfig
         {
             Provider = DatabaseProviders.MySql,
-            Sqlite = new SqliteConfig { Path = DevtoyPaths.LocalDbPath },
+            Sqlite = new SqliteConfig { Path = DataSourceRuntime.ResolvedSqlitePath },
             Mysql = mysql,
         };
     }
@@ -66,10 +72,12 @@ public static class NetsDataSourceBridge
         config.Normalize();
         if (config.IsSqlite)
         {
+            var path = config.Sqlite.Path;
             return new DataSourceSettings
             {
                 DatabaseKind = DatabaseKind.Sqlite,
-                Database = DevtoyPaths.LocalDbPath,
+                SqlitePath = path,
+                Database = path,
             };
         }
 

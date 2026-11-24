@@ -2,6 +2,7 @@ namespace Qolome.Devtoy.Core.Services;
 
 using System.Data.Common;
 using System.Text;
+using System.Text.RegularExpressions;
 using Qolome.Devtoy.Core.Models;
 
 /// <summary>
@@ -10,16 +11,29 @@ using Qolome.Devtoy.Core.Models;
 /// </summary>
 public static class SchemaInitService
 {
-    public static readonly IReadOnlyList<string> RequiredTables = DevtoyTableNames.RequiredDictTables;
+    public static readonly IReadOnlyList<string> RequiredTables = DevtoyTableNames.RequiredInitTables;
+
+    private static readonly Regex CreateTableName = new(
+        @"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`(?<name>[^`]+)`",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(2));
 
     /// <summary>
     /// 按当前数据源生成可执行的初始化 DDL（表结构定义，非从线上库提取）。
     /// </summary>
     public static string GenerateInitSql(DataSourceSettings dataSource)
     {
+        DataSourceRuntime.Normalize(dataSource);
+        if (dataSource.IsSqlite)
+        {
+            throw new NotSupportedException(
+                "Sqlite 模式请直接使用「初始化」对本库建表；MySQL 初始化 SQL 仅适用于远程 MySQL。");
+        }
+
         EnsureSupported(dataSource);
         var database = ResolveDatabaseName(dataSource);
         var body = LoadBundledInitSql(dataSource.DatabaseKind);
+        AssertSqlCoversRequiredTables(body);
         var sb = new StringBuilder();
         sb.AppendLine("-- Qolome DevToy 初始化 DDL");
         sb.AppendLine($"-- databaseKind={dataSource.DatabaseKind}");
@@ -41,6 +55,15 @@ public static class SchemaInitService
     /// </summary>
     public static void Initialize(DataSourceSettings dataSource)
     {
+        DataSourceRuntime.Normalize(dataSource);
+        DataSourceRuntime.SetCurrent(dataSource);
+
+        if (dataSource.IsSqlite)
+        {
+            InitializeSqlite(dataSource);
+            return;
+        }
+
         EnsureSupported(dataSource);
 
         using var conn = DbConnectionFactory.Open(dataSource);
@@ -58,6 +81,12 @@ public static class SchemaInitService
 
     public static IReadOnlyList<string> ListExistingRequiredTables(DataSourceSettings dataSource)
     {
+        DataSourceRuntime.Normalize(dataSource);
+        if (dataSource.IsSqlite)
+        {
+            return [];
+        }
+
         EnsureSupported(dataSource);
         using var conn = DbConnectionFactory.Open(dataSource);
         return FindExistingTables(conn, RequiredTables)
@@ -65,12 +94,60 @@ public static class SchemaInitService
             .ToList();
     }
 
+    private static void InitializeSqlite(DataSourceSettings dataSource)
+    {
+        var path = DataSourceRuntime.ResolveSqlitePath(dataSource);
+        if (File.Exists(path))
+        {
+            // 允许空文件；若已有业务表则提示
+            using var probe = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Cache=Shared");
+            probe.Open();
+            using var cmd = probe.CreateCommand();
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+            var existing = new List<string>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                existing.Add(reader.GetString(0));
+            }
+
+            var configNames = new HashSet<string>(DevtoyTableNames.RequiredConfigTables, StringComparer.OrdinalIgnoreCase);
+            var hit = existing.Where(t => configNames.Contains(t)).ToList();
+            if (hit.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"本地库已存在配置表：{string.Join(", ", hit)}。初始化已中止。");
+            }
+        }
+
+        DataSourceRuntime.PersistCurrent(dataSource);
+        using var conn = ConfigDbAccess.Open();
+        ConfigDbAccess.EnsureConfigSchema(conn);
+        // 网络/OUI/字典表由宿主在初始化后调用 PrepareSchema（EF）补齐
+    }
+
     private static void EnsureSupported(DataSourceSettings dataSource)
     {
         if (dataSource.DatabaseKind != DatabaseKind.MySql)
         {
             throw new NotSupportedException(
-                $"初始化目前仅支持 MySQL，当前为 {dataSource.DatabaseKind}。");
+                $"初始化目前仅支持 MySQL 或 Sqlite，当前为 {dataSource.DatabaseKind}。");
+        }
+    }
+
+    private static void AssertSqlCoversRequiredTables(string body)
+    {
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match m in CreateTableName.Matches(body))
+        {
+            found.Add(m.Groups["name"].Value);
+        }
+
+        var missing = RequiredTables.Where(t => !found.Contains(t)).ToList();
+        if (missing.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "初始化 SQL 模板缺少表：" + string.Join(", ", missing));
         }
     }
 
@@ -83,7 +160,6 @@ public static class SchemaInitService
         }
 
         var url = JdbcUrlBuilder.Resolve(dataSource);
-        // jdbc:mysql://host:port/dbname?...
         var schemeSep = url.IndexOf("://", StringComparison.Ordinal);
         if (schemeSep < 0)
         {

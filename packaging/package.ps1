@@ -25,9 +25,10 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $AppProj = Join-Path $RepoRoot "src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj"
 $DistRoot = Join-Path $RepoRoot "dist"
+$ReleaseDir = Join-Path $DistRoot "release"
 $PublishDir = Join-Path $DistRoot "publish\win-x64"
-$SetupDir = Join-Path $DistRoot "setup"
-$MsixDir = Join-Path $DistRoot "msix"
+$SetupDir = $ReleaseDir
+$MsixDir = $ReleaseDir
 
 . (Join-Path $PSScriptRoot "signing.ps1")
 
@@ -56,6 +57,90 @@ $MsixVersion = Get-MsixFourPartVersion $Version
 function Write-Step([string] $msg) {
     Write-Host ""
     Write-Host "==> $msg" -ForegroundColor Cyan
+}
+
+function Find-InnoSetupCompiler {
+    # 优先显式覆盖：ISCC=完整路径，或 INNO_SETUP_HOME=安装目录
+    foreach ($envPath in @($env:ISCC, $(if ($env:INNO_SETUP_HOME) { Join-Path $env:INNO_SETUP_HOME "ISCC.exe" }))) {
+        if ($envPath -and (Test-Path -LiteralPath $envPath)) {
+            return (Resolve-Path -LiteralPath $envPath).Path
+        }
+    }
+
+    $fromPath = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($fromPath) {
+        return $fromPath.Source
+    }
+
+    $candidates = @(
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+        "D:\Software\Inno Setup 6\ISCC.exe",
+        "C:\Software\Inno Setup 6\ISCC.exe"
+    )
+
+    $uninstallKeys = @(
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1"
+    )
+    foreach ($key in $uninstallKeys) {
+        if (-not (Test-Path -LiteralPath $key)) { continue }
+        $props = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue
+        $root = $props.InstallLocation
+        if (-not $root) { $root = $props.'Inno Setup: App Path' }
+        if ($root) {
+            $candidates += (Join-Path $root.TrimEnd('\') "ISCC.exe")
+        }
+    }
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    return $null
+}
+
+function Find-MsPdbCmfExe {
+    # 仅接受 MSVC Host / AppxPackage 中的工具；ScopeCppSDK\vc15 过旧，会以 1106 失败
+    $vsRoots = @()
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vswhere) {
+        $found = & $vswhere -products * -property installationPath 2>$null
+        if ($found) { $vsRoots += @($found) }
+    }
+    $vsRoots += @(
+        "D:\Software\MicrosoftVisualStudio\2026\Community",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community"
+    )
+
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    foreach ($root in ($vsRoots | Select-Object -Unique)) {
+        if (-not $root -or -not (Test-Path -LiteralPath $root)) { continue }
+        $msvcRoot = Join-Path $root "VC\Tools\MSVC"
+        if (Test-Path -LiteralPath $msvcRoot) {
+            Get-ChildItem -LiteralPath $msvcRoot -Directory -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending |
+                ForEach-Object {
+                    $candidates.Add((Join-Path $_.FullName "bin\Hostx64\x64\mspdbcmf.exe"))
+                    $candidates.Add((Join-Path $_.FullName "bin\HostX64\x64\mspdbcmf.exe"))
+                }
+        }
+        foreach ($ver in @("v18.0", "v17.0", "v16.0")) {
+            $candidates.Add((Join-Path $root "MSBuild\Microsoft\VisualStudio\$ver\AppxPackage\x64\mspdbcmf.exe"))
+        }
+    }
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    return $null
 }
 
 function Sign-PublishArtifacts {
@@ -92,8 +177,9 @@ function Ensure-Publish {
 
 function New-PortableZip {
     Write-Step "便携 ZIP"
+    New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
     $zipName = "Qolome.Devtoy_$Version`_win-x64_portable.zip"
-    $zipPath = Join-Path $DistRoot $zipName
+    $zipPath = Join-Path $ReleaseDir $zipName
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
     $readme = @"
@@ -113,7 +199,7 @@ Qolome Devtoy $Version — Windows 便携版 (x64)
     Write-Host "输出: $zipPath"
     if ($SigningReady) {
         Invoke-ReleaseArchiveCmsSign -ArchivePath $zipPath
-        Write-ReleaseArtifactVerifyFiles -FilePath $zipPath -ReleaseRoot $DistRoot | Out-Null
+        Write-ReleaseArtifactVerifyFiles -FilePath $zipPath -ReleaseRoot $ReleaseDir | Out-Null
     }
 }
 
@@ -140,6 +226,16 @@ function New-MsixPackage {
         $pub += "-p:AppxPackageSigningEnabled=false"
     }
 
+    $mspdbcmf = Find-MsPdbCmfExe
+    if ($mspdbcmf) {
+        Write-Host "mspdbcmf: $mspdbcmf"
+        $pub += "-p:MsPdbCmfExeFullpath=$mspdbcmf"
+    } else {
+        # VS2026 的 ScopeCppSDK\vc15\mspdbcmf 过旧不可用；清空 PDBPayload 以消除警告并跳过 .appxsym
+        Write-Host "mspdbcmf: 未找到兼容版本，已跳过 Appx 符号包（不影响 .msix 安装）"
+        $pub += "-p:DevtoySkipAppxSymbols=true"
+    }
+
     & dotnet @pub
     $publishExit = $LASTEXITCODE
 
@@ -160,22 +256,25 @@ function New-MsixPackage {
     }
 
     if ($publishExit -ne 0) {
-        Write-Warning "publish 退出码 $publishExit，但已找到 MSIX，将继续复制到 dist。"
+        Write-Warning "publish 退出码 $publishExit，但已找到 MSIX，将继续复制到 dist\release。"
     }
 
     $latest = $msixFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    $dest = Join-Path $MsixDir "Qolome.Devtoy_$Version`_x64.msix"
+    $dest = Join-Path $ReleaseDir "Qolome.Devtoy_$Version`_x64.msix"
     Copy-Item $latest.FullName $dest -Force
 
     $bundle = Get-ChildItem -Path $latest.DirectoryName -Filter *.msixbundle -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($bundle) {
-        Copy-Item $bundle.FullName (Join-Path $MsixDir "Qolome.Devtoy_$Version`_x64.msixbundle") -Force
+        Copy-Item $bundle.FullName (Join-Path $ReleaseDir "Qolome.Devtoy_$Version`_x64.msixbundle") -Force
     }
 
     if ($SigningReady) {
+        # MSBuild 侧签常无时间戳（属性显示「不可用」）；与 Inno 一样用 SignTool /tr 重签
+        Write-Step "MSIX Authenticode 时间戳"
+        Invoke-WindowsCodeSignFile -FilePath $dest
         Assert-MsixUsesEnterpriseCertificate -MsixPath $dest
-        Write-ReleaseArtifactVerifyFiles -FilePath $dest -ReleaseRoot $DistRoot | Out-Null
+        Write-ReleaseArtifactVerifyFiles -FilePath $dest -ReleaseRoot $ReleaseDir | Out-Null
     }
 
     Write-Host "输出: $dest"
@@ -189,27 +288,14 @@ function New-InnoSetup {
         throw "请先完成 publish（便携目录不存在）"
     }
 
-    $iscc = $null
-    foreach ($candidate in @(
-            "ISCC.exe",
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
-        )) {
-        if ($candidate -eq "ISCC.exe") {
-            $found = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-            if ($found) { $iscc = $found.Source; break }
-        }
-        elseif (Test-Path $candidate) {
-            $iscc = $candidate
-            break
-        }
-    }
-
+    $iscc = Find-InnoSetupCompiler
     if (-not $iscc) {
-        Write-Warning "未找到 Inno Setup 编译器 ISCC.exe。请安装 Inno Setup 6 后重试。"
-        Write-Host "手动: ISCC.exe /DMyAppVersion=$Version packaging\inno\Qolome.Devtoy.iss"
+        Write-Warning "未找到 Inno Setup 6 编译器 ISCC.exe。请安装后重试，或设置环境变量 ISCC / INNO_SETUP_HOME。"
+        Write-Host "手动: `"D:\Software\Inno Setup 6\ISCC.exe`" /DMyAppVersion=$Version packaging\inno\Qolome.Devtoy.iss"
         return
     }
+
+    Write-Host "ISCC: $iscc"
 
     New-Item -ItemType Directory -Force -Path $SetupDir | Out-Null
     $iss = Join-Path $RepoRoot "packaging\inno\Qolome.Devtoy.iss"
@@ -229,14 +315,14 @@ function New-InnoSetup {
     Get-ChildItem $SetupDir -Filter "Qolome.Devtoy_*_Setup.exe" | ForEach-Object {
         if ($SigningReady) {
             Invoke-WindowsCodeSignFile -FilePath $_.FullName
-            Write-ReleaseArtifactVerifyFiles -FilePath $_.FullName -ReleaseRoot $DistRoot | Out-Null
+            Write-ReleaseArtifactVerifyFiles -FilePath $_.FullName -ReleaseRoot $ReleaseDir | Out-Null
         }
         Write-Host "输出: $($_.FullName)"
     }
 }
 
 Write-Host "Qolome Devtoy 打包 v$Version (MSIX $MsixVersion)  Target=$Target  Signing=$SigningReady"
-New-Item -ItemType Directory -Force -Path $DistRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
 
 switch ($Target) {
     "All" {
@@ -256,4 +342,4 @@ switch ($Target) {
     }
 }
 
-Write-Step "完成。产物目录: $DistRoot"
+Write-Step "完成。产物目录: $ReleaseDir"

@@ -6,10 +6,6 @@
     <ScrollViewer Padding="32,20,32,20" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
         <StackPanel MaxWidth="800" HorizontalAlignment="Left" Spacing="16">
             <TextBlock Text="数据源设置" FontSize="24" FontWeight="SemiBold" />
-            <TextBlock
-                TextWrapping="Wrap"
-                Opacity="0.75"
-                Text="本机 SQLite（%LocalAppData%\Qolome\Devtoy\qolome-devtoy.db）仅保存少量应用配置。此处配置的远程库为唯一业务库：网络库存、拓扑、OUI、字典与代码生成均使用该库（网络业务日常读写当前支持 MySQL）。" />
             <Grid x:Name="FormGrid" ColumnSpacing="16" RowSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
@@ -25,10 +21,17 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="输入方式" VerticalAlignment="Center" />
+                <TextBlock
+                    x:Name="InputModeLabel"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Text="输入方式"
+                    VerticalAlignment="Center" />
                 <StackPanel
+                    x:Name="InputModePanel"
                     Grid.Row="0"
                     Grid.Column="1"
                     Orientation="Horizontal"
@@ -68,50 +71,96 @@
                 <ComboBox x:Name="DbKindBox" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
 
                 <TextBlock
-                    x:Name="HostLabel"
+                    x:Name="SqlitePathLabel"
                     Grid.Row="3"
+                    Grid.Column="0"
+                    Text="数据库文件"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed" />
+                <Grid
+                    x:Name="SqlitePathPanel"
+                    Grid.Row="3"
+                    Grid.Column="1"
+                    ColumnSpacing="8"
+                    Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="SqlitePathBox" Grid.Column="0" IsReadOnly="True" />
+                    <Button Grid.Column="1" Content="浏览…" Click="OnBrowseSqlite" />
+                </Grid>
+
+                <TextBlock
+                    x:Name="HostLabel"
+                    Grid.Row="4"
                     Grid.Column="0"
                     Text="主机"
                     VerticalAlignment="Center" />
-                <TextBox x:Name="HostBox" Grid.Row="3" Grid.Column="1" />
+                <TextBox x:Name="HostBox" Grid.Row="4" Grid.Column="1" />
 
                 <TextBlock
                     x:Name="PortLabel"
-                    Grid.Row="4"
+                    Grid.Row="5"
                     Grid.Column="0"
                     Text="端口"
                     VerticalAlignment="Center" />
-                <TextBox x:Name="PortBox" Grid.Row="4" Grid.Column="1" />
+                <TextBox x:Name="PortBox" Grid.Row="5" Grid.Column="1" />
 
                 <TextBlock
                     x:Name="DatabaseLabel"
-                    Grid.Row="5"
+                    Grid.Row="6"
                     Grid.Column="0"
                     Text="数据库名称"
                     VerticalAlignment="Center" />
-                <TextBox x:Name="DatabaseBox" Grid.Row="5" Grid.Column="1" />
+                <TextBox x:Name="DatabaseBox" Grid.Row="6" Grid.Column="1" />
 
                 <TextBlock
                     x:Name="ParamsLabel"
-                    Grid.Row="6"
+                    Grid.Row="7"
                     Grid.Column="0"
                     Text="连接参数"
                     VerticalAlignment="Center"
                     ToolTipService.ToolTip="MySQL 等 JDBC 参数；ODBC 时可填 Driver={...} 或完整连接串片段" />
                 <TextBox
                     x:Name="ParamsBox"
-                    Grid.Row="6"
+                    Grid.Row="7"
                     Grid.Column="1"
                     AcceptsReturn="True"
                     TextWrapping="Wrap"
                     MaxHeight="80"
                     PlaceholderText="useSSL=false&amp;… 或 ODBC: Driver={PostgreSQL Unicode}" />
 
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="用户名" VerticalAlignment="Center" />
-                <TextBox x:Name="UserBox" Grid.Row="7" Grid.Column="1" />
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="用户名" VerticalAlignment="Center" />
+                <TextBox x:Name="UserBox" Grid.Row="8" Grid.Column="1" />
 
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="密码" VerticalAlignment="Center" />
-                <PasswordBox x:Name="PasswordBox" Grid.Row="8" Grid.Column="1" />
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="密码" VerticalAlignment="Center" />
+                <Grid
+                    x:Name="PasswordPanel"
+                    Grid.Row="9"
+                    Grid.Column="1"
+                    ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <PasswordBox
+                        x:Name="PasswordBox"
+                        Grid.Column="0"
+                        PasswordRevealMode="Hidden" />
+                    <TextBox
+                        x:Name="PasswordPlainBox"
+                        Grid.Column="0"
+                        Visibility="Collapsed"
+                        TextChanged="OnPasswordPlainChanged" />
+                    <Button
+                        x:Name="RevealPasswordButton"
+                        Grid.Column="1"
+                        Click="OnRevealPassword"
+                        ToolTipService.ToolTip="查看密码（需 Windows Hello 验证）">
+                        <FontIcon x:Name="RevealPasswordIcon" Glyph="&#xE7B3;" FontSize="14" />
+                    </Button>
+                </Grid>
             </Grid>
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="120,4,0,0">
                 <Button Click="OnSave">
@@ -136,7 +185,7 @@
                         <TextBlock Text="测试连接" Style="{StaticResource DevtoyGlyphTextStyle}" />
                     </StackPanel>
                 </Button>
-                <Button Click="OnGenerateInitSql">
+                <Button x:Name="GenerateInitSqlButton" Click="OnGenerateInitSql">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Viewbox
                             Width="{StaticResource DevtoyGlyphIconBox}"

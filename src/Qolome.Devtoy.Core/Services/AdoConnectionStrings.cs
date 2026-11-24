@@ -73,6 +73,10 @@ public static class AdoConnectionStrings
         {
             dataSource = FromJdbcSqlitePath(ds.JdbcUrl.Trim());
         }
+        else if (ds.DatabaseKind == DatabaseKind.Sqlite)
+        {
+            dataSource = DataSourceRuntime.ResolveSqlitePath(ds);
+        }
         else
         {
             dataSource = string.IsNullOrWhiteSpace(ds.Database) ? SqliteMemoryDataSource : ds.Database.Trim();

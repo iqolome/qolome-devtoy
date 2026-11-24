@@ -98,4 +98,19 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
   </PropertyGroup>
+
+  <!--
+    VS2026 MSVC Host 工具链常无兼容的 mspdbcmf.exe；ScopeCppSDK\vc15 过旧会以 1106 失败。
+    packaging\package.ps1 在找不到兼容工具时传 DevtoySkipAppxSymbols=true，跳过 .appxsym（不影响 .msix）。
+  -->
+  <Target Name="DevtoySkipAppxSymbolPackage"
+          BeforeTargets="_EnsurePdbCmfExeFullPath"
+          Condition="'$(DevtoySkipAppxSymbols)' == 'true'">
+    <ItemGroup>
+      <PDBPayload Remove="@(PDBPayload)" />
+    </ItemGroup>
+    <PropertyGroup>
+      <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
+    </PropertyGroup>
+  </Target>
 </Project>

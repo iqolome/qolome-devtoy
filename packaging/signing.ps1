@@ -57,9 +57,13 @@ function Initialize-DevtoySigning {
 
 function Get-DevtoyMsixPublishSigningArgs {
   $pfx = Get-WindowsCodeSignPfx
+  $tsa = if ($env:QOLOME_TIMESTAMP_URL) { $env:QOLOME_TIMESTAMP_URL } else { 'http://timestamp.digicert.com' }
   $args = @(
       "-p:AppxPackageSigningEnabled=true",
-      "-p:PackageCertificateKeyFile=$($pfx.Path)"
+      "-p:PackageCertificateKeyFile=$($pfx.Path)",
+      # WinAppSDK 部分版本会忽略这两项；package.ps1 仍会在产出后用 SignTool /tr 补时间戳
+      "-p:AppxPackageSigningTimestampServerUrl=$tsa",
+      "-p:AppxPackageSigningTimestampDigestAlgorithm=SHA256"
   )
   if (-not [string]::IsNullOrEmpty($pfx.Password)) {
       $args += "-p:PackageCertificatePassword=$($pfx.Password)"

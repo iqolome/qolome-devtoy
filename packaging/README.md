@@ -1,6 +1,6 @@
 # Qolome Devtoy 打包
 
-产物默认输出到仓库根目录 `dist/`。
+发布制品默认输出到 `dist\release\`（中间 publish 仍在 `dist\publish\`）。
 
 ## 一键脚本
 
@@ -27,14 +27,14 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 | 文件 | 用途 |
 |------|------|
-| `dist\Qolome.Devtoy_{version}_win-x64_portable.zip` | **便携版**：解压后运行 `Qolome.Devtoy.App.exe`，删文件夹即卸载 |
-| `dist\msix\Qolome.Devtoy_{version}_x64.msix` | **MSIX**：可侧载安装/卸载 |
-| `dist\setup\Qolome.Devtoy_{version}_Setup.exe` | **Inno 安装程序**：安装向导 + 卸载项 |
+| `dist\release\Qolome.Devtoy_{version}_win-x64_portable.zip` | **便携版**：解压后运行 `Qolome.Devtoy.App.exe`，删文件夹即卸载 |
+| `dist\release\Qolome.Devtoy_{version}_x64.msix` | **MSIX**：可侧载安装/卸载 |
+| `dist\release\Qolome.Devtoy_{version}_Setup.exe` | **Inno 安装程序**：安装向导 + 卸载项 |
 
 ## MSIX 安装 / 卸载
 
 ```powershell
-Add-AppxPackage -Path "dist\msix\Qolome.Devtoy_1.0.0_x64.msix"
+Add-AppxPackage -Path "dist\release\Qolome.Devtoy_1.0.0_x64.msix"
 Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 ```
 
@@ -42,12 +42,17 @@ Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 
 ## Inno Setup
 
-需安装 [Inno Setup 6](https://jrsoftware.org/isinfo.php)。脚本会自动查找 `ISCC.exe`。
+需安装 [Inno Setup 6](https://jrsoftware.org/isinfo.php)。脚本按以下顺序查找 `ISCC.exe`：
+
+1. 环境变量 `ISCC`（完整路径）或 `INNO_SETUP_HOME`（安装目录）
+2. `PATH` 中的 `ISCC.exe`
+3. 常见目录（`Program Files`、`D:\Software\Inno Setup 6` 等）
+4. 卸载项注册表（`Inno Setup 6_is1` → `InstallLocation`）
 
 手动编译：
 
 ```powershell
-ISCC.exe /DMyAppVersion=1.0.0 packaging\inno\Qolome.Devtoy.iss
+& "D:\Software\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.0 packaging\inno\Qolome.Devtoy.iss
 ```
 
 ## 代码签名（对齐 qolome_epsims_app）

@@ -1,10 +1,11 @@
 namespace Qolome.Devtoy.Core.Services;
 
+using System.Data.Common;
 using Microsoft.Data.Sqlite;
 using Qolome.Devtoy.Core.Models;
 
 /// <summary>
-/// 本机 SQLite 模块列表：<c>devtoy_workspace</c> / <c>devtoy_module</c>。
+/// 模块列表：<c>devtoy_workspace</c> / <c>devtoy_module</c>（Sqlite 或远程 MySQL）。
 /// 内存仍经 <see cref="DevtoySettings"/> 暴露，供扫描与 UI 使用。
 /// </summary>
 public static class ModuleStore
@@ -78,7 +79,12 @@ public static class ModuleStore
     /// <summary>表中是否已有工作区或模块行（用于判断是否已迁移）。</summary>
     public static bool HasPersistedRows()
     {
-        if (!File.Exists(DevtoyPaths.LocalDbPath))
+        if (!DataSourceRuntime.IsSqliteMode)
+        {
+            return false;
+        }
+
+        if (!File.Exists(DataSourceRuntime.ResolvedSqlitePath))
         {
             return false;
         }
@@ -111,14 +117,7 @@ public static class ModuleStore
     public static void LoadInto(DevtoySettings settings, SqliteConnection conn, SqliteTransaction? tx)
     {
         EnsureSchema(conn, tx);
-
-        settings.WorkspaceRoots.Clear();
-        settings.WorkspaceRoot = "";
-        settings.SpecifiedProjects.Clear();
-        settings.IgnoredModulePaths.Clear();
-        settings.ModuleDisplayNames.Clear();
-        settings.ModuleOverrides.Clear();
-        settings.ModuleTimes.Clear();
+        ClearModuleCollections(settings);
 
         using (var wsCmd = conn.CreateCommand())
         {
@@ -294,7 +293,146 @@ public static class ModuleStore
         );
         """;
 
-    private static void ApplyModuleRow(DevtoySettings settings, SqliteDataReader reader)
+    /// <summary>远程 MySQL：是否已有 workspace/module 行。</summary>
+    public static bool HasRemotePersistedRows(DbConnection conn)
+    {
+        try
+        {
+            return CountRowsDb(conn, DevtoyTableNames.Workspace) > 0
+                || CountRowsDb(conn, DevtoyTableNames.Module) > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>远程 MySQL：从关系表灌入设置。</summary>
+    public static void LoadIntoRemote(DbConnection conn, DevtoySettings settings)
+    {
+        ClearModuleCollections(settings);
+
+        using (var wsCmd = conn.CreateCommand())
+        {
+            wsCmd.CommandText =
+                """
+                SELECT `path` FROM `devtoy_workspace`
+                ORDER BY `sort_order` ASC, `path` ASC
+                """;
+            using var reader = wsCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    settings.WorkspaceRoots.Add(Path.GetFullPath(path));
+                }
+                catch
+                {
+                    settings.WorkspaceRoots.Add(path.Trim());
+                }
+            }
+        }
+
+        settings.NormalizeWorkspaceRoots();
+
+        using var modCmd = conn.CreateCommand();
+        modCmd.CommandText =
+            """
+            SELECT `path`, `workspace_path`, `source`, `display_name`, `ignored`,
+                   `java`, `web`, `flutter`, `version`, `manual`,
+                   `codegen_model_name`, `codegen_dao`, `codegen_service`, `codegen_controller`,
+                   `enable_codegen`, `enable_enum`, `enable_ts_dict`, `tag_boot_starter`,
+                   `enum_package_path`, `ts_dict_path`,
+                   `create_time`, `modify_time`, `updated_at`
+            FROM `devtoy_module`
+            ORDER BY `path` ASC
+            """;
+        using var modReader = modCmd.ExecuteReader();
+        while (modReader.Read())
+        {
+            ApplyModuleRow(settings, modReader);
+        }
+    }
+
+    /// <summary>远程 MySQL：将内存模块列表写入关系表。</summary>
+    public static void SaveFromRemote(DbConnection conn, DevtoySettings settings)
+    {
+        settings.NormalizeWorkspaceRoots();
+        var now = DateTime.UtcNow.ToString("O");
+
+        using (var clearWs = conn.CreateCommand())
+        {
+            clearWs.CommandText = "DELETE FROM `devtoy_workspace`";
+            clearWs.ExecuteNonQuery();
+        }
+
+        for (var i = 0; i < settings.WorkspaceRoots.Count; i++)
+        {
+            var path = settings.WorkspaceRoots[i];
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            using var insert = conn.CreateCommand();
+            insert.CommandText =
+                """
+                INSERT INTO `devtoy_workspace` (`path`, `sort_order`, `updated_at`)
+                VALUES (@path, @sort_order, @updated_at)
+                """;
+            AddDbParam(insert, "@path", Path.GetFullPath(path));
+            AddDbParam(insert, "@sort_order", i);
+            AddDbParam(insert, "@updated_at", now);
+            insert.ExecuteNonQuery();
+        }
+
+        var existingCreate = LoadExistingCreateTimesDb(conn);
+        var rows = BuildRows(settings);
+        using (var clearMod = conn.CreateCommand())
+        {
+            clearMod.CommandText = "DELETE FROM `devtoy_module`";
+            clearMod.ExecuteNonQuery();
+        }
+
+        foreach (var row in rows.Values.OrderBy(r => r.Path, StringComparer.OrdinalIgnoreCase))
+        {
+            if (settings.ModuleTimes.TryGetValue(row.Path, out var meta)
+                && meta.CreateTime is not null)
+            {
+                row.CreateTime = meta.CreateTime.Value.ToUniversalTime().ToString("O");
+            }
+            else if (existingCreate.TryGetValue(row.Path, out var created))
+            {
+                row.CreateTime = created;
+            }
+            else
+            {
+                row.CreateTime = now;
+            }
+
+            row.ModifyTime = now;
+            InsertModuleRowDb(conn, row, now);
+        }
+    }
+
+    private static void ClearModuleCollections(DevtoySettings settings)
+    {
+        settings.WorkspaceRoots.Clear();
+        settings.WorkspaceRoot = "";
+        settings.SpecifiedProjects.Clear();
+        settings.IgnoredModulePaths.Clear();
+        settings.ModuleDisplayNames.Clear();
+        settings.ModuleOverrides.Clear();
+        settings.ModuleTimes.Clear();
+    }
+
+    private static void ApplyModuleRow(DevtoySettings settings, DbDataReader reader)
     {
         var path = NormalizeStoredPath(reader.IsDBNull(0) ? "" : reader.GetString(0));
         if (path.Length == 0)
@@ -311,7 +449,7 @@ public static class ModuleStore
             AddSpecifiedFromReader(settings, path, reader);
         }
 
-        if (!reader.IsDBNull(4) && reader.GetInt64(4) != 0)
+        if (!reader.IsDBNull(4) && ReadInt64(reader, 4) != 0)
         {
             settings.IgnoredModulePaths.Add(path);
         }
@@ -320,7 +458,7 @@ public static class ModuleStore
         ApplyTimesFromReader(settings, path, reader);
     }
 
-    private static void AddSpecifiedFromReader(DevtoySettings settings, string path, SqliteDataReader reader)
+    private static void AddSpecifiedFromReader(DevtoySettings settings, string path, DbDataReader reader)
     {
         settings.SpecifiedProjects.Add(new SpecifiedProjectEntry
         {
@@ -338,7 +476,7 @@ public static class ModuleStore
         string path,
         string? displayName,
         bool isSpecified,
-        SqliteDataReader reader)
+        DbDataReader reader)
     {
         var ov = new ModuleCatalogOverride
         {
@@ -380,7 +518,7 @@ public static class ModuleStore
         settings.ModuleOverrides[path] = new ModuleCatalogOverride { DisplayName = trimmed };
     }
 
-    private static void ApplyTimesFromReader(DevtoySettings settings, string path, SqliteDataReader reader)
+    private static void ApplyTimesFromReader(DevtoySettings settings, string path, DbDataReader reader)
     {
         var updated = ReadOptionalString(reader, 22);
         var create = ParseTimestamp(ReadOptionalString(reader, 20)) ?? ParseTimestamp(updated);
@@ -600,17 +738,151 @@ public static class ModuleStore
         cmd.Parameters.AddWithValue(name, dbValue);
     }
 
-    private static bool? ReadBool(SqliteDataReader reader, int ordinal)
+    private static void InsertModuleRowDb(DbConnection conn, ModuleRow row, string now)
+    {
+        using var cmd = conn.CreateCommand();
+        var create = string.IsNullOrWhiteSpace(row.CreateTime) ? now : row.CreateTime;
+        var modify = string.IsNullOrWhiteSpace(row.ModifyTime) ? now : row.ModifyTime;
+        cmd.CommandText =
+            """
+            INSERT INTO `devtoy_module` (
+                `path`, `workspace_path`, `source`, `display_name`, `ignored`,
+                `java`, `web`, `flutter`, `version`, `manual`,
+                `codegen_model_name`, `codegen_dao`, `codegen_service`, `codegen_controller`,
+                `enable_codegen`, `enable_enum`, `enable_ts_dict`, `tag_boot_starter`,
+                `enum_package_path`, `ts_dict_path`, `create_time`, `modify_time`, `updated_at`
+            ) VALUES (
+                @path, @workspace_path, @source, @display_name, @ignored,
+                @java, @web, @flutter, @version, @manual,
+                @codegen_model_name, @codegen_dao, @codegen_service, @codegen_controller,
+                @enable_codegen, @enable_enum, @enable_ts_dict, @tag_boot_starter,
+                @enum_package_path, @ts_dict_path, @create_time, @modify_time, @updated_at
+            )
+            """;
+        AddDbParam(cmd, "@path", row.Path);
+        AddDbParam(cmd, "@workspace_path", GuessWorkspacePath(row.Path) ?? (object)DBNull.Value);
+        AddDbParam(cmd, "@source", row.Source);
+        AddDbParam(cmd, "@display_name", (object?)NullIfWhite(row.DisplayName) ?? DBNull.Value);
+        AddDbParam(cmd, "@ignored", row.Ignored ? 1 : 0);
+        AddNullableBoolDb(cmd, "@java", row.Java);
+        AddNullableBoolDb(cmd, "@web", row.Web);
+        AddNullableBoolDb(cmd, "@flutter", row.Flutter);
+        AddDbParam(cmd, "@version", (object?)NullIfWhite(row.Version) ?? DBNull.Value);
+        AddNullableBoolDb(cmd, "@manual", row.Manual);
+        AddDbParam(cmd, "@codegen_model_name", (object?)NullIfWhite(row.CodegenModelName) ?? DBNull.Value);
+        AddNullableBoolDb(cmd, "@codegen_dao", row.CodegenDao);
+        AddNullableBoolDb(cmd, "@codegen_service", row.CodegenService);
+        AddNullableBoolDb(cmd, "@codegen_controller", row.CodegenController);
+        AddNullableBoolDb(cmd, "@enable_codegen", row.EnableCodegen);
+        AddNullableBoolDb(cmd, "@enable_enum", row.EnableEnum);
+        AddNullableBoolDb(cmd, "@enable_ts_dict", row.EnableTsDict);
+        AddNullableBoolDb(cmd, "@tag_boot_starter", row.TagBootStarter);
+        AddDbParam(cmd, "@enum_package_path", (object?)NullIfWhite(row.EnumPackagePath) ?? DBNull.Value);
+        AddDbParam(cmd, "@ts_dict_path", (object?)NullIfWhite(row.TsDictPath) ?? DBNull.Value);
+        AddDbParam(cmd, "@create_time", create);
+        AddDbParam(cmd, "@modify_time", modify);
+        AddDbParam(cmd, "@updated_at", modify);
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void AddDbParam(DbCommand cmd, string name, object value)
+    {
+        var p = cmd.CreateParameter();
+        p.ParameterName = name;
+        p.Value = value;
+        cmd.Parameters.Add(p);
+    }
+
+    private static void AddNullableBoolDb(DbCommand cmd, string name, bool? value)
+    {
+        object dbValue = DBNull.Value;
+        if (value is not null)
+        {
+            dbValue = value.Value ? 1 : 0;
+        }
+
+        AddDbParam(cmd, name, dbValue);
+    }
+
+    private static long CountRowsDb(DbConnection conn, string table)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = table switch
+        {
+            DevtoyTableNames.Workspace => "SELECT COUNT(*) FROM `devtoy_workspace`",
+            DevtoyTableNames.Module => "SELECT COUNT(*) FROM `devtoy_module`",
+            DevtoyTableNames.Doc => "SELECT COUNT(*) FROM `devtoy_doc`",
+            _ => throw new ArgumentOutOfRangeException(nameof(table), table, "未知本机配置表。"),
+        };
+        var result = cmd.ExecuteScalar();
+        return result is long n ? n : Convert.ToInt64(result);
+    }
+
+    private static Dictionary<string, string> LoadExistingCreateTimesDb(DbConnection conn)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            """
+            SELECT `path`,
+                   COALESCE(NULLIF(`create_time`, ''), `updated_at`) AS created
+            FROM `devtoy_module`
+            """;
+        try
+        {
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                var created = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(created))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    map[Path.GetFullPath(path)] = created;
+                }
+                catch
+                {
+                    map[path.Trim()] = created;
+                }
+            }
+        }
+        catch
+        {
+            // 表尚未含时间列
+        }
+
+        return map;
+    }
+
+    private static bool? ReadBool(DbDataReader reader, int ordinal)
     {
         if (reader.IsDBNull(ordinal))
         {
             return null;
         }
 
-        return reader.GetInt64(ordinal) != 0;
+        return ReadInt64(reader, ordinal) != 0;
     }
 
-    private static string? ReadOptionalString(SqliteDataReader reader, int ordinal) =>
+    private static long ReadInt64(DbDataReader reader, int ordinal)
+    {
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            long l => l,
+            int i => i,
+            short s => s,
+            byte b => b,
+            bool b => b ? 1 : 0,
+            _ => Convert.ToInt64(value),
+        };
+    }
+
+    private static string? ReadOptionalString(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 
     private static string NormalizeStoredPath(string rawPath)
@@ -667,7 +939,19 @@ public static class ModuleStore
 
     private static SqliteConnection OpenLocalDb()
     {
-        var conn = new SqliteConnection($"Data Source={DevtoyPaths.LocalDbPath};Cache=Shared");
+        if (!DataSourceRuntime.IsSqliteMode)
+        {
+            throw new InvalidOperationException("ModuleStore Sqlite API 仅在 Sqlite 数据源下可用。");
+        }
+
+        var path = DataSourceRuntime.ResolvedSqlitePath;
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        var conn = new SqliteConnection($"Data Source={path};Cache=Shared");
         conn.Open();
         return conn;
     }

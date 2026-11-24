@@ -215,7 +215,14 @@ public static class ConfigSqlDumpService
 
     private static SqliteConnection OpenLocalDb()
     {
-        var conn = new SqliteConnection($"Data Source={DevtoyPaths.LocalDbPath};Cache=Shared");
+        var path = DataSourceRuntime.ResolvedSqlitePath;
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        var conn = new SqliteConnection($"Data Source={path};Cache=Shared");
         conn.Open();
         return conn;
     }

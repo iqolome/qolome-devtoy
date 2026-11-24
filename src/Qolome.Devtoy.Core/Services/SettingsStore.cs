@@ -21,6 +21,8 @@ public sealed class SettingsStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private const string KindModuleState = "module_state";
+
     private static readonly string[] ModuleJsonProperties =
     [
         "workspaceRoots",
@@ -52,13 +54,42 @@ public sealed class SettingsStore
 
     public DevtoySettings Load()
     {
+        _ = DataSourceRuntime.Bootstrap();
         try
         {
-            EnsureLocalSchema();
-            var fromDb = TryLoadSettingsFromSqlite();
-            if (fromDb is not null)
+            // 无 .dat 时先从遗留本地库/JSON 读出 DataSource 再写 .dat
+            if (DataSourceConnectionStore.TryLoad() is null)
             {
-                return fromDb;
+                TryMigrateLegacyConnection();
+            }
+
+            _ = DataSourceRuntime.Bootstrap();
+
+            if (DataSourceRuntime.IsRemoteMySql)
+            {
+                var remote = TryLoadFromRemoteMySql();
+                if (remote is not null)
+                {
+                    remote.DataSource = DataSourceRuntime.Current;
+                    return remote;
+                }
+            }
+
+            if (DataSourceRuntime.IsSqliteMode || DataSourceConnectionStore.TryLoad() is null)
+            {
+                if (!DataSourceRuntime.IsSqliteMode && DataSourceConnectionStore.TryLoad() is null)
+                {
+                    // 仍无连接配置：默认 Sqlite
+                    DataSourceRuntime.UseDefaultSqliteIfUnset();
+                }
+
+                EnsureLocalSchema();
+                var fromDb = TryLoadSettingsFromSqlite();
+                if (fromDb is not null)
+                {
+                    fromDb.DataSource = DataSourceRuntime.Current;
+                    return fromDb;
+                }
             }
 
             if (File.Exists(SettingsPath))
@@ -69,6 +100,16 @@ public sealed class SettingsStore
                 MergeEmbeddedModuleOverrides(json, settings);
                 LoadModuleOverridesFile(settings);
                 settings.NormalizeWorkspaceRoots();
+                if (DataSourceConnectionStore.TryLoad() is null && settings.DataSource is not null)
+                {
+                    DataSourceRuntime.PersistCurrent(settings.DataSource);
+                }
+                else
+                {
+                    DataSourceRuntime.UseDefaultSqliteIfUnset();
+                }
+
+                settings.DataSource = DataSourceRuntime.Current;
                 SaveNow(settings);
                 return settings;
             }
@@ -78,7 +119,8 @@ public sealed class SettingsStore
             // ignored
         }
 
-        var fresh = new DevtoySettings();
+        DataSourceRuntime.UseDefaultSqliteIfUnset();
+        var fresh = new DevtoySettings { DataSource = DataSourceRuntime.Current };
         if (ModuleStore.HasPersistedRows())
         {
             ModuleStore.LoadInto(fresh);
@@ -89,6 +131,47 @@ public sealed class SettingsStore
         }
 
         return fresh;
+    }
+
+    private static void TryMigrateLegacyConnection()
+    {
+        try
+        {
+            // 临时用默认路径打开旧库读 settings JSON 里的 DataSource
+            var legacyPath = File.Exists(DevtoyPaths.EnsureMigratedDefaultSqlitePath())
+                ? DevtoyPaths.DefaultSqliteDbPath
+                : DevtoyPaths.LegacyLocalDbPath;
+            if (!File.Exists(legacyPath) && !File.Exists(DevtoyPaths.LegacyLocalDbPath))
+            {
+                return;
+            }
+
+            var path = File.Exists(DevtoyPaths.DefaultSqliteDbPath)
+                ? DevtoyPaths.DefaultSqliteDbPath
+                : DevtoyPaths.LegacyLocalDbPath;
+            using var conn = new SqliteConnection($"Data Source={path};Cache=Shared");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT json FROM devtoy_doc WHERE kind = $kind";
+            cmd.Parameters.AddWithValue("$kind", KindSettings);
+            var json = cmd.ExecuteScalar() as string;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return;
+            }
+
+            var settings = JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions);
+            if (settings?.DataSource is null)
+            {
+                return;
+            }
+
+            DataSourceRuntime.PersistCurrent(settings.DataSource);
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     /// <summary>防抖保存：合并短时间内多次修改，单飞落盘。</summary>
@@ -193,12 +276,19 @@ public sealed class SettingsStore
     private static void PersistSplit(DevtoySettings settings)
     {
         Directory.CreateDirectory(DevtoyPaths.AppDataRoot);
-        EnsureLocalSchema();
         settings.NormalizeWorkspaceRoots();
+        DataSourceRuntime.PersistCurrent(settings.DataSource);
 
-        var mainJson = SerializeSettingsWithoutModuleList(settings);
+        var mainJson = SerializeSettingsWithoutSecrets(settings);
         var now = DateTime.UtcNow.ToString("O");
 
+        if (DataSourceRuntime.IsRemoteMySql)
+        {
+            PersistSplitRemoteMySql(settings, mainJson, now);
+            return;
+        }
+
+        EnsureLocalSchema();
         using var conn = OpenLocalDb();
         using var tx = conn.BeginTransaction();
         try
@@ -215,7 +305,53 @@ public sealed class SettingsStore
         }
     }
 
-    private static string SerializeSettingsWithoutModuleList(DevtoySettings settings)
+    private static void PersistSplitRemoteMySql(DevtoySettings settings, string mainJson, string now)
+    {
+        using var conn = ConfigDbAccess.Open();
+        ConfigDbAccess.EnsureConfigSchema(conn);
+        UpsertDocDb(conn, KindSettings, mainJson, now);
+        ModuleStore.SaveFromRemote(conn, settings);
+        // 清理过渡期 JSON 备份，模块已落关系表
+        DeleteDocKindDb(conn, KindModuleState);
+    }
+
+    private static DevtoySettings? TryLoadFromRemoteMySql()
+    {
+        try
+        {
+            using var conn = ConfigDbAccess.Open();
+            ConfigDbAccess.EnsureConfigSchema(conn);
+            var json = ReadDocJsonDb(conn, KindSettings);
+            var settings = string.IsNullOrWhiteSpace(json)
+                ? new DevtoySettings()
+                : JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions) ?? new DevtoySettings();
+
+            if (ModuleStore.HasRemotePersistedRows(conn))
+            {
+                ModuleStore.LoadIntoRemote(conn, settings);
+            }
+            else
+            {
+                var moduleJson = ReadDocJsonDb(conn, KindModuleState);
+                if (!string.IsNullOrWhiteSpace(moduleJson))
+                {
+                    ApplyModuleStateJson(settings, moduleJson);
+                    ModuleStore.SaveFromRemote(conn, settings);
+                    DeleteDocKindDb(conn, KindModuleState);
+                }
+            }
+
+            settings.NormalizeWorkspaceRoots();
+            settings.DataSource = DataSourceRuntime.Current;
+            return settings;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SerializeSettingsWithoutSecrets(DevtoySettings settings)
     {
         var node = JsonSerializer.SerializeToNode(settings, JsonOptions)?.AsObject()
             ?? new JsonObject();
@@ -224,12 +360,53 @@ public sealed class SettingsStore
             node.Remove(prop);
         }
 
+        // 连接仅存加密 datasource.dat，不进 devtoy_doc
+        node.Remove("dataSource");
+
         return node.ToJsonString(JsonOptions);
     }
 
+    private static void DeleteDocKindDb(System.Data.Common.DbConnection conn, string kind)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM devtoy_doc WHERE kind = @kind";
+        AddParam(cmd, "@kind", kind);
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void ApplyModuleStateJson(DevtoySettings settings, string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var patch = JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions);
+            if (patch is null)
+            {
+                return;
+            }
+
+            settings.WorkspaceRoots = patch.WorkspaceRoots;
+            settings.SpecifiedProjects = patch.SpecifiedProjects;
+            settings.ModuleDisplayNames = patch.ModuleDisplayNames;
+            settings.IgnoredModulePaths = patch.IgnoredModulePaths;
+            settings.ModuleOverrides = patch.ModuleOverrides;
+            settings.ModuleTimes = patch.ModuleTimes;
+            settings.NormalizeWorkspaceRoots();
+            _ = root;
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private static string SerializeSettingsWithoutModuleList(DevtoySettings settings) =>
+        SerializeSettingsWithoutSecrets(settings);
+
     private static DevtoySettings? TryLoadSettingsFromSqlite()
     {
-        if (!File.Exists(LocalDbPath))
+        if (!DataSourceRuntime.IsSqliteMode || !File.Exists(DataSourceRuntime.ResolvedSqlitePath))
         {
             return null;
         }
@@ -434,30 +611,23 @@ public sealed class SettingsStore
     private static void EnsureLocalSchema()
     {
         Directory.CreateDirectory(DevtoyPaths.AppDataRoot);
-        using var conn = OpenLocalDb();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            """
-            CREATE TABLE IF NOT EXISTS devtoy_doc (
-                kind TEXT PRIMARY KEY,
-                json TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            """;
-        cmd.ExecuteNonQuery();
-        ModuleStore.EnsureSchema(conn, tx: null);
+        using var conn = (SqliteConnection)ConfigDbAccess.Open();
+        ConfigDbAccess.EnsureConfigSchema(conn);
     }
 
     private static SqliteConnection OpenLocalDb()
     {
-        var conn = new SqliteConnection($"Data Source={LocalDbPath};Cache=Shared");
-        conn.Open();
+        if (ConfigDbAccess.Open() is not SqliteConnection conn)
+        {
+            throw new InvalidOperationException("当前数据源不是 Sqlite。");
+        }
+
         return conn;
     }
 
     private static string? ReadDocJson(string kind)
     {
-        if (!File.Exists(LocalDbPath))
+        if (!DataSourceRuntime.IsSqliteMode || !File.Exists(DataSourceRuntime.ResolvedSqlitePath))
         {
             return null;
         }
@@ -474,6 +644,40 @@ public sealed class SettingsStore
         {
             return null;
         }
+    }
+
+    private static string? ReadDocJsonDb(System.Data.Common.DbConnection conn, string kind)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT json FROM devtoy_doc WHERE kind = @kind LIMIT 1";
+        var p = cmd.CreateParameter();
+        p.ParameterName = "@kind";
+        p.Value = kind;
+        cmd.Parameters.Add(p);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    private static void UpsertDocDb(System.Data.Common.DbConnection conn, string kind, string json, string updatedAt)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            """
+            INSERT INTO devtoy_doc (kind, json, updated_at)
+            VALUES (@kind, @json, @updated_at)
+            ON DUPLICATE KEY UPDATE json = VALUES(json), updated_at = VALUES(updated_at)
+            """;
+        AddParam(cmd, "@kind", kind);
+        AddParam(cmd, "@json", json);
+        AddParam(cmd, "@updated_at", updatedAt);
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void AddParam(System.Data.Common.DbCommand cmd, string name, object value)
+    {
+        var p = cmd.CreateParameter();
+        p.ParameterName = name;
+        p.Value = value;
+        cmd.Parameters.Add(p);
     }
 
     private static void UpsertDoc(SqliteConnection conn, SqliteTransaction tx, string kind, string json, string updatedAt)

@@ -109,9 +109,9 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | `packaging/` | `package.ps1`、MSIX / ZIP / Inno 与签名脚本 |
 | `scripts/sonar-scan.ps1` | 本地 Sonar 扫描 |
 | `config/` | 示例配置（如 `signing.example.properties`，勿提交真实密钥） |
-| `%LocalAppData%/Qolome/Devtoy/` | 运行时：`qolome-devtoy.db`、可编辑模板、崩溃日志 |
+| `%LocalAppData%/Qolome/Devtoy/` | 运行时：`datasource.dat`（加密连接）、`devtoy.db`（Sqlite 模式业务库）、模板、崩溃日志 |
 | `sonar-project.properties` | SonarQube 工程配置 |
-| `dist/` | **本地打包输出**（已在 `.gitignore` 中忽略） |
+| `dist/release/` | **发布制品**（ZIP / MSIX / Setup；`dist/publish` 为中间产物，已在 `.gitignore` 中忽略） |
 
 解决方案：[`Qolome.Devtoy.slnx`](Qolome.Devtoy.slnx)（IDE 打开用；命令行构建 / Sonar 请编 App 工程）。
 
@@ -213,7 +213,7 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 
 首次启动会尝试将旧版 `settings.json` / `module-overrides.json` 以及 `devtoy_doc` 内嵌的模块字段迁入 `devtoy_workspace` / `devtoy_module`。
 
-字典 / 表生成：在 **数据源设置** 中配置远程业务库（通常为 MySQL）。空库可用 **初始化** 写入 `qolome_dict_*`；已有业务库（如 `qolome_epsims_dev`）直接使用现有字典表。参考 DDL：[`sql/qolome_devtoy_mysql_init.sql`](sql/qolome_devtoy_mysql_init.sql)。
+字典 / 表生成：在 **数据源设置** 中配置远程业务库（通常为 MySQL）。空库可用 **初始化** / **生成初始化 SQL** 写入 `qolome_dict_*` 与网络业务表 `devtoy_*`（环境、设备、网卡、拓扑、OUI 等）；已有业务库可直接使用现有表。参考 DDL：[`sql/qolome_devtoy_mysql_init.sql`](sql/qolome_devtoy_mysql_init.sql)。
 
 网络资产：配置并保存数据源后，由应用准备远程 Schema；扫描 / 设备 / 拓扑 / OUI 均读写该远程库。本机配置备份请用 **导入导出**。
 
@@ -221,7 +221,7 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 
 详见 **[packaging/README.md](packaging/README.md)**。图标主题说明见 [icons/README.md](icons/README.md)。
 
-| 产物 | 说明 |
+| 产物（均在 `dist/release/`） | 说明 |
 | --- | --- |
 | 便携 ZIP | 解压即用 |
 | MSIX | 可侧载安装 / 卸载 |

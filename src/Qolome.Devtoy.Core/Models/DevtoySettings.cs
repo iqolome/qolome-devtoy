@@ -220,6 +220,9 @@ public sealed class DataSourceSettings
 
     public string Database { get; set; } = "qolome";
 
+    /// <summary>Sqlite 库文件绝对/相对路径（仅 DatabaseKind=Sqlite 时有效）。</summary>
+    public string SqlitePath { get; set; } = "";
+
     public string ConnectionParams { get; set; } =
         "useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8";
 
@@ -228,4 +231,8 @@ public sealed class DataSourceSettings
     public string Username { get; set; } = "root";
 
     public string Password { get; set; } = "";
+
+    public bool IsSqlite => DatabaseKind == DatabaseKind.Sqlite;
+
+    public bool IsRemoteBusiness => DatabaseKind is DatabaseKind.MySql;
 }

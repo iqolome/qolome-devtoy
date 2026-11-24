@@ -11,7 +11,7 @@
 #endif
 
 #ifndef OutputDirPath
-#define OutputDirPath "..\..\dist\setup"
+#define OutputDirPath "..\..\dist\release"
 #endif
 
 #ifndef SetupIconPath
@@ -41,8 +41,9 @@ OutputBaseFilename=Qolome.Devtoy_{#MyAppVersion}_Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+; Inno Setup 6.2 使用 x64；6.3+ 的 x64compatible 在此版本无效
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile={#SetupIconPath}
@@ -55,7 +56,8 @@ VersionInfoProductName={#MyAppDisplayName}
 VersionInfoCopyright=Copyright (C) {#MyAppPublisher}
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 汉化版 Inno 常无 compiler:Languages\ChineseSimplified.isl，改用仓库内语言包
+Name: "chinesesimplified"; MessagesFile: "Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加选项:"; Flags: unchecked
