@@ -6,7 +6,6 @@
     <Grid Padding="16" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -39,12 +38,7 @@
                 </StackPanel>
             </Button>
         </StackPanel>
-        <TextBlock
-            Grid.Row="1"
-            Opacity="0.7"
-            Text="需先在「数据源设置」配置 MySQL；点击表头列名可排序；拖动列边界可调整列宽。删除为逻辑删除，需二次确认。"
-            TextWrapping="WrapWholeWords" />
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />

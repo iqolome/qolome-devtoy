@@ -597,14 +597,21 @@ public sealed class DevtoySession
         Log($"已保存代码生成配置: {modulePath}");
     }
 
-    /// <summary>保存项目功能启用标志（代码生成 / 枚举 / TS 字典）。</summary>
+    /// <summary>保存项目标签 / 功能启用（代码生成 / 枚举 / TS 字典 / boot-starter）。</summary>
     public void SaveModuleFeatureFlags(
         string modulePath,
         bool? enableCodegen = null,
         bool? enableEnum = null,
-        bool? enableTsDict = null)
+        bool? enableTsDict = null,
+        bool? tagBootStarter = null)
     {
-        ModuleCatalogFilter.SaveFeatureFlags(Settings, modulePath, enableCodegen, enableEnum, enableTsDict);
+        ModuleCatalogFilter.SaveFeatureFlags(
+            Settings,
+            modulePath,
+            enableCodegen,
+            enableEnum,
+            enableTsDict,
+            tagBootStarter);
         SaveSettingsQuiet();
         // 仅重套 override，避免整库重扫 + 列表重建风暴
         Modules = ModuleCatalogFilter.Apply(Modules, Settings);
@@ -616,12 +623,18 @@ public sealed class DevtoySession
         bool? enableCodegen = null,
         bool? enableEnum = null,
         bool? enableTsDict = null,
+        bool? tagBootStarter = null,
         CancellationToken cancellationToken = default) =>
         Task.Run(
             () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SaveModuleFeatureFlags(modulePath, enableCodegen, enableEnum, enableTsDict);
+                SaveModuleFeatureFlags(
+                    modulePath,
+                    enableCodegen,
+                    enableEnum,
+                    enableTsDict,
+                    tagBootStarter);
             },
             cancellationToken);
 

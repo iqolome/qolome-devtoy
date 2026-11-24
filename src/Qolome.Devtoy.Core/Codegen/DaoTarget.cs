@@ -52,5 +52,8 @@ public sealed class DaoTarget
 
     public string DtoConvertPackageName { get; set; } = "convert";
 
+    /// <summary>boot-starter：生成后写入 AutoConfiguration.imports。</summary>
+    public bool RegisterBootStarterAutoConfig { get; set; }
+
     public string Version { get; set; } = "";
 }

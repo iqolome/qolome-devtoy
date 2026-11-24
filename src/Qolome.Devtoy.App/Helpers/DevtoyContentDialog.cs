@@ -16,6 +16,13 @@ public static class DevtoyContentDialog
 
     public static void EnableButtonIcons(ContentDialog dialog)
     {
+        if (dialog.PrimaryButtonText == "删除"
+            && Application.Current.Resources.TryGetValue("DevtoyDangerButtonStyle", out var danger)
+            && danger is Style dangerStyle)
+        {
+            dialog.PrimaryButtonStyle = dangerStyle;
+        }
+
         RoutedEventHandler? handler = null;
         handler = (_, _) =>
         {
@@ -36,7 +43,55 @@ public static class DevtoyContentDialog
         StyleByCaption(dialog, dialog.PrimaryButtonText, PrimarySymbol(dialog.PrimaryButtonText));
         StyleByCaption(dialog, dialog.SecondaryButtonText, PrimarySymbol(dialog.SecondaryButtonText));
         StyleByCaption(dialog, dialog.CloseButtonText, CloseSymbol(dialog.CloseButtonText));
+        // PrimaryButtonStyle 着色后，图标栈内文字也跟白色前景
+        if (dialog.PrimaryButtonText == "删除")
+        {
+            ApplyDangerForeground(dialog, "删除");
+        }
     }
+
+    private static void ApplyDangerForeground(ContentDialog dialog, string caption)
+    {
+        if (!Application.Current.Resources.TryGetValue("TextOnAccentFillColorPrimaryBrush", out var fgObj)
+            || fgObj is not Brush fg)
+        {
+            return;
+        }
+
+        foreach (var button in EnumerateButtons(dialog))
+        {
+            if (!ButtonMatchesCaption(button, caption))
+            {
+                continue;
+            }
+
+            if (button.Content is StackPanel stack)
+            {
+                foreach (var child in stack.Children)
+                {
+                    if (child is TextBlock tb)
+                    {
+                        tb.Foreground = fg;
+                    }
+                    else if (child is Viewbox { Child: SymbolIcon symbol })
+                    {
+                        symbol.Foreground = fg;
+                    }
+                    else if (child is SymbolIcon sym)
+                    {
+                        sym.Foreground = fg;
+                    }
+                }
+            }
+
+            return;
+        }
+    }
+
+    private static bool ButtonMatchesCaption(Button button, string caption) =>
+        button.Content is string s && s == caption
+        || button.Content is StackPanel stack
+            && stack.Children.OfType<TextBlock>().Any(t => t.Text == caption);
 
     private static bool HasStyledButtons(ContentDialog dialog)
     {
@@ -102,6 +157,7 @@ public static class DevtoyContentDialog
         {
             "继续" => Symbol.Forward,
             "删除" => Symbol.Delete,
+            "清空" => Symbol.Delete,
             "保存" => Symbol.Save,
             "添加" => Symbol.Add,
             "生成" => Symbol.Play,

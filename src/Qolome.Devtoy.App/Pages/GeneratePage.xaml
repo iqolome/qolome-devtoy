@@ -17,12 +17,12 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="目标模块" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <TextBlock Text="输出项目" VerticalAlignment="Center" FontWeight="SemiBold" />
             <AutoSuggestBox
                 x:Name="ModuleSuggest"
                 Grid.Column="1"
                 HorizontalAlignment="Stretch"
-                PlaceholderText="搜索模块名称"
+                PlaceholderText="搜索输出项目"
                 TextMemberPath="TargetModuleDisplay"
                 UpdateTextOnSelect="True"
                 TextChanged="OnModuleSuggestTextChanged"

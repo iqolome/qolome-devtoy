@@ -12,7 +12,12 @@
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
             <helpers:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <!-- Fluent UI System Icons（侧栏/按钮可用 FontIcon + Glyph） -->
+            <FontFamily x:Key="FluentSystemIconsRegular">ms-appx:///Assets/Fonts/FluentSystemIcons-Regular.ttf#FluentSystemIcons-Regular</FontFamily>
+            <FontFamily x:Key="FluentSystemIconsFilled">ms-appx:///Assets/Fonts/FluentSystemIcons-Filled.ttf#FluentSystemIcons-Filled</FontFamily>
             <x:Double x:Key="DevtoyGlyphFontSize">14</x:Double>
+            <!-- Fluent System Icons 视觉偏小，侧栏单独加大 -->
+            <x:Double x:Key="DevtoyFluentIconFontSize">18</x:Double>
             <x:Double x:Key="DevtoyGlyphIconBox">14</x:Double>
             <Style x:Key="DevtoyGlyphTextStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="{StaticResource DevtoyGlyphFontSize}" />
@@ -41,6 +46,12 @@
                 <Setter Property="MinHeight" Value="0" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="FontSize" Value="{StaticResource DevtoyGlyphFontSize}" />
+            </Style>
+            <!-- 危险操作（删除）主按钮 -->
+            <Style x:Key="DevtoyDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCriticalBrush}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

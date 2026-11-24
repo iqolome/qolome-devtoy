@@ -8,7 +8,7 @@ namespace Qolome_Devtoy_App;
 public sealed partial class MainPage : Page
 {
     private bool _suppressNav;
-    private bool _suppressConsoleToggle;
+    private bool _consoleVisible;
 
     public MainPage()
     {
@@ -19,7 +19,12 @@ public sealed partial class MainPage : Page
         {
             AppServices.Busy.Attach(DispatcherQueue, ApplyBusyOverlay);
             _suppressNav = true;
-            NavView.SelectedItem = NavView.MenuItems[0];
+            var generate = FindNavItemByTag("Generate");
+            if (generate is not null)
+            {
+                NavView.SelectedItem = generate;
+            }
+
             ContentFrame.Navigate(typeof(GeneratePage));
             _suppressNav = false;
             ApplyConsoleVisibility(AppServices.Session.Settings.ShowConsole);
@@ -61,6 +66,7 @@ public sealed partial class MainPage : Page
             "ConfigTemplates" => typeof(TemplatePage),
             "ConfigImportExport" => typeof(ImportExportPage),
             "About" => typeof(AboutPage),
+            "IconLibrary" => typeof(IconLibraryPage),
             _ => typeof(PlaceholderPage),
         };
 
@@ -72,6 +78,27 @@ public sealed partial class MainPage : Page
         {
             ContentFrame.Navigate(pageType);
         }
+    }
+
+    private NavigationViewItem? FindNavItemByTag(string tag)
+    {
+        foreach (var root in NavView.MenuItems.OfType<NavigationViewItem>())
+        {
+            if (root.Tag is string rootTag && rootTag == tag)
+            {
+                return root;
+            }
+
+            foreach (var child in root.MenuItems.OfType<NavigationViewItem>())
+            {
+                if (child.Tag is string childTag && childTag == tag)
+                {
+                    return child;
+                }
+            }
+        }
+
+        return null;
     }
 
     private void AppendLog(string message)
@@ -94,15 +121,11 @@ public sealed partial class MainPage : Page
 
     private void OnClearConsole(object sender, RoutedEventArgs e) => ConsoleBox.Text = string.Empty;
 
-    private void OnConsoleVisibilityToggled(object sender, RoutedEventArgs e)
+    private void OnConsoleVisibilityClick(object sender, RoutedEventArgs e)
     {
-        if (_suppressConsoleToggle)
-        {
-            return;
-        }
-
-        AppServices.Session.SetShowConsole(ConsoleVisibleToggle.IsOn);
-        ApplyConsoleVisibility(ConsoleVisibleToggle.IsOn);
+        var show = !_consoleVisible;
+        AppServices.Session.SetShowConsole(show);
+        ApplyConsoleVisibility(show);
     }
 
     private void OnUiPreferencesChanged() =>
@@ -110,11 +133,12 @@ public sealed partial class MainPage : Page
 
     private void ApplyConsoleVisibility(bool show)
     {
-        _suppressConsoleToggle = true;
-        ConsoleVisibleToggle.IsOn = show;
-        _suppressConsoleToggle = false;
-
+        _consoleVisible = show;
         ConsoleBody.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+        // 隐藏时点 HideBcc 展示；显示时点 ShowBcc 隐藏
+        ConsoleVisibilityIcon.Symbol = show ? Symbol.ShowBcc : Symbol.HideBcc;
+        ToolTipService.SetToolTip(ConsoleVisibilityButton, show ? "隐藏控制台" : "显示控制台");
 
         if (show)
         {

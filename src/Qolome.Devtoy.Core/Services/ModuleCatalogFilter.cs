@@ -113,6 +113,7 @@ public static class ModuleCatalogFilter
             EnableCodegen = ov?.EnableCodegen == true,
             EnableEnum = ov?.EnableEnum == true,
             EnableTsDict = ov?.EnableTsDict == true,
+            TagBootStarter = ResolveTagBootStarter(entry.ModulePath, types, ov),
             EnumPackagePath = string.IsNullOrWhiteSpace(ov?.EnumPackagePath)
                 ? null
                 : ov.EnumPackagePath.Trim(),
@@ -120,6 +121,17 @@ public static class ModuleCatalogFilter
                 ? null
                 : ov.TsDictPath.Trim(),
         };
+    }
+
+    /// <summary>手动覆盖优先；未设置时 Java 模块按 AutoConfiguration.imports 自动识别。</summary>
+    private static bool ResolveTagBootStarter(string modulePath, ProjectTypes types, ModuleCatalogOverride? ov)
+    {
+        if (ov?.TagBootStarter is not null)
+        {
+            return ov.TagBootStarter.Value;
+        }
+
+        return types.Java && BootStarterDetector.HasImportsFile(modulePath);
     }
 
     private static ProjectTypes CloneTypes(ProjectTypes source) => new()
@@ -205,13 +217,14 @@ public static class ModuleCatalogFilter
         CleanupOverride(settings, modulePath, ov);
     }
 
-    /// <summary>保存功能启用标志；不覆盖已有其它 override 字段。</summary>
+    /// <summary>保存标签 / 功能启用标志；不覆盖已有其它 override 字段。</summary>
     public static void SaveFeatureFlags(
         DevtoySettings settings,
         string modulePath,
         bool? enableCodegen = null,
         bool? enableEnum = null,
-        bool? enableTsDict = null)
+        bool? enableTsDict = null,
+        bool? tagBootStarter = null)
     {
         modulePath = Path.GetFullPath(modulePath);
         var ov = GetOrCreateOverride(settings, modulePath);
@@ -229,6 +242,12 @@ public static class ModuleCatalogFilter
         if (enableTsDict is not null)
         {
             ov.EnableTsDict = enableTsDict.Value ? true : null;
+        }
+
+        if (tagBootStarter is not null)
+        {
+            // 显式 true/false，打断自动识别
+            ov.TagBootStarter = tagBootStarter.Value;
         }
 
         CleanupOverride(settings, modulePath, ov);
@@ -300,6 +319,7 @@ public static class ModuleCatalogFilter
         && ov.EnableCodegen is not true
         && ov.EnableEnum is not true
         && ov.EnableTsDict is not true
+        && ov.TagBootStarter is null
         && string.IsNullOrWhiteSpace(ov.EnumPackagePath)
         && string.IsNullOrWhiteSpace(ov.TsDictPath);
 

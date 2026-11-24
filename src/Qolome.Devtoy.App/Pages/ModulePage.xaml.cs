@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Qolome.Devtoy.Core.Models;
 using Qolome.Devtoy.Core.Services;
 using Qolome_Devtoy_App.Helpers;
@@ -23,6 +25,21 @@ public sealed partial class ModulePage : Page
 
     private bool _filterCodegenPrefsOnly;
 
+    private string _filterName = "";
+
+    private string _filterType = "all";
+
+    private string _filterTag = "all";
+
+    private bool _suppressListFilterEvents;
+
+    /// <summary>首屏 Loaded/Initialize 完成前忽略 ComboBox 初值 SelectionChanged，避免进页 Reload 风暴。</summary>
+    private bool _listFiltersReady;
+
+    private bool _rebuildingTags;
+
+    private DispatcherQueueTimer? _filterNameDebounce;
+
     private bool IsIgnoredTabActive =>
         ReferenceEquals(ModuleTabs.SelectedItem, IgnoredTab);
 
@@ -37,6 +54,13 @@ public sealed partial class ModulePage : Page
 
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
+        _listFiltersReady = false;
+        if (_filterNameDebounce is not null)
+        {
+            _filterNameDebounce.Stop();
+            _filterNameDebounce.Tick -= OnFilterNameDebounceTick;
+        }
+
         _session.ModulesChanged -= OnModulesChanged;
         _session.ModulesBusyChanged -= OnModulesBusyChanged;
     }
@@ -45,6 +69,7 @@ public sealed partial class ModulePage : Page
     {
         SyncModulesBusyOverlay();
         Reload();
+        _listFiltersReady = true;
 
         // 启动时可能已在后台扫描：只展示页面 loading，不套全局 Busy，避免感觉「进不去/卡死」
         if (_session.Settings.WorkspaceRoots.Count > 0
@@ -55,7 +80,7 @@ public sealed partial class ModulePage : Page
         }
 
         // 延后挂载列宽，避免与首帧列表生成互相触发布局死循环
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, AttachColumnLayouts);
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, AttachColumnLayouts);
     }
 
     private void OnModulesBusyChanged()
@@ -95,8 +120,7 @@ public sealed partial class ModulePage : Page
                     new ColumnSpec(1.8, 96),
                     new ColumnSpec(0.7, 48),
                     new ColumnSpec(0.7, 48),
-                    new ColumnSpec(0, 120, 140),
-                    new ColumnSpec(0, 64, 72),
+                    new ColumnSpec(0, 100, 120),
                     new ColumnSpec(0, 200, 240),
                 ]);
         }
@@ -142,8 +166,9 @@ public sealed partial class ModulePage : Page
                 activeQuery = activeQuery.Where(m => m.HasCodegenPrefs);
             }
 
+            activeQuery = ApplyListFilters(activeQuery);
             var active = activeQuery.ToList();
-            var ignored = _session.Modules.Where(m => m.IsIgnored).ToList();
+            var ignored = ApplyListFilters(_session.Modules.Where(m => m.IsIgnored)).ToList();
             ModuleList.ItemsSource = active;
             ModuleList.SelectedItems.Clear();
             IgnoredList.ItemsSource = ignored;
@@ -167,6 +192,108 @@ public sealed partial class ModulePage : Page
         }
     }
 
+    private IEnumerable<ModuleEntry> ApplyListFilters(IEnumerable<ModuleEntry> source)
+    {
+        var name = _filterName.Trim();
+        if (name.Length > 0)
+        {
+            source = source.Where(m =>
+                m.ProjectNameDisplay.Contains(name, StringComparison.OrdinalIgnoreCase)
+                || m.ModulePath.Contains(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        source = _filterType switch
+        {
+            "java" => source.Where(m => m.ProjectTypes.Java),
+            "web" => source.Where(m => m.ProjectTypes.Web),
+            "flutter" => source.Where(m => m.ProjectTypes.Flutter),
+            _ => source,
+        };
+
+        source = _filterTag switch
+        {
+            "codegen" => source.Where(m => m.EnableCodegen),
+            "enum" => source.Where(m => m.EnableEnum),
+            "boot-starter" => source.Where(m => m.TagBootStarter),
+            "ts-dict" => source.Where(m => m.EnableTsDict),
+            _ => source,
+        };
+
+        return source;
+    }
+
+    private void OnListFilterChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_listFiltersReady || _suppressListFilterEvents)
+        {
+            return;
+        }
+
+        _filterName = FilterNameBox.Text ?? "";
+        _filterNameDebounce ??= DispatcherQueue.CreateTimer();
+        _filterNameDebounce.Interval = TimeSpan.FromMilliseconds(280);
+        _filterNameDebounce.IsRepeating = false;
+        _filterNameDebounce.Tick -= OnFilterNameDebounceTick;
+        _filterNameDebounce.Tick += OnFilterNameDebounceTick;
+        _filterNameDebounce.Stop();
+        _filterNameDebounce.Start();
+    }
+
+    private void OnFilterNameDebounceTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        Reload();
+    }
+
+    private void OnListFilterSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_listFiltersReady || _suppressListFilterEvents)
+        {
+            return;
+        }
+
+        var type = ReadComboTag(FilterTypeBox, "all");
+        var tag = ReadComboTag(FilterTagBox, "all");
+        if (type == _filterType && tag == _filterTag)
+        {
+            return;
+        }
+
+        _filterType = type;
+        _filterTag = tag;
+        Reload();
+    }
+
+    private void OnClearListFilters(object sender, RoutedEventArgs e)
+    {
+        _suppressListFilterEvents = true;
+        try
+        {
+            FilterNameBox.Text = "";
+            FilterTypeBox.SelectedIndex = 0;
+            FilterTagBox.SelectedIndex = 0;
+            _filterName = "";
+            _filterType = "all";
+            _filterTag = "all";
+        }
+        finally
+        {
+            _suppressListFilterEvents = false;
+        }
+
+        Reload();
+    }
+
+    private static string ReadComboTag(ComboBox box, string fallback)
+    {
+        if (box.SelectedItem is ComboBoxItem { Tag: string tag } && !string.IsNullOrWhiteSpace(tag))
+        {
+            return tag;
+        }
+
+        return fallback;
+    }
+
     private void OnFilterCodegenPrefs(object sender, RoutedEventArgs e)
     {
         _filterCodegenPrefsOnly = !_filterCodegenPrefsOnly;
@@ -177,63 +304,260 @@ public sealed partial class ModulePage : Page
         }
     }
 
-    /// <summary>用 Click；Reload 期间由 _suppressFeatureSync 挡住绑定/回收误触发。</summary>
-    private async void OnEnableCodegenClick(object sender, RoutedEventArgs e)
+    private enum ModuleTagKind
     {
-        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
-        {
-            return;
-        }
-
-        var enabled = box.IsChecked == true;
-        if (enabled == entry.EnableCodegen)
-        {
-            return;
-        }
-
-        await UiBusy.RunAsync(
-                "正在保存功能启用…",
-                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableCodegen: enabled))
-            .ConfigureAwait(true);
+        Codegen,
+        Enum,
+        BootStarter,
+        TsDict,
     }
 
-    private async void OnEnableEnumClick(object sender, RoutedEventArgs e)
+    private void OnModuleTagsCellLoaded(object sender, RoutedEventArgs e)
     {
-        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        if (sender is not StackPanel panel)
         {
             return;
         }
 
-        var enabled = box.IsChecked == true;
-        if (enabled == entry.EnableEnum)
-        {
-            return;
-        }
-
-        await UiBusy.RunAsync(
-                "正在保存功能启用…",
-                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableEnum: enabled))
-            .ConfigureAwait(true);
+        panel.DataContextChanged -= OnModuleTagsDataContextChanged;
+        panel.DataContextChanged += OnModuleTagsDataContextChanged;
+        RebuildModuleTagsCell(panel);
     }
 
-    private async void OnEnableTsDictClick(object sender, RoutedEventArgs e)
+    private void OnModuleTagsDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (_suppressFeatureSync || sender is not CheckBox { Tag: ModuleEntry entry } box)
+        if (_rebuildingTags || sender is not StackPanel panel)
         {
             return;
         }
 
-        var enabled = box.IsChecked == true;
-        if (enabled == entry.EnableTsDict)
-        {
-            return;
-        }
-
-        await UiBusy.RunAsync(
-                "正在保存功能启用…",
-                () => _session.SaveModuleFeatureFlagsAsync(entry.ModulePath, enableTsDict: enabled))
-            .ConfigureAwait(true);
+        RebuildModuleTagsCell(panel);
     }
+
+    private void RebuildModuleTagsCell(StackPanel panel)
+    {
+        if (_rebuildingTags)
+        {
+            return;
+        }
+
+        if (panel.DataContext is not ModuleEntry entry)
+        {
+            _rebuildingTags = true;
+            try
+            {
+                panel.Children.Clear();
+                panel.Tag = null;
+            }
+            finally
+            {
+                _rebuildingTags = false;
+            }
+
+            return;
+        }
+
+        // 内容未变则跳过，避免 Clear/Add 再次触发 DataContextChanged 死循环
+        var stamp = BuildTagCellStamp(entry);
+        if (panel.Tag is string prev && prev == stamp && panel.Children.Count > 0)
+        {
+            return;
+        }
+
+        _rebuildingTags = true;
+        try
+        {
+            panel.Children.Clear();
+            var defs = GetTagDefs(entry);
+            foreach (var def in defs.Where(d => d.IsOn(entry)))
+            {
+                panel.Children.Add(CreateTagChip(entry, def));
+            }
+
+            panel.Children.Add(CreateAddTagButton(entry, defs));
+            panel.Tag = stamp;
+        }
+        finally
+        {
+            _rebuildingTags = false;
+        }
+    }
+
+    private static string BuildTagCellStamp(ModuleEntry entry) =>
+        string.Join(
+            '|',
+            entry.ModulePath,
+            entry.IsJavaType,
+            entry.IsWebType,
+            entry.EnableCodegen,
+            entry.EnableEnum,
+            entry.TagBootStarter,
+            entry.EnableTsDict);
+
+    private static IReadOnlyList<TagDef> GetTagDefs(ModuleEntry entry) =>
+    [
+        new TagDef(
+            ModuleTagKind.Codegen,
+            "代码生成",
+            null,
+            e => e.IsJavaType,
+            e => e.EnableCodegen),
+        new TagDef(
+            ModuleTagKind.Enum,
+            "生成枚举",
+            null,
+            e => e.IsJavaType,
+            e => e.EnableEnum),
+        new TagDef(
+            ModuleTagKind.BootStarter,
+            "boot-starter",
+            "存在 AutoConfiguration.imports 时自动识别；生成 Controller/Service 时写入 imports 并生成 Convert",
+            e => e.IsJavaType,
+            e => e.TagBootStarter),
+        new TagDef(
+            ModuleTagKind.TsDict,
+            "生成字典",
+            null,
+            e => e.IsWebType,
+            e => e.EnableTsDict),
+    ];
+
+    private Border CreateTagChip(ModuleEntry entry, TagDef def)
+    {
+        var label = new TextBlock
+        {
+            Text = def.Label,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var remove = new Button
+        {
+            Padding = new Thickness(2),
+            MinWidth = 0,
+            MinHeight = 0,
+            Background = null,
+            BorderThickness = new Thickness(0),
+            Content = new FontIcon
+            {
+                Glyph = "\uE711",
+                FontSize = 10,
+            },
+            Tag = (entry, def.Kind),
+        };
+        ToolTipService.SetToolTip(remove, "移除标签");
+        remove.Click += OnRemoveModuleTagClick;
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        row.Children.Add(label);
+        row.Children.Add(remove);
+
+        var chip = new Border
+        {
+            Child = row,
+            Padding = new Thickness(8, 2, 4, 2),
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(1),
+            BorderBrush = ResolveBrush("ControlStrokeColorDefaultBrush"),
+            Background = ResolveBrush("ControlFillColorDefaultBrush"),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        if (!string.IsNullOrWhiteSpace(def.Tip))
+        {
+            ToolTipService.SetToolTip(chip, def.Tip);
+        }
+
+        return chip;
+    }
+
+    private Button CreateAddTagButton(ModuleEntry entry, IReadOnlyList<TagDef> defs)
+    {
+        var flyout = new MenuFlyout();
+        var available = defs.Where(d => d.Available(entry) && !d.IsOn(entry)).ToList();
+        foreach (var def in available)
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = def.Label,
+                Tag = (entry, def.Kind),
+            };
+            if (!string.IsNullOrWhiteSpace(def.Tip))
+            {
+                ToolTipService.SetToolTip(item, def.Tip);
+            }
+
+            item.Click += OnAddModuleTagClick;
+            flyout.Items.Add(item);
+        }
+
+        var add = new Button
+        {
+            Padding = new Thickness(6, 2, 6, 2),
+            MinWidth = 28,
+            MinHeight = 24,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Background = null,
+            BorderThickness = new Thickness(1),
+            BorderBrush = ResolveBrush("ControlStrokeColorDefaultBrush"),
+            CornerRadius = new CornerRadius(4),
+            Content = new FontIcon { Glyph = "\uE710", FontSize = 12 },
+            Flyout = available.Count > 0 ? flyout : null,
+            IsEnabled = available.Count > 0,
+        };
+        ToolTipService.SetToolTip(add, available.Count > 0 ? "添加标签" : "无可添加标签");
+        return add;
+    }
+
+    private static Brush ResolveBrush(string key) =>
+        Application.Current.Resources.TryGetValue(key, out var value) && value is Brush brush
+            ? brush
+            : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+    private async void OnAddModuleTagClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressFeatureSync || sender is not MenuFlyoutItem { Tag: (ModuleEntry entry, ModuleTagKind kind) })
+        {
+            return;
+        }
+
+        await SetModuleTagAsync(entry, kind, enabled: true).ConfigureAwait(true);
+    }
+
+    private async void OnRemoveModuleTagClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressFeatureSync || sender is not Button { Tag: (ModuleEntry entry, ModuleTagKind kind) })
+        {
+            return;
+        }
+
+        await SetModuleTagAsync(entry, kind, enabled: false).ConfigureAwait(true);
+    }
+
+    private Task SetModuleTagAsync(ModuleEntry entry, ModuleTagKind kind, bool enabled) =>
+        UiBusy.RunAsync(
+            "正在保存标签…",
+            () => kind switch
+            {
+                ModuleTagKind.Codegen => _session.SaveModuleFeatureFlagsAsync(
+                    entry.ModulePath,
+                    enableCodegen: enabled),
+                ModuleTagKind.Enum => _session.SaveModuleFeatureFlagsAsync(
+                    entry.ModulePath,
+                    enableEnum: enabled),
+                ModuleTagKind.BootStarter => _session.SaveModuleFeatureFlagsAsync(
+                    entry.ModulePath,
+                    tagBootStarter: enabled),
+                ModuleTagKind.TsDict => _session.SaveModuleFeatureFlagsAsync(
+                    entry.ModulePath,
+                    enableTsDict: enabled),
+                _ => Task.CompletedTask,
+            });
+
+    private sealed record TagDef(
+        ModuleTagKind Kind,
+        string Label,
+        string? Tip,
+        Func<ModuleEntry, bool> Available,
+        Func<ModuleEntry, bool> IsOn);
 
     private async void OnEditCodegenPrefs(object sender, RoutedEventArgs e)
     {
@@ -1073,7 +1397,7 @@ public sealed partial class ModulePage : Page
         {
             Title = title,
             Content = firstMessage,
-            PrimaryButtonText = "继续",
+            PrimaryButtonText = "删除",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,

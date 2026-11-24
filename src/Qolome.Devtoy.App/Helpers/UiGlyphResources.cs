@@ -12,6 +12,8 @@ public static class UiGlyphResources
 {
     public const string FontSizeKey = "DevtoyGlyphFontSize";
 
+    public const string FluentIconFontSizeKey = "DevtoyFluentIconFontSize";
+
     public const string IconBoxKey = "DevtoyGlyphIconBox";
 
     public const string TextStyleKey = "DevtoyGlyphTextStyle";
@@ -21,10 +23,15 @@ public static class UiGlyphResources
     /// <summary>界面 Symbol 与配套文字统一字号。</summary>
     public const double DefaultFontSize = 14;
 
+    /// <summary>Fluent System Icons 侧栏字号（比 Segoe 同字号视觉更小）。</summary>
+    public const double DefaultFluentIconFontSize = 18;
+
     /// <summary>SymbolIcon 未缩放时的近似设计尺寸（用于 ScaleTransform 回退）。</summary>
     private const double SymbolIntrinsic = 16;
 
     public static double FontSize { get; private set; } = DefaultFontSize;
+
+    public static double FluentIconFontSize { get; private set; } = DefaultFluentIconFontSize;
 
     /// <summary>图标目标边长，与文字字号一致。</summary>
     public static double IconBox { get; private set; } = DefaultFontSize;
@@ -40,6 +47,7 @@ public static class UiGlyphResources
         var font = IconBoxFor(glyphFontSize);
         FontSize = font;
         IconBox = font;
+        FluentIconFontSize = Math.Max(DefaultFluentIconFontSize, font + 4);
 
         if (Application.Current?.Resources is not ResourceDictionary resources)
         {
@@ -47,6 +55,7 @@ public static class UiGlyphResources
         }
 
         resources[FontSizeKey] = font;
+        resources[FluentIconFontSizeKey] = FluentIconFontSize;
         resources[IconBoxKey] = font;
         resources[TextStyleKey] = CreateTextStyle(font);
         resources[IconStyleKey] = CreateIconStyle();
@@ -116,9 +125,21 @@ public static class UiGlyphResources
         {
             ApplySymbolSize(icon);
         }
+        else if (node is BitmapIcon bitmapIcon)
+        {
+            SvgPathIconFactory.ApplySize(bitmapIcon);
+        }
+        else if (node is IconSourceElement iconSource)
+        {
+            SvgPathIconFactory.ApplySize(iconSource);
+        }
+        else if (node is PathIcon pathIcon)
+        {
+            SvgPathIconFactory.ApplySize(pathIcon);
+        }
         else if (node is FontIcon fontIcon)
         {
-            fontIcon.FontSize = FontSize;
+            fontIcon.FontSize = IsFluentSystemIcon(fontIcon) ? FluentIconFontSize : FontSize;
         }
 
         if (node is TextBlock text && IsGlyphCompanionText(text))
@@ -189,6 +210,12 @@ public static class UiGlyphResources
         return true;
     }
 
+    private static bool IsFluentSystemIcon(FontIcon icon)
+    {
+        var name = icon.FontFamily?.Source ?? string.Empty;
+        return name.Contains("FluentSystemIcons", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsGlyphCompanionText(TextBlock text)
     {
         if (text.Parent is not StackPanel { Orientation: Orientation.Horizontal } stack)
@@ -219,7 +246,7 @@ public static class UiGlyphResources
             }
             else if (child is FontIcon fi)
             {
-                fi.FontSize = FontSize;
+                fi.FontSize = IsFluentSystemIcon(fi) ? FluentIconFontSize : FontSize;
             }
             else if (child is TextBlock tb)
             {

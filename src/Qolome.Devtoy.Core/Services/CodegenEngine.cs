@@ -61,7 +61,7 @@ public sealed class CodegenEngine
 
         if (targetModule is null || string.IsNullOrWhiteSpace(targetModule.ModulePath))
         {
-            throw new InvalidOperationException("请先选择目标模块");
+            throw new InvalidOperationException("请先选择输出项目");
         }
     }
 
@@ -85,12 +85,14 @@ public sealed class CodegenEngine
             author,
             codegenSettings,
             basePackage,
+            targetModule.TagBootStarter,
             new List<string>
             {
                 $"version={version}",
                 $"module={targetModule.ModulePath}",
                 $"modelName={resolvedModelName}",
                 $"basePackage={basePackage}",
+                $"bootStarter={targetModule.TagBootStarter}",
                 $"enumPackage={codegenSettings.EnumPackage}",
                 $"tsDictPath={codegenSettings.TsDictPath}",
                 $"author={author}",
@@ -120,6 +122,9 @@ public sealed class CodegenEngine
             || taskSet.Contains(TaskController);
         var serviceEnabled = taskSet.Contains(TaskService);
         var controllerEnabled = taskSet.Contains(TaskController);
+        // boot-starter：勾选 Controller 或 Service 时自动生成 Convert，并注册 AutoConfiguration.imports
+        var dtoAndConvert = serviceEnabled
+            || (ctx.BootStarter && controllerEnabled);
         var target = new DaoTarget
         {
             ProjectPath = ctx.ProjectPath,
@@ -135,17 +140,24 @@ public sealed class CodegenEngine
             Tables = string.Join(",", tableNames),
             ServiceGenEnabled = serviceEnabled,
             ControllerGenEnabled = controllerEnabled,
-            DtoGenEnabled = serviceEnabled,
-            DtoConvertGenEnabled = serviceEnabled,
+            DtoGenEnabled = dtoAndConvert,
+            DtoConvertGenEnabled = dtoAndConvert,
+            RegisterBootStarterAutoConfig = ctx.BootStarter && (serviceEnabled || controllerEnabled),
         };
 
-        return new DaoGenerator(_velocityFiles).Generate(
+        var written = new DaoGenerator(_velocityFiles).Generate(
                 ctx.CodegenSettings,
                 target,
                 settings.DataSource,
                 generateEntityMapper,
                 cancellationToken)
             .ToList();
+        if (target.RegisterBootStarterAutoConfig)
+        {
+            ctx.Lines.Add("已更新 AutoConfiguration.imports（boot-starter）");
+        }
+
+        return written;
     }
 
     private List<string> GenerateEnums(
@@ -258,6 +270,7 @@ public sealed class CodegenEngine
         string Author,
         CodegenSettings CodegenSettings,
         string BasePackage,
+        bool BootStarter,
         List<string> Lines);
 }
 

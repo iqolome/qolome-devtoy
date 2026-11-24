@@ -375,7 +375,7 @@ public sealed partial class DictPage : Page
         {
             Title = title,
             Content = firstMessage,
-            PrimaryButtonText = "继续",
+            PrimaryButtonText = "删除",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,

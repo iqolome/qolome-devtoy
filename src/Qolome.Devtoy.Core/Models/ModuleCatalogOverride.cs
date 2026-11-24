@@ -35,6 +35,11 @@ public sealed class ModuleCatalogOverride
     /// <summary>Web：启用生成 TS 字典。</summary>
     public bool? EnableTsDict { get; set; }
 
+    /// <summary>
+    /// 标签 boot-starter；null=按磁盘 AutoConfiguration.imports 自动识别，true/false=手动覆盖。
+    /// </summary>
+    public bool? TagBootStarter { get; set; }
+
     /// <summary>模块级枚举包路径；空则用全局 EnumPackagePath。</summary>
     public string? EnumPackagePath { get; set; }
 

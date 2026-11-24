@@ -42,9 +42,9 @@ import lombok.experimental.Accessors;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-  #if(${chainModel})
+#if(${chainModel})
 @Accessors(chain = true)
-  #end
+#end
 #end
 #if(${table.convert})
 @TableName("${schemaName}${table.name}")

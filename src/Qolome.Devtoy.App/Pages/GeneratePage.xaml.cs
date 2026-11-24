@@ -84,6 +84,8 @@ public sealed partial class GeneratePage : Page
         else
         {
             ModuleSuggest.Text = "";
+            // 未选输出项目时不展示历史模块名
+            ModelNameBox.Text = "";
         }
 
         _suppressModuleSuggest = false;
@@ -98,11 +100,7 @@ public sealed partial class GeneratePage : Page
 
         if (string.IsNullOrWhiteSpace(habit.LastModulePath))
         {
-            if (!string.IsNullOrWhiteSpace(habit.LastModelName))
-            {
-                ModelNameBox.Text = habit.LastModelName;
-            }
-
+            ModelNameBox.Text = "";
             return;
         }
 
@@ -113,7 +111,8 @@ public sealed partial class GeneratePage : Page
                 StringComparison.OrdinalIgnoreCase));
         if (match is null)
         {
-            ModelNameBox.Text = habit.LastModelName ?? "";
+            // 上次模块已不在「代码生成」目标列表中：不回填模块名
+            ModelNameBox.Text = "";
             return;
         }
 
@@ -122,8 +121,8 @@ public sealed partial class GeneratePage : Page
         ModuleSuggest.Text = match.TargetModuleDisplay;
         _suppressModuleSuggest = false;
         ApplyModulePrefs(match);
-        if (!string.IsNullOrWhiteSpace(habit.LastModelName)
-            && string.IsNullOrWhiteSpace(ModelNameBox.Text))
+        if (string.IsNullOrWhiteSpace(ModelNameBox.Text)
+            && !string.IsNullOrWhiteSpace(habit.LastModelName))
         {
             ModelNameBox.Text = habit.LastModelName;
         }
@@ -144,7 +143,7 @@ public sealed partial class GeneratePage : Page
     {
         if (_session.SelectedModule is null)
         {
-            _session.LogWarn("请先选择目标模块再保存习惯");
+            _session.LogWarn("请先选择输出项目再保存习惯");
             return;
         }
 
@@ -406,7 +405,7 @@ public sealed partial class GeneratePage : Page
 
         if (_session.SelectedModule is null)
         {
-            _session.LogWarn("请先选择目标模块");
+            _session.LogWarn("请先选择输出项目");
             return;
         }
 

@@ -139,6 +139,44 @@ public sealed class DaoGenerator
                     context);
             }
         }
+
+        if (target.RegisterBootStarterAutoConfig)
+        {
+            RegisterBootStarterImports(target, parentPackage, entityName);
+        }
+    }
+
+    private static void RegisterBootStarterImports(DaoTarget target, string parentPackage, string entityName)
+    {
+        var entries = new List<(string Section, string Fqcn)>();
+        if (target.DtoConvertGenEnabled)
+        {
+            entries.Add((
+                "convert",
+                JoinPackage(parentPackage, target.DtoConvertPackageName) + "." + entityName + "ConvertImpl"));
+        }
+
+        if (target.ServiceGenEnabled)
+        {
+            entries.Add((
+                "service",
+                JoinPackage(parentPackage, target.ServiceImplPackage)
+                + "." + entityName + target.ServiceSuffixName + "Impl"));
+        }
+
+        if (target.ControllerGenEnabled)
+        {
+            entries.Add((
+                "controller",
+                JoinPackage(parentPackage, target.ControllerPackage) + "." + entityName + "Controller"));
+        }
+
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        new AutoConfigurationImportsEditor(target.ProjectPath).EnsureClasses(entries);
     }
 
     private string WriteJava(

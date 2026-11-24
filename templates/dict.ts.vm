@@ -5,22 +5,20 @@
  * Date: ${datetime}
  */
 
-
 /**
  * 字典项ID: ${itemId}
  * 字典项编码: ${itemCode}
  * 字典项名称: ${itemName}
+ *
  * @author ${auth}
  */
 export const ${itemEnumName} = {
-
 #foreach($val in ${vals})
-
     /**
      * $!{val.valName}
      */
-    $!{val.valEnumName}:{
-        valId:"$!{val.valId}",
+    $!{val.valEnumName}: {
+        valId: "$!{val.valId}",
         valValue: "$!{val.valValue}",
         valCode: "$!{val.valCode}",
         valName: "$!{val.valName}",

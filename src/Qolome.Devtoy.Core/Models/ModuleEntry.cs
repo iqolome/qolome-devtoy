@@ -50,6 +50,9 @@ public sealed class ModuleEntry
     /// <summary>Web：启用生成 TS 字典。</summary>
     public bool EnableTsDict { get; init; }
 
+    /// <summary>标签：Spring Boot starter（AutoConfiguration.imports）。</summary>
+    public bool TagBootStarter { get; init; }
+
     /// <summary>模块级枚举包路径覆盖（空则用全局）。</summary>
     public string? EnumPackagePath { get; init; }
 
