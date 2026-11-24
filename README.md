@@ -7,29 +7,16 @@
 
 独立 Windows 开发者工具（**WinUI 3 / .NET 10**），对齐 `cloud-workspace/qolome-codegen` IDEA 插件能力，目标：**更独立、更现代 UI、更好性能**（纯 C# 代码生成，不依赖 JVM）。
 
-## Sonar检测信息
+## Sonar 检测
 
 [![Quality gate](https://sonar.qolome.com:8081/api/project_badges/quality_gate?project=app%3Aqolome-devtoy&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
 [![可维护性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可靠性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![重复行](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=duplicated_lines_density&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
 [![可靠性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可维护性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![技术债务](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_remediation_effort&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
 
-
-## 关于
-
 | | |
 | --- | --- |
-| **产品** | Qolome Devtoy |
-| **开发商** | 忻州市尖锋达科技有限公司（Xinzhou jfonda Technology Co., Ltd.） |
-| **官网** | [https://www.jfonda.com/](https://www.jfonda.com/) |
-| **许可协议** | [Apache License 2.0](LICENSE) |
-| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.0.0`） |
-
-应用内 **关于** 页可查看版本与链接。
-
-## Sonar检测信息
-
-- 工程 key：`webfx:qolome-devtoy`（[`sonar-project.properties`](sonar-project.properties)）
-- 仪表盘：[https://sonar.qolome.com:8081/dashboard?id=webfx%3Aqolome-devtoy](https://sonar.qolome.com:8081/dashboard?id=webfx%3Aqolome-devtoy)
+| 工程 key | `app:qolome-devtoy`（[`sonar-project.properties`](sonar-project.properties)） |
+| 仪表盘 | [https://sonar.qolome.com:8081/dashboard?id=app%3Aqolome-devtoy](https://sonar.qolome.com:8081/dashboard?id=app%3Aqolome-devtoy) |
 
 本地扫描需已配置环境变量 `SONAR_HOST_URL`、`SONAR_TOKEN`（可选 `SONAR_SCANNER_HOME`）。**务必在本仓库根目录执行**（不要在 `webfx-workspace` 根目录跑）：
 
@@ -45,6 +32,18 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | CLI 回退 | `.\scripts\sonar-scan.ps1 -ScannerCli`（依赖 `SONAR_SCANNER_HOME`；C# 分析可能不完整） |
 | 失败残留 | `Remove-Item -Recurse -Force .\.sonarqube` 后重跑 |
 | 徽章 | Quality Gate 徽章需工程徽章 token（`sqb_…`）；具备权限后可用 `qolome-cli` 写入本小节 |
+
+## 关于
+
+| | |
+| --- | --- |
+| **产品** | Qolome Devtoy |
+| **开发商** | 忻州市尖锋达科技有限公司（Xinzhou jfonda Technology Co., Ltd.） |
+| **官网** | [https://www.jfonda.com/](https://www.jfonda.com/) |
+| **许可协议** | [Apache License 2.0](LICENSE) |
+| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.0.0`） |
+
+应用内 **关于** 页可查看版本与链接。
 
 ## 环境要求
 
@@ -78,10 +77,12 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | 路径 | 说明 |
 | --- | --- |
 | `src/Qolome.Devtoy.App` | WinUI 3 壳层：导航、页面、主题 / 图标、控制台、打包入口 |
+| `src/Qolome.Devtoy.App/Assets/Fonts/` | **Fluent UI System Icons** 字体（`Regular` / `Filled`），侧栏等 `FontIcon` 使用 |
 | `src/Qolome.Devtoy.Core` | 业务核心：模块扫描、配置、JDBC、字典、`CodegenEngine`（纯 C#） |
 | `templates/` | 默认 Velocity 模板（`.vm`），可复制到本机后在「模板管理」编辑 |
 | `sql/` | 初始化 DDL 等（如 `qolome_devtoy_mysql_init.sql`） |
-| `icons/` | 多主题应用图标 variant（复制到输出目录） |
+| `icons/` | 应用图标 variant；`icons/svg/` 备用 SVG 资源 |
+| `docs/segoe-fluent-icons.md` | Segoe Fluent Icons 离线清单（与应用内 **图标库** 同源） |
 | `packaging/` | `package.ps1`、MSIX / ZIP / Inno 与签名脚本 |
 | `scripts/sonar-scan.ps1` | 本地 Sonar 扫描 |
 | `config/` | 示例配置（如 `signing.example.properties`，勿提交真实密钥） |
@@ -93,22 +94,39 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 
 ## 功能概览
 
-| 导航 | 能力 |
-| --- | --- |
-| **Java代码生成** | 可搜索 Java **输出项目**；填写 / 保存 **模块名** 与 Dao·Service·Controller **习惯**；查询库表（含表注释）、勾选后生成；生成中按钮 loading 禁点，完成后弹框提示 |
-| **字典管理** | 加载 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（二次确认）、字典值维护；可生成 Java 枚举 / TS 字典 |
-| **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；**标签**（Java：代码生成/枚举/`boot-starter`；Web：字典）；`boot-starter` 按 `AutoConfiguration.imports` 自动识别，生成 Controller/Service 时写入 imports 并自动生成 Convert；忽略列表；已有项目配置只追加不覆盖 |
-| **配置 · 主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
-| **配置 · 代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
-| **配置 · 数据源** | JDBC URL / 分项、MySQL 测试连接；**生成初始化 SQL** / **初始化**（表已存在则报错中止） |
-| **配置 · 模板管理** | 从仓库默认 `.vm` 复制到本机，可编辑 / 还原 |
-| **配置 · 导入导出** | 全局配置导入导出 |
-| **关于** | 产品、版本、官网、许可 |
-| **图标库** | 浏览全部 Segoe Fluent Icons；可筛 **仅 Symbol 枚举**；有枚举时点击优先复制 `Symbol.Xxx`，否则复制 `\uXXXX` |
+侧栏分组：**开发工具** → **配置管理** → **关于** / **图标库**。
 
-界面约定：按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖；底部控制台以 **HideBcc / ShowBcc** 图标显隐；浅色主题下自定义标题栏系统按钮配色。侧栏分组：**开发工具** / **配置管理**。UI 字形取自 [Segoe Fluent Icons](https://learn.microsoft.com/zh-cn/windows/apps/design/style/segoe-fluent-icons-font)（`SymbolIcon` / `FontIcon`）；完整离线清单见 [docs/segoe-fluent-icons.md](docs/segoe-fluent-icons.md)。
+| 分组 | 导航 | 能力 |
+| --- | --- | --- |
+| 开发工具 | **Java代码生成** | 可搜索 Java **输出项目**；填写 / 保存 **模块名** 与 Dao·Service·Controller **习惯**；查询库表（含表注释）、勾选后生成；生成中按钮 loading 禁点，完成后弹框提示 |
+| 开发工具 | **字典管理** | 加载 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（**二次确认**，删除钮为红色）、字典值维护；可生成 Java 枚举 / TS 字典 |
+| 开发工具 | **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；**标签**（Java：代码生成/枚举/`boot-starter`；Web：字典）；`boot-starter` 按 `AutoConfiguration.imports` 自动识别，生成 Controller/Service 时写入 imports 并自动生成 Convert；忽略列表；已有项目配置只追加不覆盖 |
+| 配置管理 | **主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
+| 配置管理 | **代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
+| 配置管理 | **数据源设置** | 多库种 JDBC / 分项、测试连接；**生成初始化 SQL** / **初始化**（表已存在则报错中止） |
+| 配置管理 | **模板管理** | 从仓库默认 `.vm` 复制到本机，可编辑 / 还原 |
+| 配置管理 | **导入导出** | 全局配置导入导出 |
+| — | **关于** | 产品、版本、官网、许可 |
+| — | **图标库** | 浏览全部 Segoe Fluent Icons；可筛 **仅 Symbol 枚举**；有枚举时点击优先复制 `Symbol.Xxx`，否则复制 `\uXXXX` |
 
 生成逻辑在 Core 的 `CodegenEngine` + `Codegen/*Generator` 中实现（对照 `qolome-codegen`，NVelocity 渲染同款 `.vm`）。
+
+### 界面与图标约定
+
+- 按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖。
+- 底部 **控制台**：标题栏为 **图标 +「控制台」** 一体按钮；隐藏时 `HideBcc`（点开）、显示时 `ShowBcc`（点关）。
+- 浅色主题下自定义标题栏系统按钮配色。
+- 删除类 `ContentDialog` 主按钮文案为 **删除**，使用红色危险样式（`DevtoyDangerButtonStyle`）。
+- **侧栏图标** 优先 [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) 字体（`Assets/Fonts/FluentSystemIcons-*.ttf`，资源键 `FluentSystemIconsRegular` / `FluentSystemIconsFilled`），字号资源 `DevtoyFluentIconFontSize`（默认 18，略大于正文以补偿视觉偏小）。码位可从 [fluenticons.co](https://fluenticons.co/) 的 **WinUI / Icon font** 片段复制，例如：
+
+```xml
+<FontIcon FontFamily="{StaticResource FluentSystemIconsRegular}"
+          Glyph="&#xF0177;"
+          FontSize="{StaticResource DevtoyFluentIconFontSize}" />
+```
+
+- 系统常用操作仍可用 [Segoe Fluent Icons](https://learn.microsoft.com/zh-cn/windows/apps/design/style/segoe-fluent-icons-font)（`SymbolIcon` / `FontIcon`）；离线清单见 [docs/segoe-fluent-icons.md](docs/segoe-fluent-icons.md)，应用内 **图标库** 可检索与复制。
+- 应用窗口图标主题见 [icons/README.md](icons/README.md)。
 
 ### 代码生成配置说明
 
@@ -161,6 +179,7 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 | 路径 | 用途 |
 | --- | --- |
 | `%LocalAppData%\Qolome\Devtoy\settings.json` | 用户配置（主题、数据源、代码生成、模块目录等） |
+| `%LocalAppData%\Qolome\Devtoy\module-overrides.json` | 模块级覆盖（标签、路径、习惯等） |
 | `%LocalAppData%\Qolome\Devtoy\crash.log` | 崩溃日志 |
 | `%LocalAppData%\Qolome\Devtoy\` 下模板目录 | 「模板管理」落地的可编辑 `.vm` |
 
