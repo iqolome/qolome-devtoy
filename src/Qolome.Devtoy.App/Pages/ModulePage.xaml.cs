@@ -789,10 +789,7 @@ public sealed partial class ModulePage : Page
                 "正在识别工程…",
                 () => ProjectRecognizer.Recognize(path))
             .ConfigureAwait(true);
-        if (!await ShowModuleEditorAsync(path, recognition, isEdit: false).ConfigureAwait(true))
-        {
-            return;
-        }
+        await ShowModuleEditorAsync(path, recognition, isEdit: false).ConfigureAwait(true);
     }
 
     private void OnModulePathDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -1123,7 +1120,7 @@ public sealed partial class ModulePage : Page
         return types.Java || types.Web || types.Flutter;
     }
 
-    private static UIElement Labeled(string label, TextBox field)
+    private static Grid Labeled(string label, TextBox field)
     {
         var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
@@ -1340,7 +1337,7 @@ public sealed partial class ModulePage : Page
     }
 
     private async Task<bool> ConfirmRemoveModulesAsync(
-        IReadOnlyList<ModuleEntry> entries,
+        List<ModuleEntry> entries,
         bool isClearAll = false)
     {
         var count = entries.Count;

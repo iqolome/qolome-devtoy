@@ -98,18 +98,8 @@ public static class DevtoyContentDialog
         || button.Content is StackPanel stack
             && stack.Children.OfType<TextBlock>().Any(t => t.Text == caption);
 
-    private static bool HasStyledButtons(ContentDialog dialog)
-    {
-        foreach (var button in EnumerateButtons(dialog))
-        {
-            if (button.Content is StackPanel)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    private static bool HasStyledButtons(ContentDialog dialog) =>
+        EnumerateButtons(dialog).Any(b => b.Content is StackPanel);
 
     private static void StyleByCaption(ContentDialog dialog, string? text, Symbol symbol)
     {

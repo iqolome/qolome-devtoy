@@ -11,7 +11,6 @@ public sealed class AppThemeService
 {
     private readonly DevtoySession _session;
     private Window? _window;
-    private UISettings? _uiSettings;
     private bool _listeningSystem;
 
     public AppThemeService(DevtoySession session) => _session = session;
@@ -82,8 +81,8 @@ public sealed class AppThemeService
 
         try
         {
-            _uiSettings = new UISettings();
-            _uiSettings.ColorValuesChanged += (_, _) =>
+            var uiSettings = new UISettings();
+            uiSettings.ColorValuesChanged += (_, _) =>
             {
                 if (!string.Equals(
                         AppThemeMode.Resolve(_session.Settings.AppTheme),

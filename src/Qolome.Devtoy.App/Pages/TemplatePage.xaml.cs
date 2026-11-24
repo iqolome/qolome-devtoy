@@ -32,7 +32,7 @@ public sealed partial class TemplatePage : Page
         var selectedName = _current?.FileName;
         PathHint.Text =
             $"用户模板：{DevtoyPaths.TemplatesRoot}（首次从随包默认复制，可编辑；还原将覆盖本地修改）";
-        var list = _session.Templates.ListTemplates();
+        var list = TemplateStore.ListTemplates();
         TemplateList.ItemsSource = list;
         if (!string.IsNullOrEmpty(selectedName))
         {
@@ -70,7 +70,7 @@ public sealed partial class TemplatePage : Page
         ApplySyntaxHighlight(info.FileName);
         _suppressTextChanged = true;
         EditorBox.TextChanged -= OnEditorTextChanged;
-        EditorBox.LoadText(_session.Templates.ReadContent(info.FileName));
+        EditorBox.LoadText(TemplateStore.ReadContent(info.FileName));
         EditorBox.TextChanged += OnEditorTextChanged;
         _suppressTextChanged = false;
         EditorBox.IsEnabled = true;
@@ -112,7 +112,7 @@ public sealed partial class TemplatePage : Page
 
         try
         {
-            _session.Templates.SaveContent(_current.FileName, EditorBox.Text ?? "");
+            TemplateStore.SaveContent(_current.FileName, EditorBox.Text ?? "");
             _dirty = false;
             _session.Log($"已保存模板: {_current.FileName}");
             ReloadList();
@@ -144,7 +144,7 @@ public sealed partial class TemplatePage : Page
             return;
         }
 
-        if (_session.Templates.ResetToBundled(_current.FileName))
+        if (TemplateStore.ResetToBundled(_current.FileName))
         {
             _session.Log($"已还原模板: {_current.FileName}");
             LoadTemplate(_current);
@@ -174,7 +174,7 @@ public sealed partial class TemplatePage : Page
 
         var count = await UiBusy.RunBackgroundAsync(
                 "正在还原全部模板…",
-                () => _session.Templates.ResetAllToBundled())
+                TemplateStore.ResetAllToBundled)
             .ConfigureAwait(true);
         _session.Log($"已还原 {count} 个模板为默认");
         _dirty = false;

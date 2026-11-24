@@ -22,15 +22,7 @@ public static class IconPackPaths
                 Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "icons")),
             };
 
-            foreach (var path in candidates)
-            {
-                if (Directory.Exists(path))
-                {
-                    return path;
-                }
-            }
-
-            return candidates[0];
+            return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
         }
     }
 
@@ -74,14 +66,6 @@ public static class IconPackPaths
             Path.Combine(GetPngFolder(variantId), "icon-64.png"),
         };
 
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-
-        return null;
+        return candidates.FirstOrDefault(File.Exists);
     }
 }

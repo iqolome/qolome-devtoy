@@ -28,15 +28,7 @@ public static class DevtoyPaths
                 Path.Combine(baseDir, "templates"),
                 Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "templates")),
             };
-            foreach (var path in candidates)
-            {
-                if (Directory.Exists(path))
-                {
-                    return path;
-                }
-            }
-
-            return candidates[0];
+            return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
         }
     }
 }

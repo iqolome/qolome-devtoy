@@ -2,7 +2,7 @@ namespace Qolome.Devtoy.Core.Services;
 
 using Qolome.Devtoy.Core.Models;
 
-public sealed class ModuleScanner
+public static class ModuleScanner
 {
     /// <summary>依赖 / 构建产物 / IDE 缓存 / 源码叶子，永不下钻。</summary>
     private static readonly HashSet<string> Skip = new(StringComparer.OrdinalIgnoreCase)
@@ -19,7 +19,7 @@ public sealed class ModuleScanner
     /// <summary>相对工作区根的最大扫描深度。</summary>
     private const int MaxDepth = 8;
 
-    public IReadOnlyList<ModuleEntry> ScanWorkspace(string? workspaceRoot)
+    public static IReadOnlyList<ModuleEntry> ScanWorkspace(string? workspaceRoot)
     {
         if (string.IsNullOrWhiteSpace(workspaceRoot) || !Directory.Exists(workspaceRoot))
         {
@@ -33,7 +33,7 @@ public sealed class ModuleScanner
         return list;
     }
 
-    public IReadOnlyList<ModuleEntry> BuildSpecifiedModules(IReadOnlyList<SpecifiedProjectEntry> specified)
+    public static IReadOnlyList<ModuleEntry> BuildSpecifiedModules(IReadOnlyList<SpecifiedProjectEntry> specified)
     {
         var list = new List<ModuleEntry>();
         foreach (var spec in specified)

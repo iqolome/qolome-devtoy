@@ -18,7 +18,6 @@ public sealed class DaoGenerator
         ["Detail", "QueryPage", "QuerySimpleAll"];
 
     private readonly VelocityFiles _velocityFiles;
-    private readonly DictCatalogService _dictCatalog = new();
 
     public DaoGenerator(VelocityFiles velocityFiles) => _velocityFiles = velocityFiles;
 
@@ -207,7 +206,6 @@ public sealed class DaoGenerator
         var commentRenderer = new DictCommentRenderer(
             settings,
             dataSource,
-            _dictCatalog,
             _velocityFiles,
             meta.Name,
             meta.Columns);

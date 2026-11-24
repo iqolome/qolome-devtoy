@@ -21,7 +21,7 @@ public sealed partial class DataSourcePage : Page
     public DataSourcePage()
     {
         InitializeComponent();
-        DbKindBox.ItemsSource = Enum.GetNames(typeof(DatabaseKind));
+        DbKindBox.ItemsSource = Enum.GetNames<DatabaseKind>();
         DbKindBox.SelectionChanged += OnDbKindChanged;
         Loaded += (_, _) => Bind();
     }
@@ -227,7 +227,7 @@ public sealed partial class DataSourcePage : Page
     private Task ShowErrorAsync(string title, string message) =>
         ShowMessageAsync(title, "失败：\n" + message);
 
-    private async Task<string?> SaveSqlFileAsync(string sql)
+    private static async Task<string?> SaveSqlFileAsync(string sql)
     {
         var picker = new FileSavePicker
         {

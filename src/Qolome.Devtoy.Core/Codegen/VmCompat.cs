@@ -39,10 +39,12 @@ public sealed class VmList : ArrayList
     public int size() => Count;
 }
 
-/// <summary>对齐 Velocity $null.isNull(...)。</summary>
+/// <summary>对齐 Velocity $null.isNull(...)；须为实例方法供 NVelocity 反射调用。</summary>
 public sealed class VmNullTool
 {
+#pragma warning disable CA1822, S2325 // NVelocity $null.isNull 需要实例方法
     public bool isNull(object? value) => value is null;
+#pragma warning restore CA1822, S2325
 }
 
 /// <summary>对齐 mapperAnnotationClass.name / simpleName。</summary>

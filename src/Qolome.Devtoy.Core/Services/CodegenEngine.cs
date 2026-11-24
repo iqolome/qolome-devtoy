@@ -13,7 +13,6 @@ public sealed class CodegenEngine
     private const string TaskTs = "ts";
 
     private readonly VelocityFiles _velocityFiles = new();
-    private readonly DictCatalogService _dict = new();
 
     public Task<CodegenResult> ExecuteAsync(
         DevtoySettings settings,
@@ -228,9 +227,9 @@ public sealed class CodegenEngine
         }
     }
 
-    private DictItemRecord RequireItem(DataSourceSettings dataSource, string itemCode)
+    private static DictItemRecord RequireItem(DataSourceSettings dataSource, string itemCode)
     {
-        var item = _dict.FindItemByCode(dataSource, itemCode);
+        var item = DictCatalogService.FindItemByCode(dataSource, itemCode);
         if (item is null)
         {
             throw new InvalidOperationException("找不到枚举字典项: " + itemCode);
@@ -239,9 +238,9 @@ public sealed class CodegenEngine
         return item;
     }
 
-    private IReadOnlyList<DictValueRow> EnabledValues(DataSourceSettings dataSource, long itemId)
+    private static List<DictValueRow> EnabledValues(DataSourceSettings dataSource, long itemId)
     {
-        var values = _dict.ListValues(dataSource, itemId)
+        var values = DictCatalogService.ListValues(dataSource, itemId)
             .Where(v => v.Enabled)
             .ToList();
         if (values.Count == 0)

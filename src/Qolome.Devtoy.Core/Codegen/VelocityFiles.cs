@@ -103,7 +103,7 @@ public sealed class VelocityFiles
         }
     }
 
-    private static void EnsureSeeded() => new TemplateStore().EnsureSeeded();
+    private static void EnsureSeeded() => TemplateStore.EnsureSeeded();
 
     private static string NormalizeName(string templateName)
     {

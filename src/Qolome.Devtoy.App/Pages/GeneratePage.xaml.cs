@@ -481,7 +481,7 @@ public sealed partial class GeneratePage : Page
         GenerateBtnText.Text = busy ? "生成中…" : "生成";
     }
 
-    private sealed class SelectableTableRow : INotifyPropertyChanged
+    private sealed partial class SelectableTableRow : INotifyPropertyChanged
     {
         private bool _isSelected;
 

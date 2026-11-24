@@ -3,9 +3,10 @@ namespace Qolome.Devtoy.Core.Services;
 using System.Data.Common;
 using Qolome.Devtoy.Core.Models;
 
-public sealed class DictCatalogService
+public static class DictCatalogService
 {
     private const string ParamItemId = "@item_id";
+    private const string ParamItemCode = "@item_code";
     private const string ParamRemark = "@remark";
     private const string ParamEnabled = "@enabled";
     private const string ParamValId = "@val_id";
@@ -17,7 +18,7 @@ public sealed class DictCatalogService
         ORDER BY seq, val_id
         """;
 
-    public IReadOnlyList<DictItemRecord> ListEnumItems(
+    public static IReadOnlyList<DictItemRecord> ListEnumItems(
         DataSourceSettings dataSource,
         string? itemCode = null,
         string? itemName = null)
@@ -46,7 +47,7 @@ public sealed class DictCatalogService
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         if (code is not null)
         {
-            DbConnectionFactory.AddParam(cmd, "@item_code", "%" + EscapeLike(code) + "%");
+            DbConnectionFactory.AddParam(cmd, ParamItemCode, "%" + EscapeLike(code) + "%");
         }
 
         if (name is not null)
@@ -80,7 +81,7 @@ public sealed class DictCatalogService
             .Replace("_", "\\_", StringComparison.Ordinal);
 
     /// <summary>按 item_code 查找字典项（生成枚举 / TS / 字段注释用）。</summary>
-    public DictItemRecord? FindItemByCode(DataSourceSettings dataSource, string itemCode)
+    public static DictItemRecord? FindItemByCode(DataSourceSettings dataSource, string itemCode)
     {
         const string sql = """
             SELECT item_id, item_code, item_name, item_scope, item_desc, enum_flag,
@@ -91,7 +92,7 @@ public sealed class DictCatalogService
             """;
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
-        DbConnectionFactory.AddParam(cmd, "@item_code", itemCode);
+        DbConnectionFactory.AddParam(cmd, ParamItemCode, itemCode);
         using var reader = cmd.ExecuteReader();
         return reader.Read() ? ReadItemRecord(reader) : null;
     }
@@ -113,7 +114,7 @@ public sealed class DictCatalogService
         return reader.Read() ? ReadItemRecord(reader) : null;
     }
 
-    public IReadOnlyList<DictValueRow> ListValues(DataSourceSettings dataSource, long itemId)
+    public static IReadOnlyList<DictValueRow> ListValues(DataSourceSettings dataSource, long itemId)
     {
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, ListValuesSql);
@@ -128,7 +129,7 @@ public sealed class DictCatalogService
         return list;
     }
 
-    public long CreateItem(DataSourceSettings dataSource, DictItemRecord record)
+    public static long CreateItem(DataSourceSettings dataSource, DictItemRecord record)
     {
         EnsureItemCodeFree(dataSource, record.ItemCode, null);
         var itemId = record.ItemId > 0 ? record.ItemId : DictIdGenerator.NextId();
@@ -145,7 +146,7 @@ public sealed class DictCatalogService
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
         var now = DateTime.Now;
         DbConnectionFactory.AddParam(cmd, ParamItemId, itemId);
-        DbConnectionFactory.AddParam(cmd, "@item_code", record.ItemCode);
+        DbConnectionFactory.AddParam(cmd, ParamItemCode, record.ItemCode);
         DbConnectionFactory.AddParam(cmd, "@item_name", record.ItemName);
         SetNullableInt(cmd, "@item_scope", record.ItemScope);
         DbConnectionFactory.AddParam(cmd, "@item_desc", (object?)record.ItemDesc ?? DBNull.Value);
@@ -158,7 +159,7 @@ public sealed class DictCatalogService
         return itemId;
     }
 
-    public void UpdateItem(DataSourceSettings dataSource, DictItemRecord record)
+    public static void UpdateItem(DataSourceSettings dataSource, DictItemRecord record)
     {
         if (record.ItemId <= 0)
         {
@@ -175,7 +176,7 @@ public sealed class DictCatalogService
             """;
         using var conn = MySqlConnectionFactory.Open(dataSource);
         using var cmd = DbConnectionFactory.CreateCommand(conn, sql);
-        DbConnectionFactory.AddParam(cmd, "@item_code", record.ItemCode);
+        DbConnectionFactory.AddParam(cmd, ParamItemCode, record.ItemCode);
         DbConnectionFactory.AddParam(cmd, "@item_name", record.ItemName);
         SetNullableInt(cmd, "@item_scope", record.ItemScope);
         DbConnectionFactory.AddParam(cmd, "@item_desc", (object?)record.ItemDesc ?? DBNull.Value);
@@ -191,7 +192,7 @@ public sealed class DictCatalogService
         }
     }
 
-    public void DeleteItem(DataSourceSettings dataSource, long itemId)
+    public static void DeleteItem(DataSourceSettings dataSource, long itemId)
     {
         const string sql = "UPDATE qolome_dict_item SET deleted = 1, modify_time = @now WHERE item_id = @item_id AND deleted = 0";
         using var conn = MySqlConnectionFactory.Open(dataSource);
@@ -204,7 +205,7 @@ public sealed class DictCatalogService
         }
     }
 
-    public long CreateValue(DataSourceSettings dataSource, DictValueRow value)
+    public static long CreateValue(DataSourceSettings dataSource, DictValueRow value)
     {
         EnsureValueUnique(dataSource, value.ItemId, value.ValCode, value.ValValue, null);
         var valId = value.ValId > 0 ? value.ValId : DictIdGenerator.NextId();
@@ -236,7 +237,7 @@ public sealed class DictCatalogService
         return valId;
     }
 
-    public void UpdateValue(DataSourceSettings dataSource, DictValueRow value)
+    public static void UpdateValue(DataSourceSettings dataSource, DictValueRow value)
     {
         if (value.ValId <= 0)
         {
@@ -270,7 +271,7 @@ public sealed class DictCatalogService
         }
     }
 
-    public void DeleteValue(DataSourceSettings dataSource, long valId)
+    public static void DeleteValue(DataSourceSettings dataSource, long valId)
     {
         const string sql = "UPDATE qolome_dict_val SET deleted = 1, modify_time = @now WHERE val_id = @val_id AND deleted = 0";
         using var conn = MySqlConnectionFactory.Open(dataSource);

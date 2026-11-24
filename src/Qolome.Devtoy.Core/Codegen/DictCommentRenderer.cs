@@ -10,7 +10,6 @@ public sealed class DictCommentRenderer
 {
     private readonly CodegenSettings _settings;
     private readonly DataSourceSettings _dataSource;
-    private readonly DictCatalogService _catalog;
     private readonly VelocityFiles _velocityFiles;
     private readonly string _tableName;
     private readonly IReadOnlyList<ColumnMetadata> _columns;
@@ -20,14 +19,12 @@ public sealed class DictCommentRenderer
     public DictCommentRenderer(
         CodegenSettings settings,
         DataSourceSettings dataSource,
-        DictCatalogService catalog,
         VelocityFiles velocityFiles,
         string tableName,
         IReadOnlyList<ColumnMetadata> columns)
     {
         _settings = settings;
         _dataSource = dataSource;
-        _catalog = catalog;
         _velocityFiles = velocityFiles;
         _tableName = tableName;
         _columns = columns;
@@ -109,7 +106,7 @@ public sealed class DictCommentRenderer
             if (codeMatch.Success)
             {
                 token = codeMatch.Value;
-                item = _catalog.FindItemByCode(_dataSource, codeMatch.Groups[1].Value);
+                item = DictCatalogService.FindItemByCode(_dataSource, codeMatch.Groups[1].Value);
             }
         }
 

@@ -519,7 +519,7 @@ public sealed partial class DictPage : Page
         return true;
     }
 
-    private UIElement BuildValueRow(DictValueRow value)
+    private Grid BuildValueRow(DictValueRow value)
     {
         var grid = CreateValueColumnsGrid();
         grid.Padding = new Thickness(0, 4, 0, 4);
@@ -571,7 +571,7 @@ public sealed partial class DictPage : Page
         grid.Children.Add(child);
     }
 
-    private static UIElement Labeled(string label, FrameworkElement field)
+    private static Grid Labeled(string label, FrameworkElement field)
     {
         var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
@@ -721,6 +721,6 @@ public sealed partial class DictPage : Page
         button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
-    private Task RunBusyAsync(string message, Func<Task> action) =>
+    private static Task RunBusyAsync(string message, Func<Task> action) =>
         UiBusy.RunAsync(message, action);
 }

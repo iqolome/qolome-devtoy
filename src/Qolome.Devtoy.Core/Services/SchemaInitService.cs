@@ -8,7 +8,7 @@ using Qolome.Devtoy.Core.Models;
 /// Devtoy 依赖表初始化：按数据源类型生成建表 SQL，并执行初始化。
 /// 初始化前若目标表已存在则抛出异常（不做 IF NOT EXISTS）。
 /// </summary>
-public sealed class SchemaInitService
+public static class SchemaInitService
 {
     public static readonly IReadOnlyList<string> RequiredTables =
     [
@@ -19,7 +19,7 @@ public sealed class SchemaInitService
     /// <summary>
     /// 按当前数据源生成可执行的初始化 DDL（表结构定义，非从线上库提取）。
     /// </summary>
-    public string GenerateInitSql(DataSourceSettings dataSource)
+    public static string GenerateInitSql(DataSourceSettings dataSource)
     {
         EnsureSupported(dataSource);
         var database = ResolveDatabaseName(dataSource);
@@ -43,7 +43,7 @@ public sealed class SchemaInitService
     /// <summary>
     /// 初始化：检测表已存在则抛异常；否则按数据源生成建表 SQL 并执行。
     /// </summary>
-    public void Initialize(DataSourceSettings dataSource)
+    public static void Initialize(DataSourceSettings dataSource)
     {
         EnsureSupported(dataSource);
 
@@ -60,7 +60,7 @@ public sealed class SchemaInitService
         ExecuteScript(conn, sql);
     }
 
-    public IReadOnlyList<string> ListExistingRequiredTables(DataSourceSettings dataSource)
+    public static IReadOnlyList<string> ListExistingRequiredTables(DataSourceSettings dataSource)
     {
         EnsureSupported(dataSource);
         using var conn = DbConnectionFactory.Open(dataSource);
@@ -106,7 +106,7 @@ public sealed class SchemaInitService
         return (q < 0 ? dbAndQuery : dbAndQuery[..q]).Trim();
     }
 
-    private string LoadBundledInitSql(DatabaseKind kind)
+    private static string LoadBundledInitSql(DatabaseKind kind)
     {
         if (kind != DatabaseKind.MySql)
         {
@@ -170,7 +170,7 @@ public sealed class SchemaInitService
         {
             var trimmed = line.Trim();
             if (trimmed.StartsWith("--", StringComparison.Ordinal)
-                || trimmed.StartsWith("#", StringComparison.Ordinal))
+                || trimmed.StartsWith('#'))
             {
                 continue;
             }
@@ -212,14 +212,6 @@ public sealed class SchemaInitService
             Path.Combine(baseDir, "sql", "qolome_devtoy_mysql_init.sql"),
             Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "sql", "qolome_devtoy_mysql_init.sql")),
         };
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-
-        return candidates[0];
+        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
     }
 }

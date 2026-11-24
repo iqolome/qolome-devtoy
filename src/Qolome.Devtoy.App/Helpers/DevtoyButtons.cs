@@ -12,12 +12,6 @@ public static class DevtoyButtons
     /// <summary>图标目标边长（与字号一致，经 Viewbox 缩放）。</summary>
     public static double GlyphIconBox => UiGlyphResources.IconBox;
 
-    [Obsolete("使用 GlyphFontSize")]
-    public static double DefaultIconSize => GlyphFontSize;
-
-    [Obsolete("使用 GlyphIconBox")]
-    public static double CompactIconSize => GlyphIconBox;
-
     public static void SetGlyph(Button button, string label, Symbol symbol, double? fontSize = null)
     {
         button.Content = BuildContent(label, symbol, fontSize);

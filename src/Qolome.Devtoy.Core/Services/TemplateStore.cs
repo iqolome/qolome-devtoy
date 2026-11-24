@@ -3,10 +3,10 @@ namespace Qolome.Devtoy.Core.Services;
 using Qolome.Devtoy.Core.Models;
 
 /// <summary>管理本机可编辑模板：首次从随包默认目录复制，支持读写与还原。</summary>
-public sealed class TemplateStore
+public static class TemplateStore
 {
-    private static readonly IReadOnlyDictionary<string, (string Display, string Category)> Meta =
-        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, (string Display, string Category)> Meta =
+        new(StringComparer.OrdinalIgnoreCase)
         {
             ["controller.java.vm"] = ("Controller", "表/实体"),
             ["service.java.vm"] = ("Service 接口", "表/实体"),
@@ -34,7 +34,7 @@ public sealed class TemplateStore
     /// <summary>
     /// 确保用户模板目录存在；缺失的文件从随包默认模板复制（不覆盖已有修改）。
     /// </summary>
-    public int EnsureSeeded()
+    public static int EnsureSeeded()
     {
         Directory.CreateDirectory(DevtoyPaths.TemplatesRoot);
         var bundled = DevtoyPaths.BundledTemplatesRoot;
@@ -60,7 +60,7 @@ public sealed class TemplateStore
         return copied;
     }
 
-    public IReadOnlyList<CodegenTemplateInfo> ListTemplates()
+    public static IReadOnlyList<CodegenTemplateInfo> ListTemplates()
     {
         EnsureSeeded();
         var root = DevtoyPaths.TemplatesRoot;
@@ -76,13 +76,13 @@ public sealed class TemplateStore
             .ToList();
     }
 
-    public string ReadContent(string fileName)
+    public static string ReadContent(string fileName)
     {
         var path = ResolveUserPath(fileName);
         return File.Exists(path) ? File.ReadAllText(path) : "";
     }
 
-    public void SaveContent(string fileName, string content)
+    public static void SaveContent(string fileName, string content)
     {
         var path = ResolveUserPath(fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -90,7 +90,7 @@ public sealed class TemplateStore
     }
 
     /// <summary>用随包默认覆盖指定用户模板。</summary>
-    public bool ResetToBundled(string fileName)
+    public static bool ResetToBundled(string fileName)
     {
         var name = Path.GetFileName(fileName);
         var bundled = Path.Combine(DevtoyPaths.BundledTemplatesRoot, name);
@@ -105,7 +105,7 @@ public sealed class TemplateStore
     }
 
     /// <summary>用随包默认覆盖全部用户模板。</summary>
-    public int ResetAllToBundled()
+    public static int ResetAllToBundled()
     {
         var bundled = DevtoyPaths.BundledTemplatesRoot;
         if (!Directory.Exists(bundled))
@@ -125,7 +125,7 @@ public sealed class TemplateStore
         return count;
     }
 
-    public string ResolveUserPath(string fileName)
+    public static string ResolveUserPath(string fileName)
     {
         var name = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(name)

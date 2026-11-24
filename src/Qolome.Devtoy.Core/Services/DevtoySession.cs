@@ -4,23 +4,13 @@ using Qolome.Devtoy.Core.Models;
 
 public sealed class DevtoySession
 {
-    private readonly ModuleScanner _scanner = new();
+    private const string DatabaseBusyMessage = "已有数据库操作进行中，请稍候";
 
     private readonly SettingsStore _store = new();
 
-    private readonly DictCatalogService _dict = new();
-
     private readonly CodegenEngine _codegen = new();
 
-    private readonly TemplateStore _templates = new();
-
-    private readonly SchemaInitService _schemaInit = new();
-
     public DevtoySettings Settings { get; private set; }
-
-    public TemplateStore Templates => _templates;
-
-    public SchemaInitService SchemaInit => _schemaInit;
 
     public IReadOnlyList<ModuleEntry> Modules { get; private set; } = Array.Empty<ModuleEntry>();
 
@@ -73,7 +63,7 @@ public sealed class DevtoySession
         Settings = _store.Load();
         Settings.NormalizeWorkspaceRoots();
         SyncWorkspaceRootProperty();
-        var seeded = _templates.EnsureSeeded();
+        var seeded = TemplateStore.EnsureSeeded();
         if (seeded > 0)
         {
             Log($"已初始化 {seeded} 个默认代码模板 -> {DevtoyPaths.TemplatesRoot}");
@@ -231,24 +221,18 @@ public sealed class DevtoySession
 
         var workspaceModules = new List<ModuleEntry>();
         var seenModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in Settings.WorkspaceRoots)
+        foreach (var root in Settings.WorkspaceRoots.Where(static r => !Directory.Exists(r)))
         {
-            if (!Directory.Exists(root))
-            {
-                LogWarn($"工作区不存在，已跳过: {root}");
-                continue;
-            }
-
-            foreach (var entry in _scanner.ScanWorkspace(root))
-            {
-                if (seenModules.Add(entry.ModulePath))
-                {
-                    workspaceModules.Add(entry);
-                }
-            }
+            LogWarn($"工作区不存在，已跳过: {root}");
         }
 
-        var specified = _scanner.BuildSpecifiedModules(Settings.SpecifiedProjects);
+        workspaceModules.AddRange(
+            Settings.WorkspaceRoots
+                .Where(Directory.Exists)
+                .SelectMany(ModuleScanner.ScanWorkspace)
+                .Where(entry => seenModules.Add(entry.ModulePath)));
+
+        var specified = ModuleScanner.BuildSpecifiedModules(Settings.SpecifiedProjects);
         var merged = ModuleScanner.Merge(workspaceModules, specified);
         Modules = ModuleCatalogFilter.Apply(merged, Settings);
         ModulesChanged?.Invoke();
@@ -704,7 +688,7 @@ public sealed class DevtoySession
     {
         if (!DatabaseGate.TryEnter())
         {
-            LogWarn("已有数据库操作进行中，请稍候");
+            LogWarn(DatabaseBusyMessage);
             return Array.Empty<TableListItem>();
         }
 
@@ -734,7 +718,7 @@ public sealed class DevtoySession
         string? itemName = null,
         CancellationToken cancellationToken = default) =>
         await RunDictAsync(
-            () => _dict.ListEnumItems(Settings.DataSource, itemCode, itemName),
+            () => DictCatalogService.ListEnumItems(Settings.DataSource, itemCode, itemName),
             items => Log($"已查询到 {items.Count} 个字典项"),
             "查询字典失败",
             Array.Empty<DictItemRecord>(),
@@ -742,7 +726,7 @@ public sealed class DevtoySession
 
     public Task<IReadOnlyList<DictValueRow>> ListDictValuesAsync(long itemId, CancellationToken cancellationToken = default) =>
         RunDictAsync(
-            () => _dict.ListValues(Settings.DataSource, itemId),
+            () => DictCatalogService.ListValues(Settings.DataSource, itemId),
             _ => { },
             "加载字典值失败",
             Array.Empty<DictValueRow>(),
@@ -750,7 +734,7 @@ public sealed class DevtoySession
 
     public Task<long> CreateDictItemAsync(DictItemRecord record, CancellationToken cancellationToken = default) =>
         RunDictAsync(
-            () => _dict.CreateItem(Settings.DataSource, record),
+            () => DictCatalogService.CreateItem(Settings.DataSource, record),
             id => Log($"已创建字典项 {id}"),
             "创建字典项失败",
             0L,
@@ -760,7 +744,7 @@ public sealed class DevtoySession
         RunDictAsync(
             () =>
             {
-                _dict.UpdateItem(Settings.DataSource, record);
+                DictCatalogService.UpdateItem(Settings.DataSource, record);
                 return true;
             },
             _ => Log($"已更新字典项 {record.ItemId}"),
@@ -772,7 +756,7 @@ public sealed class DevtoySession
         RunDictAsync(
             () =>
             {
-                _dict.DeleteItem(Settings.DataSource, itemId);
+                DictCatalogService.DeleteItem(Settings.DataSource, itemId);
                 return true;
             },
             _ => Log($"已删除字典项 {itemId}"),
@@ -782,7 +766,7 @@ public sealed class DevtoySession
 
     public Task<long> CreateDictValueAsync(DictValueRow value, CancellationToken cancellationToken = default) =>
         RunDictAsync(
-            () => _dict.CreateValue(Settings.DataSource, value),
+            () => DictCatalogService.CreateValue(Settings.DataSource, value),
             id => Log($"已创建字典值 {id}"),
             "创建字典值失败",
             0L,
@@ -792,7 +776,7 @@ public sealed class DevtoySession
         RunDictAsync(
             () =>
             {
-                _dict.UpdateValue(Settings.DataSource, value);
+                DictCatalogService.UpdateValue(Settings.DataSource, value);
                 return true;
             },
             _ => Log($"已更新字典值 {value.ValId}"),
@@ -804,7 +788,7 @@ public sealed class DevtoySession
         RunDictAsync(
             () =>
             {
-                _dict.DeleteValue(Settings.DataSource, valId);
+                DictCatalogService.DeleteValue(Settings.DataSource, valId);
                 return true;
             },
             _ => Log($"已删除字典值 {valId}"),
@@ -879,7 +863,7 @@ public sealed class DevtoySession
     {
         if (!DatabaseGate.TryEnter())
         {
-            LogWarn("已有数据库操作进行中，请稍候");
+            LogWarn(DatabaseBusyMessage);
             return failValue;
         }
 
@@ -913,8 +897,8 @@ public sealed class DevtoySession
     {
         if (!DatabaseGate.TryEnter())
         {
-            LogWarn("已有数据库操作进行中，请稍候");
-            return CodegenResult.Fail("已有数据库操作进行中，请稍候");
+            LogWarn(DatabaseBusyMessage);
+            return CodegenResult.Fail(DatabaseBusyMessage);
         }
 
         try
@@ -952,7 +936,7 @@ public sealed class DevtoySession
         var ds = Settings.DataSource;
         if (!DatabaseGate.TryEnter())
         {
-            return "已有数据库操作进行中，请稍候";
+            return DatabaseBusyMessage;
         }
 
         try
@@ -983,7 +967,7 @@ public sealed class DevtoySession
             () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return _schemaInit.GenerateInitSql(Settings.DataSource);
+                return SchemaInitService.GenerateInitSql(Settings.DataSource);
             },
             cancellationToken);
 
@@ -992,7 +976,7 @@ public sealed class DevtoySession
     {
         if (!DatabaseGate.TryEnter())
         {
-            throw new InvalidOperationException("已有数据库操作进行中，请稍候");
+            throw new InvalidOperationException(DatabaseBusyMessage);
         }
 
         try
@@ -1001,7 +985,7 @@ public sealed class DevtoySession
                 () =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    _schemaInit.Initialize(Settings.DataSource);
+                    SchemaInitService.Initialize(Settings.DataSource);
                 },
                 cancellationToken).ConfigureAwait(false);
             Log($"数据库初始化成功（表：{string.Join(", ", SchemaInitService.RequiredTables)}）");
