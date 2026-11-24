@@ -85,6 +85,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 | `packaging/` | `package.ps1`、MSIX / ZIP / Inno 与签名脚本 |
 | `scripts/sonar-scan.ps1` | 本地 Sonar 扫描 |
 | `config/` | 示例配置（如 `signing.example.properties`，勿提交真实密钥） |
+| `%LocalAppData%/Qolome/Devtoy/` | 运行时配置：`settings.json`（全局）+ `module-overrides.json`（模块覆盖，防抖单飞原子写） |
 | `sonar-project.properties` | SonarQube 工程配置 |
 | `dist/` | **本地打包输出**（已在 `.gitignore` 中忽略） |
 

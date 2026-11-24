@@ -267,16 +267,19 @@ public sealed class DevtoySession
 
     private void SaveSettingsQuiet()
     {
-        _store.Save(Settings);
+        _store.ScheduleSave(Settings);
         UiPreferencesChanged?.Invoke();
     }
 
     public void SaveSettings()
     {
-        _store.Save(Settings);
+        _store.SaveNow(Settings);
         UiPreferencesChanged?.Invoke();
         Log("配置已保存");
     }
+
+    /// <summary>将防抖中的配置立即落盘（应用退出前调用）。</summary>
+    public void FlushSettings() => _store.Flush();
 
     public void SetShowConsole(bool show)
     {
@@ -286,12 +289,13 @@ public sealed class DevtoySession
         }
 
         Settings.ShowConsole = show;
-        _store.Save(Settings);
+        _store.ScheduleSave(Settings);
         UiPreferencesChanged?.Invoke();
     }
 
     public void ExportConfig()
     {
+        _store.Flush();
         _store.ExportGlobal(Settings);
         Log("已导出配置 -> " + _store.GlobalPath);
     }
@@ -308,7 +312,8 @@ public sealed class DevtoySession
         Settings = loaded;
         Settings.NormalizeWorkspaceRoots();
         SyncWorkspaceRootProperty();
-        SaveSettingsQuiet();
+        _store.SaveNow(Settings);
+        UiPreferencesChanged?.Invoke();
         RefreshModulesCore();
         Log("已导入配置");
         return true;

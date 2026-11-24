@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
         TitleBarChrome.Apply(this);
         TitleBarChrome.ListenToThemeChanges(this, RootFrame);
         Activated += (_, _) => TitleBarChrome.Apply(this);
+        Closed += (_, _) => AppServices.Session.FlushSettings();
     }
 
     public void SetTitleBarIcon(string icoPath)
