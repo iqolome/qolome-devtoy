@@ -55,18 +55,36 @@ Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.0 packaging\inno\Qolome.Devtoy.iss
 ```
 
-## 代码签名（可选）
+## 代码签名（GitHub Actions）
 
-1. 参照 [`config/signing.example.properties`](../config/signing.example.properties) 准备本地 `signing.properties`（勿提交仓库）。
-2. 实现 [`scripts/signing_env.ps1`](../scripts/signing_env.ps1)（加载属性并暴露 `Get-WindowsCodeSignPfx` 等函数），或设置 `QOLOME_SIGNING_PROPERTIES`。
-3. 打包时若 PFX 可用，将自动：
-   - **MSIX**：`AppxPackageSigningEnabled` + 校验证书 Subject
-   - **便携 exe / Inno Setup**：`signtool` Authenticode
-   - **便携 ZIP**：`.sha256` + CMS `.p7s` 旁路摘要
+**所有带企业签名的发布包**应在 GitHub 上构建，勿把 PFX 提交到仓库。
 
-`Package.appxmanifest` 中 `Identity@Publisher` 须与 PFX 证书 Publisher 一致。
+| 工作流 | 文件 | 说明 |
+| --- | --- | --- |
+| CI | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR / 推送：`dotnet build` + `-SkipSigning` 便携 ZIP |
+| Release | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 标签 `v*` 或手动触发：`-RequireSigning` 全量产物 |
 
-未配置 PFX 时仍会产出**未签名**包并给出警告；正式发布请使用 `-RequireSigning`。
+在仓库 **Settings → Secrets and variables → Actions** 配置：
+
+| Secret | 说明 |
+| --- | --- |
+| `WINDOWS_CODE_SIGN_PFX_BASE64` | 企业 PFX 的 Base64（单行） |
+| `WINDOWS_CODE_SIGN_PFX_PASSWORD` | PFX 口令（可为空字符串） |
+| `QOLOME_EXPECTED_WINDOWS_PUBLISHER` | 可选；默认与 `Package.appxmanifest` 的 Publisher 一致 |
+
+签名逻辑见 [`scripts/signing_env.ps1`](../scripts/signing_env.ps1)（CI 从 Secret 解出临时 PFX；本地可用 `QOLOME_SIGNING_PROPERTIES` 指向 `signing.properties`）。
+
+发布包将包含：
+
+- **MSIX**：`AppxPackageSigningEnabled` + Authenticode 时间戳
+- **便携 exe / Setup.exe**：`signtool`
+- **便携 ZIP**：`.sha256` + CMS `.p7s` 旁路摘要
+
+本地开发默认：
+
+```powershell
+.\packaging\package.ps1 -SkipSigning
+```
 
 ## 说明
 

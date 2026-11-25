@@ -219,7 +219,7 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 | MSIX | 可侧载安装 / 卸载 |
 | Inno Setup | 安装向导 + 卸载项 |
 
-配置 `scripts/signing_env.ps1` 与企业 PFX 后，打包可使用 `-RequireSigning`（见 [packaging/README.md](packaging/README.md)）。
+**带企业签名的正式发布**在 [GitHub Actions](.github/workflows/release.yml) 中完成（`windows-latest` 免费额度）：推送标签 `v*` 或手动 **Release** 工作流。PFX 仅存于仓库 **Secrets**，不入库。说明见 [docs/github-actions.md](docs/github-actions.md)。本地日常请用 `.\packaging\package.ps1 -SkipSigning`；需本地验签时设置 `QOLOME_SIGNING_PROPERTIES`（见 `config/signing.example.properties`）。
 
 ## 关联项目
 

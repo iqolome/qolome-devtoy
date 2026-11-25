@@ -1,0 +1,83 @@
+# 企业代码签名发布：仅在 GitHub Actions 中执行（免费 windows 分钟额度）
+# 触发：打 tag v*，或手动 workflow_dispatch
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "覆盖版本号（空则读 csproj）"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-signed:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Install OpenSSL
+        shell: pwsh
+        run: choco install openssl.light --no-progress -y
+
+      - name: Refresh PATH
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_PATH "C:\Program Files\OpenSSL-Win64\bin"
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6") {
+            Add-Content $env:GITHUB_PATH "C:\Program Files (x86)\Inno Setup 6"
+          }
+
+      - name: Package (signed)
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'
+          if ($version) {
+            .\packaging\package.ps1 -RequireSigning -Version $version
+          } else {
+            .\packaging\package.ps1 -RequireSigning
+          }
+        env:
+          WINDOWS_CODE_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_CODE_SIGN_PFX_BASE64 }}
+          WINDOWS_CODE_SIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGN_PFX_PASSWORD }}
+          QOLOME_EXPECTED_WINDOWS_PUBLISHER: ${{ secrets.QOLOME_EXPECTED_WINDOWS_PUBLISHER }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qolome-devtoy-release
+          path: |
+            dist/release/*.zip
+            dist/release/*.msix
+            dist/release/*Setup.exe
+            dist/release/*.sha256
+            dist/release/*.p7s
+            dist/release/*.siginfo.json
+          if-no-files-found: error
+
+      - name: Create GitHub Release (tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

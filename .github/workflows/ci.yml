@@ -1,0 +1,30 @@
+# 未签名构建：验证编译与便携 ZIP 打包
+name: CI
+
+on:
+  push:
+    branches: [develop, master, main, github]
+  pull_request:
+    branches: [develop, master, main, github]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: dotnet build
+        shell: pwsh
+        run: |
+          dotnet restore src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj
+          dotnet build src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj `
+            -c Debug -p:Platform=x64 -r win-x64
+
+      - name: Package (unsigned)
+        shell: pwsh
+        run: .\packaging\package.ps1 -SkipSigning -Target Zip
