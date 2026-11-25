@@ -12,7 +12,7 @@ $script:SigningPropertiesPath = $null
 $script:SigningProperties = @{}
 $script:SigningReleaseEnabled = $true
 $script:AllowMsixTestCertificate = $false
-$script:ExpectedWindowsPublisher = "CN=尖锋达代码签名本地, O=尖锋达科技, C=CN"
+$script:ExpectedWindowsPublisher = "CN=Qolome, O=Qolome, C=CN"
 $script:ForbiddenMsixSubjects = @("CN=Msix Testing", "Msix Testing Corporation")
 
 if (-not [string]::IsNullOrWhiteSpace($env:QOLOME_EXPECTED_WINDOWS_PUBLISHER)) {

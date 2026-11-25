@@ -7,7 +7,7 @@
     <RootNamespace>Qolome.Nets.Core</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Version>1.0.0</Version>
-    <Company>忻州市尖锋达科技有限公司</Company>
+    <Company>Qolome</Company>
     <Product>Qolome DevToy</Product>
   </PropertyGroup>
 

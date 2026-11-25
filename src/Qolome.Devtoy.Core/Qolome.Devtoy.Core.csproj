@@ -5,9 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>1.0.0</Version>
-    <Company>忻州市尖锋达科技有限公司</Company>
+    <Company>Qolome</Company>
     <Product>Qolome DevToy</Product>
-    <Copyright>Copyright © 2026 Xinzhou jfonda Technology Co., Ltd.</Copyright>
+    <Copyright>Copyright © 2026 Qolome</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

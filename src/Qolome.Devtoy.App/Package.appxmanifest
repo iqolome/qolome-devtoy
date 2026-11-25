@@ -10,14 +10,14 @@
 
   <Identity
     Name="com.qolome.devtoy"
-    Publisher="CN=尖锋达代码签名本地, O=尖锋达科技, C=CN"
+    Publisher="CN=Qolome, O=Qolome, C=CN"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="B2007BB4-BAF4-460F-8BA7-8F6C181935E2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Qolome DevToy</DisplayName>
-    <PublisherDisplayName>尖锋达科技</PublisherDisplayName>
+    <PublisherDisplayName>Qolome</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -36,7 +36,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Qolome DevToy"
-        Description="Qolome 开发者工具 — 忻州市尖锋达科技有限公司"
+        Description="Qolome 开发者工具 — Qolome"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

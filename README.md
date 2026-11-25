@@ -30,8 +30,8 @@
 | | |
 | --- | --- |
 | **产品** | Qolome DevToy |
-| **开发商** | 忻州市尖锋达科技有限公司（Xinzhou jfonda Technology Co., Ltd.） |
-| **官网** | [https://www.jfonda.com/](https://www.jfonda.com/) |
+| **开发商** | Qolome |
+| **官网** | [https://qolome.com/](https://qolome.com/) |
 | **许可协议** | [Apache License 2.0](LICENSE) |
 | **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.0.0`） |
 

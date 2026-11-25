@@ -5,12 +5,12 @@ public static class AboutInfo
 {
     public const string ProductName = "Qolome DevToy";
 
-    public const string CompanyNameZh = "忻州市尖锋达科技有限公司";
+    public const string CompanyNameZh = "Qolome";
 
-    public const string CompanyNameEn = "Xinzhou jfonda Technology Co., Ltd.";
+    public const string CompanyNameEn = "Qolome";
 
 #pragma warning disable S1075 // Product / license absolute URLs are intentional constants
-    public const string WebsiteUrl = "https://www.jfonda.com/";
+    public const string WebsiteUrl = "https://qolome.com/";
 
     public const string LicenseName = "Apache License 2.0";
 

@@ -28,7 +28,7 @@
             <TextBlock Text="开发商" FontWeight="SemiBold" />
             <TextBlock x:Name="CompanyZhText" TextWrapping="WrapWholeWords" />
             <TextBlock x:Name="CompanyEnText" Opacity="0.85" TextWrapping="WrapWholeWords" />
-            <HyperlinkButton x:Name="WebsiteLink" Content="https://www.jfonda.com/" />
+            <HyperlinkButton x:Name="WebsiteLink" Content="https://qolome.com/" />
             <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <TextBlock Text="许可协议" FontWeight="SemiBold" />
             <TextBlock x:Name="LicenseText" TextWrapping="WrapWholeWords" />
