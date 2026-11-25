@@ -14,14 +14,14 @@ public sealed class SettingsStore
 {
     private const string KindSettings = "settings";
     private const string KindModuleOverrides = "module_overrides";
+    private const string KindModuleState = "module_state";
+    private const string SqliteKindParam = "$kind";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
-
-    private const string KindModuleState = "module_state";
 
     private static readonly string[] ModuleJsonProperties =
     [
@@ -65,53 +65,14 @@ public sealed class SettingsStore
 
             _ = DataSourceRuntime.Bootstrap();
 
-            if (DataSourceRuntime.IsRemoteMySql)
+            if (TryLoadPreferredStore() is { } preferred)
             {
-                var remote = TryLoadFromRemoteMySql();
-                if (remote is not null)
-                {
-                    remote.DataSource = DataSourceRuntime.Current;
-                    return remote;
-                }
+                return preferred;
             }
 
-            if (DataSourceRuntime.IsSqliteMode || DataSourceConnectionStore.TryLoad() is null)
+            if (TryLoadFromLegacyJsonFile() is { } fromJson)
             {
-                if (!DataSourceRuntime.IsSqliteMode && DataSourceConnectionStore.TryLoad() is null)
-                {
-                    // 仍无连接配置：默认 Sqlite
-                    DataSourceRuntime.UseDefaultSqliteIfUnset();
-                }
-
-                EnsureLocalSchema();
-                var fromDb = TryLoadSettingsFromSqlite();
-                if (fromDb is not null)
-                {
-                    fromDb.DataSource = DataSourceRuntime.Current;
-                    return fromDb;
-                }
-            }
-
-            if (File.Exists(SettingsPath))
-            {
-                var json = File.ReadAllText(SettingsPath);
-                var settings = JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions) ?? new DevtoySettings();
-                LegacySpecifiedMigration.TryApplyFromJson(json, settings);
-                MergeEmbeddedModuleOverrides(json, settings);
-                LoadModuleOverridesFile(settings);
-                settings.NormalizeWorkspaceRoots();
-                if (DataSourceConnectionStore.TryLoad() is null && settings.DataSource is not null)
-                {
-                    DataSourceRuntime.PersistCurrent(settings.DataSource);
-                }
-                else
-                {
-                    DataSourceRuntime.UseDefaultSqliteIfUnset();
-                }
-
-                settings.DataSource = DataSourceRuntime.Current;
-                SaveNow(settings);
-                return settings;
+                return fromJson;
             }
         }
         catch
@@ -119,6 +80,71 @@ public sealed class SettingsStore
             // ignored
         }
 
+        return CreateFreshSettings();
+    }
+
+    private static DevtoySettings? TryLoadPreferredStore()
+    {
+        if (DataSourceRuntime.IsRemoteMySql)
+        {
+            var remote = TryLoadFromRemoteMySql();
+            if (remote is not null)
+            {
+                remote.DataSource = DataSourceRuntime.Current;
+                return remote;
+            }
+        }
+
+        if (!DataSourceRuntime.IsSqliteMode && DataSourceConnectionStore.TryLoad() is not null)
+        {
+            return null;
+        }
+
+        if (!DataSourceRuntime.IsSqliteMode && DataSourceConnectionStore.TryLoad() is null)
+        {
+            DataSourceRuntime.UseDefaultSqliteIfUnset();
+        }
+
+        EnsureLocalSchema();
+        var fromDb = TryLoadSettingsFromSqlite();
+        if (fromDb is null)
+        {
+            return null;
+        }
+
+        fromDb.DataSource = DataSourceRuntime.Current;
+        return fromDb;
+    }
+
+    private DevtoySettings? TryLoadFromLegacyJsonFile()
+    {
+        if (!File.Exists(SettingsPath))
+        {
+            return null;
+        }
+
+        var json = File.ReadAllText(SettingsPath);
+        var settings = JsonSerializer.Deserialize<DevtoySettings>(json, JsonOptions) ?? new DevtoySettings();
+        LegacySpecifiedMigration.TryApplyFromJson(json, settings);
+        MergeEmbeddedModuleOverrides(json, settings);
+        LoadModuleOverridesFile(settings);
+        settings.NormalizeWorkspaceRoots();
+        if (DataSourceConnectionStore.TryLoad() is null && settings.DataSource is not null)
+        {
+            DataSourceRuntime.PersistCurrent(settings.DataSource);
+        }
+        else
+        {
+            DataSourceRuntime.UseDefaultSqliteIfUnset();
+        }
+
+        settings.DataSource = DataSourceRuntime.Current;
+        SaveNow(settings);
+        return settings;
+    }
+
+    private static DevtoySettings CreateFreshSettings()
+    {
         DataSourceRuntime.UseDefaultSqliteIfUnset();
         var fresh = new DevtoySettings { DataSource = DataSourceRuntime.Current };
         if (ModuleStore.HasPersistedRows())
@@ -152,8 +178,8 @@ public sealed class SettingsStore
             using var conn = new SqliteConnection($"Data Source={path};Cache=Shared");
             conn.Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT json FROM devtoy_doc WHERE kind = $kind";
-            cmd.Parameters.AddWithValue("$kind", KindSettings);
+            cmd.CommandText = $"SELECT json FROM devtoy_doc WHERE kind = {SqliteKindParam}";
+            cmd.Parameters.AddWithValue(SqliteKindParam, KindSettings);
             var json = cmd.ExecuteScalar() as string;
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -401,9 +427,6 @@ public sealed class SettingsStore
         }
     }
 
-    private static string SerializeSettingsWithoutModuleList(DevtoySettings settings) =>
-        SerializeSettingsWithoutSecrets(settings);
-
     private static DevtoySettings? TryLoadSettingsFromSqlite()
     {
         if (!DataSourceRuntime.IsSqliteMode || !File.Exists(DataSourceRuntime.ResolvedSqlitePath))
@@ -636,8 +659,8 @@ public sealed class SettingsStore
         {
             using var conn = OpenLocalDb();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT json FROM devtoy_doc WHERE kind = $kind";
-            cmd.Parameters.AddWithValue("$kind", kind);
+            cmd.CommandText = $"SELECT json FROM devtoy_doc WHERE kind = {SqliteKindParam}";
+            cmd.Parameters.AddWithValue(SqliteKindParam, kind);
             return cmd.ExecuteScalar() as string;
         }
         catch
@@ -690,7 +713,7 @@ public sealed class SettingsStore
             VALUES ($kind, $json, $updated_at)
             ON CONFLICT(kind) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at;
             """;
-        cmd.Parameters.AddWithValue("$kind", kind);
+        cmd.Parameters.AddWithValue(SqliteKindParam, kind);
         cmd.Parameters.AddWithValue("$json", json);
         cmd.Parameters.AddWithValue("$updated_at", updatedAt);
         cmd.ExecuteNonQuery();
@@ -700,8 +723,8 @@ public sealed class SettingsStore
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "DELETE FROM devtoy_doc WHERE kind = $kind";
-        cmd.Parameters.AddWithValue("$kind", kind);
+        cmd.CommandText = $"DELETE FROM devtoy_doc WHERE kind = {SqliteKindParam}";
+        cmd.Parameters.AddWithValue(SqliteKindParam, kind);
         cmd.ExecuteNonQuery();
     }
 

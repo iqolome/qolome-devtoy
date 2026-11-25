@@ -38,9 +38,9 @@ public static class ConfigDbAccess
 
     public static void EnsureConfigSchema(DbConnection conn)
     {
-        if (conn is SqliteConnection)
+        if (conn is SqliteConnection sqlite)
         {
-            using var cmd = conn.CreateCommand();
+            using var cmd = sqlite.CreateCommand();
             cmd.CommandText =
                 """
                 CREATE TABLE IF NOT EXISTS devtoy_doc (
@@ -50,61 +50,64 @@ public static class ConfigDbAccess
                 );
                 """;
             cmd.ExecuteNonQuery();
-            ModuleStore.EnsureSchema((SqliteConnection)conn, tx: null);
+            ModuleStore.EnsureSchema(sqlite, tx: null);
             return;
         }
 
-        if (conn is MySqlConnection)
+        if (conn is MySqlConnection mysql)
         {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText =
-                """
-                CREATE TABLE IF NOT EXISTS `devtoy_doc` (
-                  `kind` varchar(64) NOT NULL,
-                  `json` longtext NOT NULL,
-                  `updated_at` varchar(64) NOT NULL,
-                  PRIMARY KEY (`kind`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                CREATE TABLE IF NOT EXISTS `devtoy_workspace` (
-                  `path` varchar(512) NOT NULL,
-                  `sort_order` int NOT NULL DEFAULT 0,
-                  `updated_at` varchar(64) NOT NULL,
-                  PRIMARY KEY (`path`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                CREATE TABLE IF NOT EXISTS `devtoy_module` (
-                  `path` varchar(512) NOT NULL,
-                  `workspace_path` varchar(512) NULL,
-                  `source` varchar(32) NOT NULL,
-                  `display_name` varchar(256) NULL,
-                  `ignored` tinyint(1) NOT NULL DEFAULT 0,
-                  `java` tinyint(1) NULL,
-                  `web` tinyint(1) NULL,
-                  `flutter` tinyint(1) NULL,
-                  `version` varchar(64) NULL,
-                  `manual` tinyint(1) NULL,
-                  `codegen_model_name` varchar(128) NULL,
-                  `codegen_dao` tinyint(1) NULL,
-                  `codegen_service` tinyint(1) NULL,
-                  `codegen_controller` tinyint(1) NULL,
-                  `enable_codegen` tinyint(1) NULL,
-                  `enable_enum` tinyint(1) NULL,
-                  `enable_ts_dict` tinyint(1) NULL,
-                  `tag_boot_starter` tinyint(1) NULL,
-                  `enum_package_path` varchar(256) NULL,
-                  `ts_dict_path` varchar(512) NULL,
-                  `create_time` varchar(64) NOT NULL,
-                  `modify_time` varchar(64) NOT NULL,
-                  `updated_at` varchar(64) NOT NULL,
-                  PRIMARY KEY (`path`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """;
-            // MySqlConnector may not run multiple statements depending on settings — split
-            foreach (var batch in SplitStatements(cmd.CommandText))
-            {
-                using var c = conn.CreateCommand();
-                c.CommandText = batch;
-                c.ExecuteNonQuery();
-            }
+            EnsureMySqlConfigSchema(mysql);
+        }
+    }
+
+    private static void EnsureMySqlConfigSchema(MySqlConnection mysql)
+    {
+        const string script =
+            """
+            CREATE TABLE IF NOT EXISTS `devtoy_doc` (
+              `kind` varchar(64) NOT NULL,
+              `json` longtext NOT NULL,
+              `updated_at` varchar(64) NOT NULL,
+              PRIMARY KEY (`kind`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            CREATE TABLE IF NOT EXISTS `devtoy_workspace` (
+              `path` varchar(512) NOT NULL,
+              `sort_order` int NOT NULL DEFAULT 0,
+              `updated_at` varchar(64) NOT NULL,
+              PRIMARY KEY (`path`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            CREATE TABLE IF NOT EXISTS `devtoy_module` (
+              `path` varchar(512) NOT NULL,
+              `workspace_path` varchar(512) NULL,
+              `source` varchar(32) NOT NULL,
+              `display_name` varchar(256) NULL,
+              `ignored` tinyint(1) NOT NULL DEFAULT 0,
+              `java` tinyint(1) NULL,
+              `web` tinyint(1) NULL,
+              `flutter` tinyint(1) NULL,
+              `version` varchar(64) NULL,
+              `manual` tinyint(1) NULL,
+              `codegen_model_name` varchar(128) NULL,
+              `codegen_dao` tinyint(1) NULL,
+              `codegen_service` tinyint(1) NULL,
+              `codegen_controller` tinyint(1) NULL,
+              `enable_codegen` tinyint(1) NULL,
+              `enable_enum` tinyint(1) NULL,
+              `enable_ts_dict` tinyint(1) NULL,
+              `tag_boot_starter` tinyint(1) NULL,
+              `enum_package_path` varchar(256) NULL,
+              `ts_dict_path` varchar(512) NULL,
+              `create_time` varchar(64) NOT NULL,
+              `modify_time` varchar(64) NOT NULL,
+              `updated_at` varchar(64) NOT NULL,
+              PRIMARY KEY (`path`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            """;
+        foreach (var batch in SplitStatements(script))
+        {
+            using var c = mysql.CreateCommand();
+            c.CommandText = batch;
+            c.ExecuteNonQuery();
         }
     }
 

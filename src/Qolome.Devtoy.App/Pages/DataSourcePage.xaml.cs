@@ -45,35 +45,51 @@ public sealed partial class DataSourcePage : Page
 
         if (parsed == DatabaseKind.Sqlite)
         {
-            if (string.IsNullOrWhiteSpace(SqlitePathBox.Text))
-            {
-                SqlitePathBox.Text = DevtoyPaths.EnsureMigratedDefaultSqlitePath();
-            }
-
-            if (string.IsNullOrWhiteSpace(UserBox.Text))
-            {
-                UserBox.Text = "devtoy";
-            }
-
-            if (string.IsNullOrWhiteSpace(GetPasswordValue()))
-            {
-                SetPasswordValue(Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))
-                    .ToLowerInvariant());
-            }
-
-            ModeFieldsRadio.IsChecked = true;
+            EnsureSqliteDefaults();
         }
         else
         {
-            PortBox.Text = parsed switch
-            {
-                DatabaseKind.PostgreSql => "5432",
-                DatabaseKind.Oracle => "1521",
-                DatabaseKind.Odbc => "",
-                _ => string.IsNullOrWhiteSpace(PortBox.Text) ? "3306" : PortBox.Text,
-            };
+            ApplyRemoteDefaultPort(parsed);
         }
 
+        ApplyKindFieldLabels(parsed);
+        ApplyKindVisibility(parsed);
+    }
+
+    private void EnsureSqliteDefaults()
+    {
+        if (string.IsNullOrWhiteSpace(SqlitePathBox.Text))
+        {
+            SqlitePathBox.Text = DevtoyPaths.EnsureMigratedDefaultSqlitePath();
+        }
+
+        if (string.IsNullOrWhiteSpace(UserBox.Text))
+        {
+            UserBox.Text = "devtoy";
+        }
+
+        if (string.IsNullOrWhiteSpace(GetPasswordValue()))
+        {
+            SetPasswordValue(Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))
+                .ToLowerInvariant());
+        }
+
+        ModeFieldsRadio.IsChecked = true;
+    }
+
+    private void ApplyRemoteDefaultPort(DatabaseKind parsed)
+    {
+        PortBox.Text = parsed switch
+        {
+            DatabaseKind.PostgreSql => "5432",
+            DatabaseKind.Oracle => "1521",
+            DatabaseKind.Odbc => "",
+            _ => string.IsNullOrWhiteSpace(PortBox.Text) ? "3306" : PortBox.Text,
+        };
+    }
+
+    private void ApplyKindFieldLabels(DatabaseKind parsed)
+    {
         if (parsed == DatabaseKind.Odbc)
         {
             ParamsLabel.Text = "ODBC Driver";
@@ -81,17 +97,14 @@ public sealed partial class DataSourcePage : Page
             DatabaseLabel.Text = "Database / DSN";
             JdbcUrlBox.PlaceholderText = "完整 ODBC 连接串（URL 模式）";
             JdbcLabel.Text = "ODBC 连接串";
-        }
-        else
-        {
-            ParamsLabel.Text = "连接参数";
-            ParamsBox.PlaceholderText = "useSSL=false&serverTimezone=Asia/Shanghai";
-            DatabaseLabel.Text = "数据库名称";
-            JdbcUrlBox.PlaceholderText = "jdbc:mysql://127.0.0.1:3306/qolome";
-            JdbcLabel.Text = "JDBC 连接";
+            return;
         }
 
-        ApplyKindVisibility(parsed);
+        ParamsLabel.Text = "连接参数";
+        ParamsBox.PlaceholderText = "useSSL=false&serverTimezone=Asia/Shanghai";
+        DatabaseLabel.Text = "数据库名称";
+        JdbcUrlBox.PlaceholderText = "jdbc:mysql://127.0.0.1:3306/qolome";
+        JdbcLabel.Text = "JDBC 连接";
     }
 
     private void Bind()
