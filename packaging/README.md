@@ -7,7 +7,7 @@
 在仓库根目录执行（需已安装 [.NET SDK](https://dotnet.microsoft.com/download)）：
 
 ```powershell
-cd E:\workspace\webfx-workspace\qolome-devtoy
+# 在仓库根目录
 .\packaging\package.ps1
 ```
 
@@ -46,34 +46,27 @@ Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 
 1. 环境变量 `ISCC`（完整路径）或 `INNO_SETUP_HOME`（安装目录）
 2. `PATH` 中的 `ISCC.exe`
-3. 常见目录（`Program Files`、`D:\Software\Inno Setup 6` 等）
+3. 常见目录（如 `Program Files\Inno Setup 6`）
 4. 卸载项注册表（`Inno Setup 6_is1` → `InstallLocation`）
 
 手动编译：
 
 ```powershell
-& "D:\Software\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.0 packaging\inno\Qolome.Devtoy.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.0 packaging\inno\Qolome.Devtoy.iss
 ```
 
-## 代码签名（对齐 qolome_epsims_app）
+## 代码签名（可选）
 
-与 Flutter 企划通共用 **`E:\Server\Repository\signing\signing.properties`** 与 **`JfondaCodeSign.pfx`**（由 `qolome_epsims_app\scripts\signing_env.ps1` 加载）。
-
-1. 复制/维护签名配置（一次性）：
-   ```powershell
-   cd E:\workspace\webfx-workspace\qolome_epsims_app
-   .\scripts\setup_signing.ps1
-   # 编辑 E:\Server\Repository\signing\signing.properties
-   ```
-2. 打包时若 PFX 可用，将自动：
-   - **MSIX**：`AppxPackageSigningEnabled` + 校验 Subject
+1. 参照 [`config/signing.example.properties`](../config/signing.example.properties) 准备本地 `signing.properties`（勿提交仓库）。
+2. 实现 [`scripts/signing_env.ps1`](../scripts/signing_env.ps1)（加载属性并暴露 `Get-WindowsCodeSignPfx` 等函数），或设置 `QOLOME_SIGNING_PROPERTIES`。
+3. 打包时若 PFX 可用，将自动：
+   - **MSIX**：`AppxPackageSigningEnabled` + 校验证书 Subject
    - **便携 exe / Inno Setup**：`signtool` Authenticode
-   - **便携 ZIP**：`.sha256` + CMS `.p7s` 旁路（与 epsims Web 归档一致）
+   - **便携 ZIP**：`.sha256` + CMS `.p7s` 旁路摘要
 
-`Package.appxmanifest` 中 `Publisher` 必须为：
-`CN=尖锋达代码签名本地, O=尖锋达科技, C=CN`（与 `pubspec msix_config.publisher` 相同）。
+`Package.appxmanifest` 中 `Identity@Publisher` 须与 PFX 证书 Publisher 一致。
 
-未配置 PFX 时仍会产出**未签名**包并给出警告；发布请使用 `-RequireSigning`。
+未配置 PFX 时仍会产出**未签名**包并给出警告；正式发布请使用 `-RequireSigning`。
 
 ## 说明
 

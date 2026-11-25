@@ -7,31 +7,23 @@
 
 独立 Windows 开发者工具（**WinUI 3 / .NET 10**），对齐 `cloud-workspace/qolome-codegen` IDEA 插件能力，并内嵌局域网扫描 / 资产库存（代码自 `qolome-nets` 复制，两仓独立演进）。目标：**更独立、更现代 UI、更好性能**（纯 C# 代码生成，不依赖 JVM）。
 
-## Sonar 检测
+## 代码质量（可选）
 
-[![Quality gate](https://sonar.qolome.com:8081/api/project_badges/quality_gate?project=app%3Aqolome-devtoy&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
-[![可维护性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可靠性评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全评级](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_rating&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![重复行](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=duplicated_lines_density&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
-[![可靠性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_reliability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![可维护性问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![安全问题](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_security_issues&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy) [![技术债务](https://sonar.qolome.com:8081/api/project_badges/measure?project=app%3Aqolome-devtoy&metric=software_quality_maintainability_remediation_effort&token=sqb_1c30e8d593b6fa6a5f6bc157d314bcf10ac8b45f)](https://sonar.qolome.com:8081/summary/new_code?id=app%3Aqolome-devtoy)<br />
-
-| | |
-| --- | --- |
-| 工程 key | `app:qolome-devtoy`（[`sonar-project.properties`](sonar-project.properties)） |
-| 仪表盘 | [https://sonar.qolome.com:8081/dashboard?id=app%3Aqolome-devtoy](https://sonar.qolome.com:8081/dashboard?id=app%3Aqolome-devtoy) |
-
-本地扫描需已配置环境变量 `SONAR_HOST_URL`、`SONAR_TOKEN`（可选 `SONAR_SCANNER_HOME`）。**务必在本仓库根目录执行**（不要在 `webfx-workspace` 根目录跑）：
+在自建 SonarQube 上扫描时，配置环境变量 `SONAR_HOST_URL`、`SONAR_TOKEN`（可选 `SONAR_SCANNER_HOME`），**在本仓库根目录**执行：
 
 ```powershell
-cd E:\workspace\webfx-workspace\qolome-devtoy
 .\scripts\sonar-scan.ps1
 ```
 
 | 说明 | |
 | --- | --- |
-| 默认流程 | SonarScanner for .NET：`begin` → 编译 `Qolome.Devtoy.App.csproj`（`Debug\|x64` + `win-x64`，连带 Core）→ `end` |
+| 工程配置 | [`sonar-project.properties`](sonar-project.properties) |
+| 默认流程 | SonarScanner for .NET：`begin` → 编译 `Qolome.Devtoy.App.csproj`（`Debug\|x64` + `win-x64`）→ `end` |
 | 为何不编 `.slnx` | 当前 `Qolome.Devtoy.slnx` 无 `Debug\|x64` 解决方案配置，会报 `MSB4126` |
-| CLI 回退 | `.\scripts\sonar-scan.ps1 -ScannerCli`（依赖 `SONAR_SCANNER_HOME`；C# 分析可能不完整） |
+| CLI 回退 | `.\scripts\sonar-scan.ps1 -ScannerCli`（依赖 `SONAR_SCANNER_HOME`） |
 | 失败残留 | `Remove-Item -Recurse -Force .\.sonarqube` 后重跑 |
-| 徽章 | Quality Gate 徽章需工程徽章 token（`sqb_…`）；具备权限后可用 `qolome-cli` 写入本小节 |
+
+勿将 Sonar 分析 Token 或徽章 Token 写入仓库。
 
 ## 关于
 
@@ -184,7 +176,7 @@ cd E:\workspace\webfx-workspace\qolome-devtoy
 ## 常用命令
 
 ```powershell
-cd E:\workspace\webfx-workspace\qolome-devtoy
+# 在仓库根目录执行
 
 # 编译（与 Sonar 脚本一致）
 dotnet build src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -c Debug -p:Platform=x64 -r win-x64
@@ -227,23 +219,20 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 | MSIX | 可侧载安装 / 卸载 |
 | Inno Setup | 安装向导 + 卸载项 |
 
-签名与 `qolome_epsims_app` 共用企业 PFX 时使用 `-RequireSigning`。
+配置 `scripts/signing_env.ps1` 与企业 PFX 后，打包可使用 `-RequireSigning`（见 [packaging/README.md](packaging/README.md)）。
 
-## 关联仓库
+## 关联项目
 
-| 仓库 | 路径（本机示例） | 关系 |
-| --- | --- | --- |
-| 后端 / codegen 参考 | `E:\workspace\cloud-workspace`（`qolome-codegen`） | 生成逻辑与 `.vm` 对齐来源；字典表 `qolome_dict_*` |
-| Web / 字典包 | `E:\workspace\webfx-workspace`（如 `qolome-webfx-dict`） | TS 字典消费方 |
-| 局域网工具（独立） | `E:\workspace\net-workspace\qolome-nets` | 网络功能源码来源；与 DevToy **数据目录分离** |
-| 本工具 | `E:\workspace\webfx-workspace\qolome-devtoy` | 当前仓库 |
-
-跨仓联调上下文见 webfx 仓 `.cursor/qolome-sibling-workspaces.md`（由 `qolome-cli scan` 维护）。
+| 项目 | 关系 |
+| --- | --- |
+| `qolome-codegen` | 代码生成逻辑与 `.vm` 模板对齐参考；字典表 `qolome_dict_*` |
+| `qolome-nets` | 局域网功能源码来源（本仓为内嵌副本，与独立安装版 **数据目录分离**） |
+| `qolome-webfx-dict` | TypeScript 字典消费方示例 |
 
 ## 贡献与版本控制
 
 - 勿提交 `bin/`、`obj/`、`dist/`、`.sonarqube/`、`*.pfx`、`signing.properties`；规则见根目录 **[.gitignore](.gitignore)**
-- 勿把 `SONAR_TOKEN`、签名口令等写入仓库或 README（徽章用的 `sqb_…` 可公开）
+- 勿把 `SONAR_TOKEN`、签名口令、PFX 等凭据写入仓库
 - 版本号变更时请同步：
   - `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>`
   - `sonar-project.properties` 的 `sonar.projectVersion`

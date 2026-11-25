@@ -1,4 +1,4 @@
-﻿# Qolome Devtoy 一键打包：便携 ZIP / MSIX / Inno Setup（企业代码签名对齐 qolome_epsims_app）
+﻿# Qolome Devtoy 一键打包：便携 ZIP / MSIX / Inno Setup（可选企业代码签名）
 # 用法:
 #   .\packaging\package.ps1                    # 全部
 #   .\packaging\package.ps1 -Target Zip

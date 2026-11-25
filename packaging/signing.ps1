@@ -1,21 +1,21 @@
-﻿# 复用 qolome_epsims_app 统一签名（signing.properties + JfondaCodeSign.pfx）
+﻿# 企业代码签名（signing.properties + PFX）
 # 用法: . .\packaging\signing.ps1
 
 $ErrorActionPreference = "Stop"
 
 $PackagingDir = $PSScriptRoot
 $RepoRoot = Split-Path -Parent $PackagingDir
-$WorkspaceRoot = Split-Path -Parent $RepoRoot
-$EpsimsSigningEnv = Join-Path $WorkspaceRoot "qolome_epsims_app\scripts\signing_env.ps1"
+$LocalSigningEnv = Join-Path $RepoRoot "scripts\signing_env.ps1"
 
-if (-not (Test-Path $EpsimsSigningEnv)) {
+if (-not (Test-Path $LocalSigningEnv)) {
     throw @"
-未找到统一签名脚本: $EpsimsSigningEnv
-请确保兄弟仓 qolome_epsims_app 存在，或设置 QOLOME_SIGNING_PROPERTIES 后在本仓复制 scripts/signing_env.ps1。
+未找到签名脚本: $LocalSigningEnv
+请参照 config/signing.example.properties 配置，并实现 scripts/signing_env.ps1，
+或设置环境变量 QOLOME_SIGNING_PROPERTIES 指向属性文件路径。
 "@
 }
 
-. $EpsimsSigningEnv
+. $LocalSigningEnv
 
 # 与 Package.appxmanifest / pubspec msix_config.publisher 一致
 $script:DevtoyExpectedPublisher = $script:ExpectedWindowsPublisher
