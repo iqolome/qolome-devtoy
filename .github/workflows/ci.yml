@@ -28,3 +28,10 @@ jobs:
       - name: Package (unsigned)
         shell: pwsh
         run: .\packaging\package.ps1 -SkipSigning -Target Zip
+
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: qolome-devtoy-portable-unsigned
+          path: dist/release/Qolome.Devtoy_*_win-x64_portable.zip
+          if-no-files-found: error

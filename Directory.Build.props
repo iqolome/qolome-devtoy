@@ -1,0 +1,7 @@
+<Project>
+  <!-- 覆盖传递依赖的已知漏洞版本（CI NU1902/NU1903） -->
+  <ItemGroup>
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+</Project>
