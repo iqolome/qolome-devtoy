@@ -1,82 +1,46 @@
 namespace Qolome_Devtoy_App.Services;
 
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using Qolome.Devtoy.Core.Models;
+using Qolome.Devtoy.Core.Services;
 
-/// <summary>将选中主题写入运行目录 Assets/（供 MSIX 与标题栏使用）。</summary>
+/// <summary>
+/// 运行时图标：直接使用 icons/ 包内文件，避免覆盖进程已锁定的 Assets。
+/// 可选尽力同步到 AppData 缓存（不写 BaseDirectory，避免 MSIX/GDI+ 锁文件失败）。
+/// </summary>
 public static class IconPackWriter
 {
     public static string AssetsRoot => Path.Combine(AppContext.BaseDirectory, "Assets");
 
-    public static void ApplyVariant(string? variantId)
+    public static string CacheRoot => Path.Combine(DevtoyPaths.AppDataRoot, "icon-cache");
+
+    /// <summary>返回可供 SetIcon / 标题栏使用的 .ico 路径（优先包内源文件）。</summary>
+    public static string ApplyVariant(string? variantId)
     {
-        var pngDir = IconPackPaths.GetPngFolder(variantId);
-        if (!Directory.Exists(pngDir))
+        var info = IconVariantInfo.Resolve(variantId);
+        var icoSrc = IconPackPaths.GetAppIcoPath(info.Id);
+        if (!File.Exists(icoSrc))
         {
-            throw new DirectoryNotFoundException("找不到图标 PNG 目录: " + pngDir);
+            throw new FileNotFoundException("找不到应用图标: " + icoSrc, icoSrc);
         }
 
-        Directory.CreateDirectory(AssetsRoot);
-        var master = Path.Combine(pngDir, "icon-1024.png");
-        if (!File.Exists(master))
+        // 复制到用户缓存，避免长期占用源文件句柄；双缓冲文件名，绕过上次 SetIcon 的锁
+        var dir = Path.Combine(CacheRoot, info.Id);
+        Directory.CreateDirectory(dir);
+        var slotA = Path.Combine(dir, "AppIcon-a.ico");
+        var slotB = Path.Combine(dir, "AppIcon-b.ico");
+        var preferA = !File.Exists(slotA)
+            || (File.Exists(slotB) && File.GetLastWriteTimeUtc(slotA) <= File.GetLastWriteTimeUtc(slotB));
+        var dest = preferA ? slotA : slotB;
+        try
         {
-            master = Path.Combine(pngDir, "icon-512.png");
+            File.Copy(icoSrc, dest, overwrite: true);
+            return dest;
         }
-
-        SavePng(Pick(pngDir, "icon-48.png"), Path.Combine(AssetsRoot, "StoreLogo.png"), 50, 50);
-        SavePng(Pick(pngDir, "icon-24.png"), Path.Combine(AssetsRoot, "Square44x44Logo.targetsize-24_altform-unplated.png"), 24, 24);
-        SavePng(Pick(pngDir, "icon-48.png"), Path.Combine(AssetsRoot, "Square44x44Logo.targetsize-48_altform-lightunplated.png"), 48, 48);
-        SavePng(Pick(pngDir, "icon-96.png"), Path.Combine(AssetsRoot, "LockScreenLogo.scale-200.png"), 96, 96);
-        SavePng(Pick(pngDir, "icon-96.png"), Path.Combine(AssetsRoot, "Square44x44Logo.scale-200.png"), 88, 88);
-        SavePng(master, Path.Combine(AssetsRoot, "Square150x150Logo.scale-200.png"), 300, 300);
-        SavePng(master, Path.Combine(AssetsRoot, "SplashScreen.scale-200.png"), 620, 620);
-        SaveWide(master, Path.Combine(AssetsRoot, "Wide310x150Logo.scale-200.png"), 620, 300);
-
-        var icoSrc = IconPackPaths.GetAppIcoPath(variantId);
-        File.Copy(icoSrc, Path.Combine(AssetsRoot, "AppIcon.ico"), overwrite: true);
-    }
-
-    private static string Pick(string dir, string fileName)
-    {
-        var path = Path.Combine(dir, fileName);
-        if (File.Exists(path))
+        catch (IOException)
         {
-            return path;
+            dest = preferA ? slotB : slotA;
+            File.Copy(icoSrc, dest, overwrite: true);
+            return dest;
         }
-
-        throw new FileNotFoundException("缺少图标文件", path);
-    }
-
-    private static void SavePng(string sourcePath, string destPath, int width, int height)
-    {
-        using var bmp = new Bitmap(sourcePath);
-        using var dest = new Bitmap(width, height);
-        using var g = Graphics.FromImage(dest);
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        g.SmoothingMode = SmoothingMode.HighQuality;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        g.Clear(Color.Transparent);
-        g.DrawImage(bmp, 0, 0, width, height);
-        dest.Save(destPath, ImageFormat.Png);
-    }
-
-    private static void SaveWide(string sourcePath, string destPath, int width, int height)
-    {
-        using var bmp = new Bitmap(sourcePath);
-        using var dest = new Bitmap(width, height);
-        using var g = Graphics.FromImage(dest);
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        g.SmoothingMode = SmoothingMode.HighQuality;
-        g.Clear(Color.Transparent);
-        var side = Math.Min(bmp.Width, bmp.Height);
-        var scale = Math.Min(height / (double)side, width * 0.45 / side);
-        var w = (int)(side * scale);
-        var h = (int)(side * scale);
-        var x = (width - w) / 2;
-        var y = (height - h) / 2;
-        g.DrawImage(bmp, x, y, w, h);
-        dest.Save(destPath, ImageFormat.Png);
     }
 }

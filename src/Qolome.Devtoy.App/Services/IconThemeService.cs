@@ -68,8 +68,7 @@ public sealed class IconThemeService
 
         try
         {
-            IconPackWriter.ApplyVariant(info.Id);
-            var icoPath = Path.Combine(IconPackWriter.AssetsRoot, "AppIcon.ico");
+            var icoPath = IconPackWriter.ApplyVariant(info.Id);
             _window?.AppWindow.SetIcon(icoPath);
             _window?.SetTitleBarIcon(icoPath);
             _appliedVariantId = info.Id;
