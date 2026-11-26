@@ -233,7 +233,9 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 
 - 勿提交 `bin/`、`obj/`、`dist/`、`.sonarqube/`、`*.pfx`、`signing.properties`；规则见根目录 **[.gitignore](.gitignore)**
 - 勿把 `SONAR_TOKEN`、签名口令、PFX 等凭据写入仓库
-- 版本号变更时请同步：
-  - `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>`
-  - `sonar-project.properties` 的 `sonar.projectVersion`
-  - 本 README 顶部 Version 徽章
+- 版本号变更请用脚本一键同步（**GitHub / GitLab 同一脚本**；csproj / MSIX / Sonar / README / Inno 等，**不含** NuGet 依赖版本；缺文件自动跳过）：
+  ```powershell
+  .\scripts\bump-version.ps1 -Bump patch          # 或 -Bump minor / major
+  .\scripts\bump-version.ps1 -Version 1.2.0       # 或指定版本（不要写 v）
+  .\scripts\bump-version.ps1 -Bump patch -DryRun  # 只预览
+  ```
