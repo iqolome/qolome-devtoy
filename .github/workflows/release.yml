@@ -1,7 +1,7 @@
 # 企业代码签名发布：仅在 GitHub Actions 中执行（免费 windows 分钟额度）
 # 触发：打 tag v*，或手动 workflow_dispatch
 name: Release
-environment: release-dev
+
 on:
   push:
     tags: ["v*"]
@@ -20,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+    environment: release-dev
   package-signed:
     runs-on: windows-latest
     steps:
