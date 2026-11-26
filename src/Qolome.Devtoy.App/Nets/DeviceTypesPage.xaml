@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:data="using:Qolome.Nets.Core.Data"
     xmlns:local="using:Qolome.Nets.App"
-    xmlns:vm="using:Qolome.Nets.App.ViewModels">
+    xmlns:vm="using:Qolome.Nets.App.ViewModels"
+    xmlns:helpers="using:Qolome_Devtoy_App.Helpers">
 
     <Page.Resources>
         <CollectionViewSource x:Name="TypesCvs" IsSourceGrouped="True" />
@@ -59,9 +60,17 @@
         <ListView
             x:Name="TypesList"
             Grid.Row="2"
-            SelectedItem="{x:Bind ViewModel.SelectedType, Mode=TwoWay}">
+            SelectedItem="{x:Bind ViewModel.SelectedType, Mode=TwoWay}"
+            Style="{StaticResource DevtoyTableListViewStyle}"
+            helpers:TableListChrome.ColumnLines="True">
             <ListView.Header>
-                <Grid Padding="8,4" ColumnSpacing="12">
+                <Grid
+                    Padding="12,8"
+                    ColumnSpacing="12"
+                    Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                    BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                    BorderThickness="0,0,0,1"
+                    helpers:TableListChrome.ColumnLines="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="140" />
@@ -76,6 +85,11 @@
                     <TextBlock Grid.Column="4" Text="说明" FontWeight="SemiBold" />
                 </Grid>
             </ListView.Header>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                    <Setter Property="Padding" Value="12,6" />
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.GroupStyle>
                 <GroupStyle HidesIfEmpty="True">
                     <GroupStyle.HeaderTemplate>

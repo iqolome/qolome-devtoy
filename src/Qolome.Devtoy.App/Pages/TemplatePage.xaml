@@ -60,7 +60,8 @@
                 Grid.Row="1"
                 x:Name="TemplateList"
                 SelectionMode="Single"
-                SelectionChanged="OnTemplateSelectionChanged">
+                SelectionChanged="OnTemplateSelectionChanged"
+                Style="{StaticResource DevtoyTableListViewStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Spacing="2" Padding="0,4">

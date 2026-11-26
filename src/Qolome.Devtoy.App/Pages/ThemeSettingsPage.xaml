@@ -35,7 +35,48 @@
                         BorderThickness="1" />
                 </StackPanel>
             </Grid>
-            <Button Click="OnSave" Margin="120,4,0,0" HorizontalAlignment="Left">
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Text="性能" FontWeight="SemiBold" />
+                </Expander.Header>
+                <StackPanel Margin="0,8,0,0" Spacing="12">
+                    <ToggleSwitch
+                        x:Name="HardwareAccelSwitch"
+                        Header="硬件加速（GPU 合成）"
+                        OffContent="关"
+                        OnContent="开"
+                        Toggled="OnHardwareAccelToggled" />
+                    <TextBlock
+                        Text="开启时优先 Composition/GPU 合成；关闭会降级表格附加可视层以减轻驱动压力（WinUI 无法完全退回纯软件渲染）。"
+                        TextWrapping="Wrap"
+                        Opacity="0.7"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                    <ToggleSwitch
+                        x:Name="ParallelCollectorsSwitch"
+                        Header="多核并行采集"
+                        OffContent="关"
+                        OnContent="开"
+                        Toggled="OnParallelCollectorsToggled" />
+                    <TextBlock
+                        Text="本机信息等采集任务并行读取 WMI/netsh，充分利用多核。"
+                        TextWrapping="Wrap"
+                        Opacity="0.7"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                    <ToggleSwitch
+                        x:Name="RichTableSwitch"
+                        Header="表格富视觉（奇偶行 / 列分割线）"
+                        OffContent="关"
+                        OnContent="开"
+                        Toggled="OnRichTableToggled" />
+                    <TextBlock
+                        Text="关闭可减少列表可视元素数量；硬件加速关闭时自动降级。"
+                        TextWrapping="Wrap"
+                        Opacity="0.7"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Expander>
+
+            <Button Click="OnSave" Margin="0,4,0,0" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
                         <SymbolIcon Symbol="Save" />

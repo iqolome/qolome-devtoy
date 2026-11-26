@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:helpers="using:Qolome_Devtoy_App.Helpers"
     mc:Ignorable="d">
     <Grid>
         <Grid
@@ -109,109 +110,103 @@
             SelectionChanged="OnModuleTabChanged">
             <TabView.TabItems>
                 <TabViewItem x:Name="ActiveTab" Header="项目列表" IsClosable="False">
-                    <Grid Padding="0,8,0,0" RowSpacing="0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <Grid
-                            Grid.Row="0"
-                            x:Name="ModuleHeaderRow"
-                            Margin="0,0,0,8"
-                            HorizontalAlignment="Stretch">
-                            <Grid
-                                x:Name="ModuleHeaderGrid"
-                                ColumnSpacing="8"
-                                HorizontalAlignment="Stretch">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="*" MinWidth="72" />
-                                    <ColumnDefinition Width="96" MinWidth="64" />
-                                    <ColumnDefinition Width="2*" MinWidth="96" />
-                                    <ColumnDefinition Width="72" MinWidth="48" />
-                                    <ColumnDefinition Width="72" MinWidth="48" />
-                                    <ColumnDefinition Width="120" MinWidth="100" />
-                                    <ColumnDefinition Width="132" MinWidth="110" />
-                                    <ColumnDefinition Width="132" MinWidth="110" />
-                                    <ColumnDefinition Width="240" MinWidth="200" />
-                                </Grid.ColumnDefinitions>
-                                <CheckBox
-                                    x:Name="HeaderSelectAll"
-                                    MinWidth="0"
-                                    IsThreeState="True"
-                                    VerticalAlignment="Center"
-                                    ToolTipService.ToolTip="全选 / 取消全选"
-                                    Checked="OnSelectAllChanged"
-                                    Unchecked="OnSelectAllChanged" />
-                                <Button
-                                    x:Name="SortProjectName"
-                                    Grid.Column="1"
-                                    Tag="ProjectName"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="项目名称" />
-                                <Button
-                                    x:Name="SortWorkspace"
-                                    Grid.Column="2"
-                                    Tag="Workspace"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="所属工作区" />
-                                <Button
-                                    x:Name="SortPath"
-                                    Grid.Column="3"
-                                    Tag="ModulePath"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="路径" />
-                                <Button
-                                    x:Name="SortType"
-                                    Grid.Column="4"
-                                    Tag="Type"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="类型" />
-                                <Button
-                                    x:Name="SortVersion"
-                                    Grid.Column="5"
-                                    Tag="Version"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="版本号" />
-                                <TextBlock Grid.Column="6" Text="标签" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <Button
-                                    x:Name="SortCreateTime"
-                                    Grid.Column="7"
-                                    Tag="CreateTime"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="创建时间" />
-                                <Button
-                                    x:Name="SortModifyTime"
-                                    Grid.Column="8"
-                                    Tag="ModifyTime"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="修改时间" />
-                                <TextBlock Grid.Column="9" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </Grid>
-                            <Border
-                                VerticalAlignment="Bottom"
-                                HorizontalAlignment="Stretch"
-                                Height="1"
-                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                IsHitTestVisible="False" />
-                        </Grid>
-                        <ListView
-                            Grid.Row="1"
+                    <ListView
                             x:Name="ModuleList"
+                            Margin="0,8,0,0"
                             SelectionMode="Extended"
-                            SelectionChanged="OnSelectionChanged">
+                            SelectionChanged="OnSelectionChanged"
+                            Style="{StaticResource DevtoyTableListViewStyle}"
+                            helpers:TableListChrome.ColumnLines="True">
+                            <ListView.Header>
+                                <Grid
+                                    x:Name="ModuleHeaderRow"
+                                    Padding="12,8"
+                                    HorizontalAlignment="Stretch"
+                                    Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                                    BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                                    BorderThickness="0,0,0,1">
+                                    <Grid
+                                        x:Name="ModuleHeaderGrid"
+                                        ColumnSpacing="8"
+                                        HorizontalAlignment="Stretch"
+                                        helpers:TableListChrome.ColumnLines="True">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="*" MinWidth="72" />
+                                            <ColumnDefinition Width="96" MinWidth="64" />
+                                            <ColumnDefinition Width="2*" MinWidth="96" />
+                                            <ColumnDefinition Width="72" MinWidth="48" />
+                                            <ColumnDefinition Width="72" MinWidth="48" />
+                                            <ColumnDefinition Width="120" MinWidth="100" />
+                                            <ColumnDefinition Width="132" MinWidth="110" />
+                                            <ColumnDefinition Width="132" MinWidth="110" />
+                                            <ColumnDefinition Width="240" MinWidth="200" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox
+                                            x:Name="HeaderSelectAll"
+                                            MinWidth="0"
+                                            IsThreeState="True"
+                                            VerticalAlignment="Center"
+                                            ToolTipService.ToolTip="全选 / 取消全选"
+                                            Checked="OnSelectAllChanged"
+                                            Unchecked="OnSelectAllChanged" />
+                                        <Button
+                                            x:Name="SortProjectName"
+                                            Grid.Column="1"
+                                            Tag="ProjectName"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="项目名称" />
+                                        <Button
+                                            x:Name="SortWorkspace"
+                                            Grid.Column="2"
+                                            Tag="Workspace"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="所属工作区" />
+                                        <Button
+                                            x:Name="SortPath"
+                                            Grid.Column="3"
+                                            Tag="ModulePath"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="路径" />
+                                        <Button
+                                            x:Name="SortType"
+                                            Grid.Column="4"
+                                            Tag="Type"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="类型" />
+                                        <Button
+                                            x:Name="SortVersion"
+                                            Grid.Column="5"
+                                            Tag="Version"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="版本号" />
+                                        <TextBlock Grid.Column="6" Text="标签" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <Button
+                                            x:Name="SortCreateTime"
+                                            Grid.Column="7"
+                                            Tag="CreateTime"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="创建时间" />
+                                        <Button
+                                            x:Name="SortModifyTime"
+                                            Grid.Column="8"
+                                            Tag="ModifyTime"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="修改时间" />
+                                        <TextBlock Grid.Column="9" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Grid>
+                            </ListView.Header>
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                                    <Setter Property="Padding" Value="0,4" />
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                                    <Setter Property="Padding" Value="12,4" />
                                 </Style>
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
@@ -373,111 +368,104 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                    </Grid>
                 </TabViewItem>
 
                 <TabViewItem x:Name="IgnoredTab" Header="忽略列表" IsClosable="False">
-                    <Grid Padding="0,8,0,0" RowSpacing="0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <Grid
-                            Grid.Row="0"
-                            x:Name="IgnoredHeaderRow"
-                            Margin="0,0,0,8"
-                            HorizontalAlignment="Stretch">
-                            <Grid
-                                x:Name="IgnoredHeaderGrid"
-                                ColumnSpacing="8"
-                                HorizontalAlignment="Stretch">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="*" MinWidth="80" />
-                                    <ColumnDefinition Width="96" MinWidth="72" />
-                                    <ColumnDefinition Width="2*" MinWidth="120" />
-                                    <ColumnDefinition Width="72" MinWidth="56" />
-                                    <ColumnDefinition Width="72" MinWidth="56" />
-                                    <ColumnDefinition Width="132" MinWidth="110" />
-                                    <ColumnDefinition Width="132" MinWidth="110" />
-                                    <ColumnDefinition Width="200" MinWidth="180" />
-                                </Grid.ColumnDefinitions>
-                                <CheckBox
-                                    x:Name="IgnoredHeaderSelectAll"
-                                    MinWidth="0"
-                                    IsThreeState="True"
-                                    VerticalAlignment="Center"
-                                    ToolTipService.ToolTip="全选 / 取消全选"
-                                    Checked="OnIgnoredSelectAllChanged"
-                                    Unchecked="OnIgnoredSelectAllChanged" />
-                                <Button
-                                    x:Name="IgnoredSortProjectName"
-                                    Grid.Column="1"
-                                    Tag="ProjectName"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="项目名称" />
-                                <Button
-                                    x:Name="IgnoredSortWorkspace"
-                                    Grid.Column="2"
-                                    Tag="Workspace"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="所属工作区" />
-                                <Button
-                                    x:Name="IgnoredSortPath"
-                                    Grid.Column="3"
-                                    Tag="ModulePath"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="路径" />
-                                <Button
-                                    x:Name="IgnoredSortType"
-                                    Grid.Column="4"
-                                    Tag="Type"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="类型" />
-                                <Button
-                                    x:Name="IgnoredSortVersion"
-                                    Grid.Column="5"
-                                    Tag="Version"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="版本号" />
-                                <Button
-                                    x:Name="IgnoredSortCreateTime"
-                                    Grid.Column="6"
-                                    Tag="CreateTime"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="创建时间" />
-                                <Button
-                                    x:Name="IgnoredSortModifyTime"
-                                    Grid.Column="7"
-                                    Tag="ModifyTime"
-                                    Click="OnSortColumn"
-                                    Style="{StaticResource SortHeaderButtonStyle}"
-                                    Content="修改时间" />
-                                <TextBlock Grid.Column="8" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </Grid>
-                            <Border
-                                VerticalAlignment="Bottom"
-                                HorizontalAlignment="Stretch"
-                                Height="1"
-                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                IsHitTestVisible="False" />
-                        </Grid>
-                        <ListView
-                            Grid.Row="1"
+                    <ListView
                             x:Name="IgnoredList"
+                            Margin="0,8,0,0"
                             SelectionMode="Extended"
-                            SelectionChanged="OnIgnoredSelectionChanged">
+                            SelectionChanged="OnIgnoredSelectionChanged"
+                            Style="{StaticResource DevtoyTableListViewStyle}"
+                            helpers:TableListChrome.ColumnLines="True">
+                            <ListView.Header>
+                                <Grid
+                                    x:Name="IgnoredHeaderRow"
+                                    Padding="12,8"
+                                    HorizontalAlignment="Stretch"
+                                    Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                                    BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                                    BorderThickness="0,0,0,1">
+                                    <Grid
+                                        x:Name="IgnoredHeaderGrid"
+                                        ColumnSpacing="8"
+                                        HorizontalAlignment="Stretch"
+                                        helpers:TableListChrome.ColumnLines="True">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="*" MinWidth="80" />
+                                            <ColumnDefinition Width="96" MinWidth="72" />
+                                            <ColumnDefinition Width="2*" MinWidth="120" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="72" MinWidth="56" />
+                                            <ColumnDefinition Width="132" MinWidth="110" />
+                                            <ColumnDefinition Width="132" MinWidth="110" />
+                                            <ColumnDefinition Width="200" MinWidth="180" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox
+                                            x:Name="IgnoredHeaderSelectAll"
+                                            MinWidth="0"
+                                            IsThreeState="True"
+                                            VerticalAlignment="Center"
+                                            ToolTipService.ToolTip="全选 / 取消全选"
+                                            Checked="OnIgnoredSelectAllChanged"
+                                            Unchecked="OnIgnoredSelectAllChanged" />
+                                        <Button
+                                            x:Name="IgnoredSortProjectName"
+                                            Grid.Column="1"
+                                            Tag="ProjectName"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="项目名称" />
+                                        <Button
+                                            x:Name="IgnoredSortWorkspace"
+                                            Grid.Column="2"
+                                            Tag="Workspace"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="所属工作区" />
+                                        <Button
+                                            x:Name="IgnoredSortPath"
+                                            Grid.Column="3"
+                                            Tag="ModulePath"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="路径" />
+                                        <Button
+                                            x:Name="IgnoredSortType"
+                                            Grid.Column="4"
+                                            Tag="Type"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="类型" />
+                                        <Button
+                                            x:Name="IgnoredSortVersion"
+                                            Grid.Column="5"
+                                            Tag="Version"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="版本号" />
+                                        <Button
+                                            x:Name="IgnoredSortCreateTime"
+                                            Grid.Column="6"
+                                            Tag="CreateTime"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="创建时间" />
+                                        <Button
+                                            x:Name="IgnoredSortModifyTime"
+                                            Grid.Column="7"
+                                            Tag="ModifyTime"
+                                            Click="OnSortColumn"
+                                            Style="{StaticResource SortHeaderButtonStyle}"
+                                            Content="修改时间" />
+                                        <TextBlock Grid.Column="8" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Grid>
+                            </ListView.Header>
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                                    <Setter Property="Padding" Value="0,4" />
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                                    <Setter Property="Padding" Value="12,4" />
                                 </Style>
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
@@ -570,7 +558,6 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                    </Grid>
                 </TabViewItem>
             </TabView.TabItems>
         </TabView>

@@ -351,11 +351,11 @@
                     AllowDrop="False"
                     DoubleTapped="DeviceList_DoubleTapped"
                     ItemsSource="{x:Bind ViewModel.Devices}"
-                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}">
+                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
+                    Style="{StaticResource DevtoyTableListViewStyle}">
                     <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
                             <Setter Property="CanDrag" Value="True" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>

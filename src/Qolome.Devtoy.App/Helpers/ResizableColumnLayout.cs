@@ -46,13 +46,26 @@ public sealed class ResizableColumnLayout
     {
         _header = headerGrid;
         _list = listView;
-        _measureHost = headerGrid.Parent as FrameworkElement ?? headerGrid;
+        // 以表头列网格自身宽度为准（勿用外层带 Padding 的父级，否则列宽会偏大导致错位）
+        _measureHost = headerGrid;
         _measureHost.SizeChanged += OnMeasureHostSizeChanged;
         _list.ContainerContentChanging += OnContainerContentChanging;
         _list.RegisterPropertyChangedCallback(ItemsControl.ItemsSourceProperty, (_, _) => RefreshAllRows());
         _list.Loaded += (_, _) => ApplyAll();
         BuildGripOverlay();
         TryMeasure();
+    }
+
+    private double GetContentWidth()
+    {
+        if (_header is null || _header.ActualWidth <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Max(
+            0,
+            _header.ActualWidth - _header.Padding.Left - _header.Padding.Right);
     }
 
     private void BuildGripOverlay()
@@ -123,7 +136,8 @@ public sealed class ResizableColumnLayout
 
     private void TryMeasure()
     {
-        if (_applying || _measureHost is null || _measureHost.ActualWidth <= 0)
+        var contentWidth = GetContentWidth();
+        if (_applying || contentWidth <= 0)
         {
             return;
         }
@@ -131,12 +145,12 @@ public sealed class ResizableColumnLayout
         var before = _widths.ToArray();
         if (!_measured)
         {
-            DistributeInitial(_measureHost.ActualWidth);
+            DistributeInitial(contentWidth);
             _measured = true;
         }
         else if (_dragIndex < 0)
         {
-            BalanceToWidth(_measureHost.ActualWidth);
+            BalanceToWidth(contentWidth);
         }
 
         if (_measured && WidthsEqual(before, _widths) && _dragIndex < 0)

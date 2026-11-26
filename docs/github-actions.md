@@ -11,7 +11,7 @@ GitHub 提供免费的 `windows-latest` 托管 Runner（公开仓分钟额度较
 
 ### Release（`.github/workflows/release.yml`）
 
-- 触发：推送标签 `v*`（如 `v1.0.0`），或仓库 **Actions → Release → Run workflow**
+- 触发：推送标签 `v*`（如 `v1.1.0`），或仓库 **Actions → Release → Run workflow**
 - 安装：Inno Setup、OpenSSL（便携 ZIP 的 CMS 签名）
 - 执行：`packaging/package.ps1 -RequireSigning`
 - 产出：上传 `dist/release/*` 为 Artifact；打 tag 时另建 GitHub Release
@@ -31,8 +31,14 @@ GitHub 提供免费的 `windows-latest` 托管 Runner（公开仓分钟额度较
 ## 发版流程
 
 ```powershell
-git tag v1.0.0
-git push github v1.0.0
+.\scripts\bump-version.ps1 -Bump minor   # 或 -Version x.y.z
+git add -A
+git commit -m "release: v1.1.0"
+git tag v1.1.0
+git push github HEAD:github
+git push github v1.1.0
+git push origin HEAD:develop             # GitLab；若历史分叉需协商合并后再推
+git push origin v1.1.0
 ```
 
 在 Actions 页等待 **Release** 完成，从 Release 或 Artifacts 下载 ZIP / MSIX / Setup。

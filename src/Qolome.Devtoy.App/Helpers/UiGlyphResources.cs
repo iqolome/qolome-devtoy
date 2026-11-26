@@ -49,17 +49,8 @@ public static class UiGlyphResources
         IconBox = font;
         FluentIconFontSize = Math.Max(DefaultFluentIconFontSize, font + 4);
 
-        if (Application.Current?.Resources is not ResourceDictionary resources)
-        {
-            return;
-        }
-
-        resources[FontSizeKey] = font;
-        resources[FluentIconFontSizeKey] = FluentIconFontSize;
-        resources[IconBoxKey] = font;
-        resources[TextStyleKey] = CreateTextStyle(font);
-        resources[IconStyleKey] = CreateIconStyle();
-
+        // 字号资源已在 App.xaml 定义；启动时不再写入 ResourceDictionary，
+        // 避免 WinRT IMap.Insert 的 first-chance / 0x80004005 打断启动。
         if (App.TryGetWindow()?.Content is DependencyObject root)
         {
             RefreshDescendants(root);
@@ -96,22 +87,6 @@ public static class UiGlyphResources
                 FontFamily = new FontFamily("Segoe Fluent Icons"),
             },
         };
-    }
-
-    private static Style CreateTextStyle(double fontSize)
-    {
-        var style = new Style(typeof(TextBlock));
-        style.Setters.Add(new Setter(TextBlock.FontSizeProperty, fontSize));
-        style.Setters.Add(new Setter(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center));
-        return style;
-    }
-
-    private static Style CreateIconStyle()
-    {
-        // 不设 Width/Height：由 Viewbox / FontSize / ScaleTransform 负责缩放
-        var style = new Style(typeof(SymbolIcon));
-        style.Setters.Add(new Setter(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center));
-        return style;
     }
 
     private static void RefreshDescendants(DependencyObject node)

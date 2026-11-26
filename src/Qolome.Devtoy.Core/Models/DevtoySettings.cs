@@ -66,6 +66,18 @@ public sealed class DevtoySettings
     public bool ShowConsole { get; set; } = true;
 
     /// <summary>
+    /// 硬件加速（Composition/GPU 合成）。关闭后会降级表格附加可视层以减轻 GPU/驱动负担；
+    /// WinUI 无法完全退回纯软件渲染。
+    /// </summary>
+    public bool HardwareAcceleration { get; set; } = true;
+
+    /// <summary>本机信息等采集任务使用多核并行。</summary>
+    public bool ParallelCollectors { get; set; } = true;
+
+    /// <summary>表格奇偶行/列分割线等富视觉（依赖硬件加速开启时才完整生效）。</summary>
+    public bool RichTableChrome { get; set; } = true;
+
+    /// <summary>
     /// 已添加的工作区根目录（可叠加多个；扫描时合并模块）。
     /// 持久化于本机 <c>devtoy_workspace</c>，不写入 settings JSON。
     /// </summary>

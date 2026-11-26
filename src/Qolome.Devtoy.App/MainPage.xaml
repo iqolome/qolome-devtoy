@@ -62,6 +62,11 @@
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE774;" />
                     </NavigationViewItem.Icon>
                     <NavigationViewItem.MenuItems>
+                        <NavigationViewItem Content="本机信息" Tag="NetsHostInfo">
+                            <NavigationViewItem.Icon>
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE950;" />
+                            </NavigationViewItem.Icon>
+                        </NavigationViewItem>
                         <NavigationViewItem Content="扫描" Tag="NetsScan">
                             <NavigationViewItem.Icon>
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE88A;" />

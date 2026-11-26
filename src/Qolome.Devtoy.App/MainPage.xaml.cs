@@ -66,6 +66,7 @@ public sealed partial class MainPage : Page
             "ConfigDataSource" => typeof(DataSourcePage),
             "ConfigTemplates" => typeof(TemplatePage),
             "ConfigImportExport" => typeof(ImportExportPage),
+            "NetsHostInfo" => typeof(HostInfoPage),
             "NetsScan" => typeof(Qolome.Nets.App.MainPage),
             "NetsDevices" => typeof(DevicesPage),
             "NetsTopology" => typeof(TopologyPage),

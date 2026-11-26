@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:data="using:Qolome.Nets.Core.Data"
     xmlns:local="using:Qolome.Nets.App"
-    xmlns:vm="using:Qolome.Nets.App.ViewModels">
+    xmlns:vm="using:Qolome.Nets.App.ViewModels"
+    xmlns:helpers="using:Qolome_Devtoy_App.Helpers">
 
     <Grid Padding="16" RowSpacing="10">
         <Grid.RowDefinitions>
@@ -78,16 +79,25 @@
             VerticalScrollBarVisibility="Disabled"
             VerticalScrollMode="Disabled">
             <Grid MinWidth="{x:Bind vm:DeviceListLayout.Shared.TotalWidth, Mode=OneWay}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                <ListView
+                    x:Name="DevicesList"
+                    ItemsSource="{x:Bind ViewModel.Devices}"
+                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
+                    SelectionMode="Extended"
+                    DoubleTapped="Devices_DoubleTapped"
+                    KeyDown="Devices_KeyDown"
+                    Style="{StaticResource DevtoyTableListViewStyle}"
+                    helpers:TableListChrome.ColumnLines="True"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ScrollViewer.HorizontalScrollMode="Disabled">
+                    <ListView.Header>
                 <Grid
                     Padding="12,8"
                     ColumnSpacing="0"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="0,0,0,1">
+                    Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                    BorderBrush="{ThemeResource DevtoyTableBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    helpers:TableListChrome.ColumnLines="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CodeLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.TypeLength, Mode=OneWay}" />
@@ -246,19 +256,9 @@
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
                 </Grid>
-                <ListView
-                    x:Name="DevicesList"
-                    Grid.Row="1"
-                    ItemsSource="{x:Bind ViewModel.Devices}"
-                    SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
-                    SelectionMode="Extended"
-                    DoubleTapped="Devices_DoubleTapped"
-                    KeyDown="Devices_KeyDown"
-                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    ScrollViewer.HorizontalScrollMode="Disabled">
+                    </ListView.Header>
                     <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
                             <Setter Property="Padding" Value="12,4" />
                         </Style>
                     </ListView.ItemContainerStyle>

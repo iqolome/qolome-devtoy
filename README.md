@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![WinUI](https://img.shields.io/badge/UI-WinUI%203-0078D4.svg)](https://learn.microsoft.com/windows/apps/winui/)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj)
 
 独立 Windows 开发者工具（**WinUI 3 / .NET 10**），对齐 `cloud-workspace/qolome-codegen` IDEA 插件能力，并内嵌局域网扫描 / 资产库存（代码自 `qolome-nets` 复制，两仓独立演进）。目标：**更独立、更现代 UI、更好性能**（纯 C# 代码生成，不依赖 JVM）。
 
@@ -33,7 +33,7 @@
 | **开发商** | Qolome |
 | **官网** | [https://qolome.com/](https://qolome.com/) |
 | **许可协议** | [Apache License 2.0](LICENSE) |
-| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.0.0`） |
+| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.1.0`） |
 
 应用内 **关于** 页可查看版本、服务协议与链接。
 
@@ -93,7 +93,7 @@
 | `src/Qolome.Devtoy.App/Nets/` | 网络工具 UI（自 `qolome-nets` 复制，命名空间 `Qolome.Nets.App`）及 DeviceTypes / Oui / Topology 资源 |
 | `src/Qolome.Devtoy.App/Assets/Fonts/` | **Fluent UI System Icons** 字体（`Regular` / `Filled`），侧栏等 `FontIcon` 使用 |
 | `src/Qolome.Devtoy.Core` | 业务核心：模块扫描、本机配置（SQLite）、ADO 数据源、字典、`CodegenEngine`（纯 C#） |
-| `src/Qolome.Nets.Core` | 网络扫描 / 库存 / 拓扑（读写远程业务库；自 `qolome-nets` 复制并适配） |
+| `src/Qolome.Nets.Core` | 网络扫描 / 库存 / 拓扑；本机网卡与硬件采集（`LocalNicInventory` / `LocalHardwareInventory` / 出口网络查询；读写远程业务库；自 `qolome-nets` 复制并适配） |
 | `templates/` | 默认 Velocity 模板（`.vm`），可复制到本机后在「模板管理」编辑 |
 | `sql/` | 初始化 DDL（如 `qolome_devtoy_mysql_init.sql`，字典表为 `qolome_dict_*`） |
 | `icons/` | 应用图标 variant；`icons/svg/` 备用 SVG 资源 |
@@ -117,11 +117,12 @@
 | 开发工具 | **字典管理** | 读写远程 `qolome_dict_*`、按编码/名称查询、增删改、排序、逻辑删除（**二次确认**，删除钮为红色）、字典值维护；可生成 Java 枚举 / TS 字典 |
 | 开发工具 | **项目管理** | **多工作区叠加**扫描 + 指定工程；类型 **Java / Web / Flutter**；标签；忽略列表；列排序（含创建/修改时间）；名称 / 类型 / 标签筛选 |
 | 开发工具 | **图标库** | 浏览 Segoe Fluent Icons；可筛 **仅 Symbol 枚举**；优先复制 `Symbol.Xxx`，否则 `\uXXXX` |
-| 配置管理 | **主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**（跟随系统时锁定，随系统明暗切换） |
+| 配置管理 | **主题设置** | **界面主题**（跟随系统 / 浅色 / 深色）；**图标主题**；**性能**（硬件加速 / GPU 合成、采集并行、表格富视觉） |
 | 配置管理 | **代码生成配置** | 可折叠分栏：基本信息 / Enum / Dao / TypeScript；Dao 含 `entitySuperClass`、包名与审计字段、`IdType` |
 | 配置管理 | **数据源设置** | 多库种、测试连接；**生成初始化 SQL** / **初始化**；保存后准备远程业务库 Schema |
 | 配置管理 | **模板管理** | 从仓库默认 `.vm` 复制到本机，可编辑 / 还原 |
 | 配置管理 | **导入导出** | 本机配置 SQL（`devtoy_doc` / `devtoy_workspace` / `devtoy_module`）导入 / 导出 |
+| 网络工具 | **本机信息** | **硬件信息**（设备 / CPU / 内存 / OS / 硬盘类型 / 显卡与显存）；**网络信息**（出口 IPv4/IPv6、ASN、ISP、位置）；**网卡信息**（连接名 / SSID、类型、速率、IP、网关、MAC；启用 / 禁用 / 删除软网卡） |
 | 网络工具 | **扫描** | 本机网卡 / CIDR / IP 段主机发现、TCP·UDP 端口、ICMP；勾选写入远程库存 |
 | 网络工具 | **设备列表** | 按网络环境管理设备、分组、刷新、Excel |
 | 网络工具 | **网络拓扑** | 按环境 Canvas 拓扑（读写远程库） |
@@ -134,6 +135,8 @@
 ### 界面与图标约定
 
 - 按钮 **图标 + 文字** 同字号；列表 **表头冻结**、列宽可拖；支持点击列头排序。
+- 表格 / 列表统一 **边框、网格线、斑马纹、悬停与选中**（`DevtoyTableListViewStyle` + `TableListChrome`）；表头放在 `ListView.Header` 内与行对齐。
+- **本机信息** 等长页使用外层 `ScrollViewer`：滚轮上下滚动页面；横向溢出用滚动条或 Shift+滚轮。
 - 底部 **控制台**：标题栏为 **图标 +「控制台」** 一体按钮；隐藏时 `HideBcc`（点开）、显示时 `ShowBcc`（点关）。
 - 浅色主题下自定义标题栏系统按钮配色。
 - 删除类 `ContentDialog` 主按钮文案为 **删除**，使用红色危险样式（`DevtoyDangerButtonStyle`）。

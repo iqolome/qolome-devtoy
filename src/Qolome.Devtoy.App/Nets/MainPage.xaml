@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:Qolome.Nets.App.ViewModels"
+    xmlns:helpers="using:Qolome_Devtoy_App.Helpers"
     mc:Ignorable="d">
 
     <Grid Padding="16,8,16,16" RowSpacing="10">
@@ -175,49 +176,52 @@
                 BorderThickness="1"
                 CornerRadius="8"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid Padding="12,10" ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="36" />
-                            <ColumnDefinition Width="118" />
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="130" />
-                            <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="64" />
-                            <ColumnDefinition Width="44" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="110" />
-                        </Grid.ColumnDefinitions>
-                        <CheckBox
-                            MinWidth="0"
-                            Padding="0"
-                            IsChecked="{x:Bind ViewModel.IsAllChecked, Mode=TwoWay}"
-                            ToolTipService.ToolTip="全选 / 取消全选" />
-                        <TextBlock Grid.Column="1" Text="IP" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="主机名" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="3" Text="MAC" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="4" Text="厂商" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="5" Text="系统" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="6" Text="延迟" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="7" Text="TTL" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="8" Text="开放端口" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="9" Text="状态" FontWeight="SemiBold" />
-                    </Grid>
-                    <ListView
-                        Grid.Row="1"
+                <ListView
                         ItemsSource="{x:Bind ViewModel.Hosts}"
                         SelectedItem="{x:Bind ViewModel.SelectedHost, Mode=TwoWay}"
-                        SelectionMode="Single">
+                        SelectionMode="Single"
+                        Style="{StaticResource DevtoyTableListViewStyle}"
+                        BorderThickness="0"
+                        helpers:TableListChrome.ColumnLines="True">
+                        <ListView.Header>
+                            <Grid
+                                Padding="12,10"
+                                ColumnSpacing="8"
+                                Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                                BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                                BorderThickness="0,0,0,1"
+                                helpers:TableListChrome.ColumnLines="True">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="36" />
+                                    <ColumnDefinition Width="118" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox
+                                    MinWidth="0"
+                                    Padding="0"
+                                    IsChecked="{x:Bind ViewModel.IsAllChecked, Mode=TwoWay}"
+                                    ToolTipService.ToolTip="全选 / 取消全选" />
+                                <TextBlock Grid.Column="1" Text="IP" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="2" Text="主机名" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="3" Text="MAC" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="4" Text="厂商" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="5" Text="系统" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="6" Text="延迟" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="7" Text="TTL" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="8" Text="开放端口" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="9" Text="状态" FontWeight="SemiBold" />
+                            </Grid>
+                        </ListView.Header>
                         <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="4,2" />
-                                <Setter Property="MinHeight" Value="36" />
+                            <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                                <Setter Property="Padding" Value="12,2" />
                             </Style>
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
@@ -253,7 +257,6 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                </Grid>
             </Border>
 
             <ScrollViewer Grid.Column="1">
@@ -301,7 +304,8 @@
                             <TextBlock Text="开放端口" FontWeight="SemiBold" Margin="0,6,0,0" />
                             <ListView
                                 MaxHeight="220"
-                                SelectionMode="None"
+                                SelectionMode="Single"
+                                Style="{StaticResource DevtoyTableListViewStyle}"
                                 ItemsSource="{x:Bind ViewModel.SelectedHost.PortItems, Mode=OneWay, FallbackValue={x:Null}}">
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:OpenPortItemViewModel">
@@ -365,6 +369,7 @@
                             </StackPanel>
                             <ListView
                                 Height="180"
+                                Style="{StaticResource DevtoyTableListViewStyle}"
                                 ItemsSource="{x:Bind ViewModel.PingLines}">
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:PingLineViewModel">

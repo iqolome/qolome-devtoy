@@ -11,5 +11,7 @@ public static class AppServices
 
     public static AppThemeService AppTheme { get; } = new(Session);
 
+    public static UiPerformanceService Performance { get; } = new(Session);
+
     public static UiBusyService Busy { get; } = new();
 }

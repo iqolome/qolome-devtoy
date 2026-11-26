@@ -32,6 +32,7 @@ public partial class App : Application
             UiGlyphResources.Apply();
             AppServices.IconTheme.Attach(main);
             AppServices.AppTheme.Attach(main);
+            AppServices.Performance.Attach(main);
             AppServices.IconTheme.ApplyFromSettings();
             main.Activate();
         }

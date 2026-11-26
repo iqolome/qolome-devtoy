@@ -2,7 +2,8 @@
 <Page
     x:Class="Qolome_Devtoy_App.Pages.DictPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:Qolome_Devtoy_App.Helpers">
     <Grid Padding="16" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -38,58 +39,50 @@
                 </StackPanel>
             </Button>
         </StackPanel>
-        <Grid Grid.Row="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <Grid
-                Grid.Row="0"
-                x:Name="DictHeaderRow"
-                Margin="0,0,0,8"
-                HorizontalAlignment="Stretch">
-                <Grid
-                    x:Name="DictHeaderGrid"
-                    ColumnSpacing="8"
-                    HorizontalAlignment="Stretch"
-                    Opacity="0.9">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="80" />
-                        <ColumnDefinition Width="1.2*" MinWidth="72" />
-                        <ColumnDefinition Width="64" />
-                        <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="360" MinWidth="340" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="SortItemCode" Tag="ItemCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="编码" />
-                    <Button x:Name="SortItemName" Grid.Column="1" Tag="ItemName" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="名称" />
-                    <Button x:Name="SortReference" Grid.Column="2" Tag="ReferenceCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="类型" />
-                    <Button x:Name="SortEnum" Grid.Column="3" Tag="EnumFlag" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="枚举" />
-                    <Button x:Name="SortCreateTime" Grid.Column="4" Tag="CreateTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="创建日期" />
-                    <Button x:Name="SortModifyTime" Grid.Column="5" Tag="ModifyTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="修改日期" />
-                    <TextBlock Grid.Column="6" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Grid>
-                <Border
-                    VerticalAlignment="Bottom"
-                    HorizontalAlignment="Stretch"
-                    Height="1"
-                    Background="{ThemeResource DividerStrokeColorDefaultBrush}"
-                    IsHitTestVisible="False" />
-            </Grid>
-            <ListView
+        <ListView
                 Grid.Row="1"
                 x:Name="DictList"
-                SelectionMode="None"
+                SelectionMode="Single"
+                Style="{StaticResource DevtoyTableListViewStyle}"
+                helpers:TableListChrome.ColumnLines="True"
                 HorizontalAlignment="Stretch"
                 ScrollViewer.HorizontalScrollMode="Disabled"
                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.Header>
+                    <Grid
+                        x:Name="DictHeaderRow"
+                        Padding="12,8"
+                        HorizontalAlignment="Stretch"
+                        Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                        BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                        BorderThickness="0,0,0,1">
+                        <Grid
+                            x:Name="DictHeaderGrid"
+                            ColumnSpacing="8"
+                            HorizontalAlignment="Stretch"
+                            helpers:TableListChrome.ColumnLines="True">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="80" />
+                                <ColumnDefinition Width="1.2*" MinWidth="72" />
+                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="360" MinWidth="340" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="SortItemCode" Tag="ItemCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="编码" />
+                            <Button x:Name="SortItemName" Grid.Column="1" Tag="ItemName" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="名称" />
+                            <Button x:Name="SortReference" Grid.Column="2" Tag="ReferenceCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="类型" />
+                            <Button x:Name="SortEnum" Grid.Column="3" Tag="EnumFlag" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="枚举" />
+                            <Button x:Name="SortCreateTime" Grid.Column="4" Tag="CreateTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="创建日期" />
+                            <Button x:Name="SortModifyTime" Grid.Column="5" Tag="ModifyTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="修改日期" />
+                            <TextBlock Grid.Column="6" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </Grid>
+                    </Grid>
+                </ListView.Header>
                 <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="VerticalContentAlignment" Value="Center" />
-                        <Setter Property="Padding" Value="0,4" />
-                        <Setter Property="MinHeight" Value="36" />
+                    <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                        <Setter Property="Padding" Value="12,4" />
                     </Style>
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
@@ -176,6 +169,5 @@
                 </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-        </Grid>
     </Grid>
 </Page>

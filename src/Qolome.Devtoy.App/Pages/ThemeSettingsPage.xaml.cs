@@ -11,6 +11,7 @@ public sealed partial class ThemeSettingsPage : Page
     private readonly DevtoySession _session = AppServices.Session;
     private bool _suppressThemeChange;
     private bool _suppressIconChange;
+    private bool _suppressPerfChange;
 
     public ThemeSettingsPage()
     {
@@ -20,6 +21,7 @@ public sealed partial class ThemeSettingsPage : Page
 
     private void Bind()
     {
+        BindPerformance();
         _suppressThemeChange = true;
         AppThemeCombo.ItemsSource = AppThemeMode.All
             .Select(x => new ThemeOption(x.Id, x.DisplayName))
@@ -109,6 +111,51 @@ public sealed partial class ThemeSettingsPage : Page
         IconPreviewHost.Child = IconThemeService.CreatePreviewImage(previewId, 64);
     }
 
+    private void BindPerformance()
+    {
+        _suppressPerfChange = true;
+        var s = _session.Settings;
+        HardwareAccelSwitch.IsOn = s.HardwareAcceleration;
+        ParallelCollectorsSwitch.IsOn = s.ParallelCollectors;
+        RichTableSwitch.IsOn = s.RichTableChrome;
+        RichTableSwitch.IsEnabled = s.HardwareAcceleration;
+        _suppressPerfChange = false;
+    }
+
+    private void OnHardwareAccelToggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPerfChange)
+        {
+            return;
+        }
+
+        AppServices.Performance.SetHardwareAcceleration(HardwareAccelSwitch.IsOn);
+        RichTableSwitch.IsEnabled = HardwareAccelSwitch.IsOn;
+        _session.Log(HardwareAccelSwitch.IsOn ? "已开启硬件加速" : "已关闭硬件加速（降级表格富视觉）");
+    }
+
+    private void OnParallelCollectorsToggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPerfChange)
+        {
+            return;
+        }
+
+        AppServices.Performance.SetParallelCollectors(ParallelCollectorsSwitch.IsOn);
+        _session.Log(ParallelCollectorsSwitch.IsOn ? "已开启多核并行采集" : "已关闭多核并行采集");
+    }
+
+    private void OnRichTableToggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPerfChange)
+        {
+            return;
+        }
+
+        AppServices.Performance.SetRichTableChrome(RichTableSwitch.IsOn);
+        _session.Log(RichTableSwitch.IsOn ? "已开启表格富视觉" : "已关闭表格富视觉");
+    }
+
     private void OnSave(object sender, RoutedEventArgs e)
     {
         if (AppThemeCombo.SelectedItem is ThemeOption theme)
@@ -123,13 +170,19 @@ public sealed partial class ThemeSettingsPage : Page
             _session.Settings.IconVariant = info.Id;
         }
 
+        _session.Settings.HardwareAcceleration = HardwareAccelSwitch.IsOn;
+        _session.Settings.ParallelCollectors = ParallelCollectorsSwitch.IsOn;
+        _session.Settings.RichTableChrome = RichTableSwitch.IsOn;
+
         _session.SaveSettings();
         AppServices.AppTheme.ApplyFromSettings();
         AppServices.IconTheme.SyncWithAppTheme(coerceUserVariant: true, log: true);
+        AppServices.Performance.ApplyFromSettings();
         BindIconVariantCombo(themeId);
         UpdateIconThemeUi(themeId);
         RefreshIconPreview();
-        _session.Log("主题设置已保存");
+        BindPerformance();
+        _session.Log("主题与性能设置已保存");
     }
 
     private sealed record ThemeOption(string Id, string DisplayName);

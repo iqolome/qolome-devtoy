@@ -104,6 +104,15 @@ public sealed partial class DictPage : Page
             Height = 280,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        if (Application.Current.Resources.TryGetValue("DevtoyTableListViewStyle", out var tableStyle)
+            && tableStyle is Style style)
+        {
+            list.Style = style;
+        }
+        else
+        {
+            TableListChrome.Attach(list, columnLines: false);
+        }
         var selectedModule = _session.SelectedModule;
         if (selectedModule is not null)
         {

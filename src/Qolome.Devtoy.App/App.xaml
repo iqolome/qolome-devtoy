@@ -11,6 +11,45 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="DevtoyTableBorderBrush" Color="#33000000" />
+                    <SolidColorBrush x:Key="DevtoyTableGridLineBrush" Color="#22000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowEvenBrush" Color="#00000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowOddBrush" Color="#0A000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowPointerOverBrush" Color="#180078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedBrush" Color="#330078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#440078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#0F000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="DevtoyTableBorderBrush" Color="#33000000" />
+                    <SolidColorBrush x:Key="DevtoyTableGridLineBrush" Color="#22000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowEvenBrush" Color="#00000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowOddBrush" Color="#0A000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowPointerOverBrush" Color="#180078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedBrush" Color="#330078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#440078D7" />
+                    <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#0F000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="DevtoyTableBorderBrush" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableGridLineBrush" Color="#28FFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowEvenBrush" Color="#00000000" />
+                    <SolidColorBrush x:Key="DevtoyTableRowOddBrush" Color="#12FFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowPointerOverBrush" Color="#2860CDFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedBrush" Color="#4060CDFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#5060CDFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#14FFFFFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <helpers:BoolToVisibilityConverter x:Key="BoolToVis" />
             <!-- Fluent UI System Icons（侧栏/按钮可用 FontIcon + Glyph） -->
             <FontFamily x:Key="FluentSystemIconsRegular">ms-appx:///Assets/Fonts/FluentSystemIcons-Regular.ttf#FluentSystemIcons-Regular</FontFamily>
@@ -52,6 +91,34 @@
                 <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
                 <Setter Property="Foreground" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            </Style>
+
+            <!-- 表格 / 列表：边框、行线、奇偶行、选中与当前行（勿 BasedOn DefaultListView*，WinUI 未导出这些 key） -->
+            <Style x:Key="DevtoyTableListViewItemStyle" TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                <Setter Property="BorderBrush" Value="{ThemeResource DevtoyTableGridLineBrush}" />
+                <Setter Property="Background" Value="{ThemeResource DevtoyTableRowEvenBrush}" />
+            </Style>
+
+            <Style x:Key="DevtoyTableListViewStyle" TargetType="ListView">
+                <Setter Property="BorderBrush" Value="{ThemeResource DevtoyTableBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource DevtoyTableListViewItemStyle}" />
+                <Setter Property="helpers:TableListChrome.Enable" Value="True" />
+            </Style>
+
+            <Style x:Key="DevtoyTableHeaderStyle" TargetType="Grid">
+                <!-- 水平 Padding 须与 DevtoyTableListViewItemStyle 一致，避免表头/表体错位 -->
+                <Setter Property="Padding" Value="12,8" />
+                <Setter Property="Background" Value="{ThemeResource DevtoyTableHeaderBackgroundBrush}" />
+                <Setter Property="helpers:TableListChrome.ColumnLines" Value="True" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>
