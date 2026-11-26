@@ -22,6 +22,7 @@ concurrency:
 jobs:
   package-signed:
     runs-on: windows-latest
+    environment: release-dev
     steps:
       - uses: actions/checkout@v4
 
