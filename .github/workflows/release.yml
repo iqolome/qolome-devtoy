@@ -20,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+    environment: release-dev
   package-signed:
     runs-on: windows-latest
     environment: release-dev
