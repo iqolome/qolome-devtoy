@@ -25,6 +25,8 @@ jobs:
     environment: release-dev
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -74,11 +76,27 @@ jobs:
             dist/release/*.siginfo.json
           if-no-files-found: error
 
+      - name: Read annotated tag message
+        id: tagbody
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $body = (git for-each-ref "refs/tags/$tag" --format="%(contents)").Trim()
+          if ([string]::IsNullOrWhiteSpace($body)) {
+            $body = (git log -1 --pretty=%B "$tag^{}").Trim()
+          }
+          # multiline output for softprops body
+          "body<<RELNOTES_EOF" | Add-Content -Path $env:GITHUB_OUTPUT -Encoding utf8
+          $body | Add-Content -Path $env:GITHUB_OUTPUT -Encoding utf8
+          "RELNOTES_EOF" | Add-Content -Path $env:GITHUB_OUTPUT -Encoding utf8
+
       - name: Create GitHub Release (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/release/*
+          body: ${{ steps.tagbody.outputs.body }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

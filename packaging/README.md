@@ -17,7 +17,7 @@
 | `-Target Zip` | 仅便携 ZIP |
 | `-Target Msix` | 仅 MSIX |
 | `-Target Inno` | 仅 Inno Setup（需先 publish 或走 `Zip`/`All`） |
-| `-Version 1.1.0` | 覆盖版本号（默认读 csproj） |
+| `-Version 1.1.1` | 覆盖版本号（默认读 csproj） |
 | `-SkipPublish` | 跳过 publish，用已有 `dist\publish\win-x64` |
 | `-RequireSigning` | 未配置企业 PFX 时直接失败 |
 | `-SkipSigning` | 强制不打签名（内测未签名包） |
@@ -34,7 +34,7 @@
 ## MSIX 安装 / 卸载
 
 ```powershell
-Add-AppxPackage -Path "dist\release\Qolome.Devtoy_1.1.0_x64.msix"
+Add-AppxPackage -Path "dist\release\Qolome.Devtoy_1.1.1_x64.msix"
 Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 ```
 
@@ -52,7 +52,7 @@ Get-AppxPackage *Qolome*Devtoy* | Remove-AppxPackage
 手动编译：
 
 ```powershell
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.1.0 packaging\inno\Qolome.Devtoy.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.1.1 packaging\inno\Qolome.Devtoy.iss
 ```
 
 ## 代码签名（GitHub Actions）

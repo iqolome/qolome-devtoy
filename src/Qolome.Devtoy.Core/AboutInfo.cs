@@ -18,5 +18,5 @@ public static class AboutInfo
 #pragma warning restore S1075
 
     public static string Version =>
-        typeof(AboutInfo).Assembly.GetName().Version?.ToString(3) ?? "1.1.0";
+        typeof(AboutInfo).Assembly.GetName().Version?.ToString(3) ?? "1.1.1";
 }

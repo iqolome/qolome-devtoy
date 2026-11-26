@@ -42,7 +42,7 @@ if (-not $SkipSigning) {
 if (-not $Version) {
     [xml] $proj = Get-Content $AppProj
     $Version = ($proj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
-    if (-not $Version) { $Version = "1.1.0" }
+    if (-not $Version) { $Version = "1.1.1" }
 }
 
 function Get-MsixFourPartVersion([string] $ver) {
