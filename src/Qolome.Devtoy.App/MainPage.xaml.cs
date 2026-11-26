@@ -2,6 +2,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Nets.App;
+using Qolome_Devtoy_App.Helpers;
 using Qolome_Devtoy_App.Pages;
 
 namespace Qolome_Devtoy_App;
@@ -18,6 +19,7 @@ public sealed partial class MainPage : Page
         AppServices.Session.UiPreferencesChanged += OnUiPreferencesChanged;
         Loaded += (_, _) =>
         {
+            AppMessage.AttachHost(AppMessageHost);
             AppServices.Busy.Attach(DispatcherQueue, ApplyBusyOverlay);
             _suppressNav = true;
             var generate = FindNavItemByTag("Generate");
@@ -62,6 +64,7 @@ public sealed partial class MainPage : Page
             "Dict" => typeof(DictPage),
             "Module" => typeof(ModulePage),
             "ConfigTheme" => typeof(ThemeSettingsPage),
+            "ConfigPerformance" => typeof(PerformanceSettingsPage),
             "ConfigBasic" => typeof(BasicSettingsPage),
             "ConfigDataSource" => typeof(DataSourcePage),
             "ConfigTemplates" => typeof(TemplatePage),

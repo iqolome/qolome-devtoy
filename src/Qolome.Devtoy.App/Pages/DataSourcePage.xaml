@@ -86,9 +86,11 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="SqlitePathBox" Grid.Column="0" IsReadOnly="True" />
                     <Button Grid.Column="1" Content="浏览…" Click="OnBrowseSqlite" />
+                    <Button Grid.Column="2" Content="打开" Click="OnOpenSqliteFolder" />
                 </Grid>
 
                 <TextBlock

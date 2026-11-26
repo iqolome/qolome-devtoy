@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
 using Qolome.Nets.Core.Scanning;
 using Qolome_Devtoy_App.Helpers;
 
@@ -8,8 +9,10 @@ namespace Qolome.Nets.App.ViewModels;
 
 public partial class HostInfoViewModel : ObservableObject
 {
-    private CancellationTokenSource? _loadCts;
-    private int _loadVersion;
+    private CancellationTokenSource? _hardwareCts;
+    private CancellationTokenSource? _networkCts;
+    private int _hardwareVersion;
+    private int _networkVersion;
     private List<LocalNicRow> _allAdapters = [];
 
     public ObservableCollection<LocalNicRow> Adapters { get; } = [];
@@ -60,6 +63,13 @@ public partial class HostInfoViewModel : ObservableObject
     public partial string Status { get; set; } = "就绪";
 
     [ObservableProperty]
+    public partial bool IsHardwareBusy { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsNetworkBusy { get; set; }
+
+    /// <summary>网卡操作进行中（与分区刷新独立）。</summary>
+    [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
@@ -91,41 +101,60 @@ public partial class HostInfoViewModel : ObservableObject
         SelectedKindFilter = KindFilterOptions[0];
     }
 
+    /// <summary>页面级 loading（初次进入 / 分区刷新 / 网卡操作）。</summary>
+    public bool IsPageBusy => IsHardwareBusy || IsNetworkBusy || IsBusy;
+
+    public Visibility PageBusyVisibility =>
+        IsPageBusy ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>打开页面时并行刷新硬件与公网网络信息。</summary>
     public async Task LoadAsync()
     {
-        _loadCts?.Cancel();
-        _loadCts?.Dispose();
-        _loadCts = new CancellationTokenSource();
-        var token = _loadCts.Token;
-        var version = Interlocked.Increment(ref _loadVersion);
+        IsHardwareBusy = true;
+        IsNetworkBusy = true;
+        Status = "正在加载本机信息…";
+        await Task.WhenAll(RefreshHardwareCoreAsync(), RefreshNetworkCoreAsync()).ConfigureAwait(true);
+    }
 
-        IsBusy = true;
-        HasError = false;
-        ErrorMessage = "";
-        Status = "正在刷新本机硬件与网络信息…";
+    [RelayCommand(CanExecute = nameof(CanRefreshHardware))]
+    private async Task RefreshHardwareAsync() => await RefreshHardwareCoreAsync();
+
+    private bool CanRefreshHardware() => !IsHardwareBusy && !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanRefreshNetwork))]
+    private async Task RefreshNetworkAsync() => await RefreshNetworkCoreAsync();
+
+    private bool CanRefreshNetwork() => !IsNetworkBusy;
+
+    private async Task RefreshHardwareCoreAsync()
+    {
+        _hardwareCts?.Cancel();
+        _hardwareCts?.Dispose();
+        _hardwareCts = new CancellationTokenSource();
+        var token = _hardwareCts.Token;
+        var version = Interlocked.Increment(ref _hardwareVersion);
+
+        IsHardwareBusy = true;
+        Status = "正在刷新硬件信息…";
 
         try
         {
             var parallel = UiPerfFlags.ParallelCollectors;
             var hardwareTask = LocalHardwareInventory.GetInfoAsync(parallel, token);
             var nicTask = LocalNicInventory.GetAdaptersAsync(parallel, token);
-            var egressTask = EgressNetworkLookup.QueryAsync(token);
-            await Task.WhenAll(hardwareTask, nicTask, egressTask).ConfigureAwait(true);
+            await Task.WhenAll(hardwareTask, nicTask).ConfigureAwait(true);
 
-            if (version != _loadVersion || token.IsCancellationRequested)
+            if (version != _hardwareVersion || token.IsCancellationRequested)
             {
                 return;
             }
 
             ApplyHardware(await hardwareTask.ConfigureAwait(true));
-
-            var nics = await nicTask.ConfigureAwait(true);
-            _allAdapters = nics.Select(LocalNicRow.From).ToList();
+            _allAdapters = (await nicTask.ConfigureAwait(true))
+                .Select((info, i) => LocalNicRow.From(info, i + 1))
+                .ToList();
             ApplyAdapterFilter();
-
-            var egress = await egressTask.ConfigureAwait(true);
-            ApplyEgress(egress);
-            Status = $"已刷新 · 显示 {Adapters.Count}/{_allAdapters.Count} 块网卡 · {DateTime.Now:HH:mm:ss}";
+            Status = $"硬件已刷新 · 显示 {Adapters.Count}/{_allAdapters.Count} 块网卡 · {DateTime.Now:HH:mm:ss}";
         }
         catch (OperationCanceledException)
         {
@@ -135,13 +164,56 @@ public partial class HostInfoViewModel : ObservableObject
         {
             HasError = true;
             ErrorMessage = ex.Message;
-            Status = "刷新失败";
+            Status = "硬件刷新失败";
         }
         finally
         {
-            if (version == _loadVersion)
+            if (version == _hardwareVersion)
             {
-                IsBusy = false;
+                IsHardwareBusy = false;
+            }
+        }
+    }
+
+    private async Task RefreshNetworkCoreAsync()
+    {
+        _networkCts?.Cancel();
+        _networkCts?.Dispose();
+        _networkCts = new CancellationTokenSource();
+        var token = _networkCts.Token;
+        var version = Interlocked.Increment(ref _networkVersion);
+
+        IsNetworkBusy = true;
+        HasError = false;
+        ErrorMessage = "";
+        Status = "正在刷新网络信息…";
+
+        try
+        {
+            var egress = await EgressNetworkLookup.QueryAsync(token).ConfigureAwait(true);
+            if (version != _networkVersion || token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            ApplyEgress(egress);
+            Status = $"网络已刷新 · {DateTime.Now:HH:mm:ss}";
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            Status = "网络刷新失败";
+        }
+        finally
+        {
+            if (version == _networkVersion)
+            {
+                IsNetworkBusy = false;
             }
         }
     }
@@ -242,8 +314,10 @@ public partial class HostInfoViewModel : ObservableObject
 
         var selectedId = SelectedAdapter?.InterfaceId;
         Adapters.Clear();
+        var index = 1;
         foreach (var row in query)
         {
+            row.Index = index++;
             Adapters.Add(row);
         }
 
@@ -266,22 +340,37 @@ public partial class HostInfoViewModel : ObservableObject
         !string.IsNullOrEmpty(haystack)
         && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 
-    [RelayCommand(CanExecute = nameof(CanRefresh))]
-    private async Task RefreshAsync() => await LoadAsync();
-
-    private bool CanRefresh() => !IsBusy;
-
-    partial void OnIsBusyChanged(bool value)
+    partial void OnIsHardwareBusyChanged(bool value)
     {
-        RefreshCommand.NotifyCanExecuteChanged();
+        RefreshHardwareCommand.NotifyCanExecuteChanged();
+        NotifyPageBusyChanged();
         NotifyActionAvailability();
     }
 
-    public bool CanEnableSelected => !IsBusy && SelectedAdapter is { IsUp: false };
-    public bool CanDisableSelected => !IsBusy && SelectedAdapter is { IsUp: true };
-    public bool CanRemoveSelected => !IsBusy && SelectedAdapter is { IsPhysical: false };
+    partial void OnIsBusyChanged(bool value)
+    {
+        RefreshHardwareCommand.NotifyCanExecuteChanged();
+        NotifyPageBusyChanged();
+        NotifyActionAvailability();
+    }
+
+    partial void OnIsNetworkBusyChanged(bool value)
+    {
+        RefreshNetworkCommand.NotifyCanExecuteChanged();
+        NotifyPageBusyChanged();
+    }
+
+    public bool CanEnableSelected => !IsBusy && !IsHardwareBusy && SelectedAdapter is { IsUp: false };
+    public bool CanDisableSelected => !IsBusy && !IsHardwareBusy && SelectedAdapter is { IsUp: true };
+    public bool CanRemoveSelected => !IsBusy && !IsHardwareBusy && SelectedAdapter is { IsPhysical: false };
 
     partial void OnSelectedAdapterChanged(LocalNicRow? value) => NotifyActionAvailability();
+
+    private void NotifyPageBusyChanged()
+    {
+        OnPropertyChanged(nameof(IsPageBusy));
+        OnPropertyChanged(nameof(PageBusyVisibility));
+    }
 
     private void NotifyActionAvailability()
     {
@@ -320,7 +409,7 @@ public partial class HostInfoViewModel : ObservableObject
             var result = await Task.Run(() => action(target)).ConfigureAwait(true);
             if (result.Success)
             {
-                await LoadAsync().ConfigureAwait(true);
+                await RefreshHardwareCoreAsync().ConfigureAwait(true);
                 Status = result.Message;
             }
             else
@@ -355,6 +444,8 @@ public sealed record NicKindFilterOption(NicKindFilter Kind, string Label)
 
 public sealed class LocalNicRow
 {
+    public int Index { get; set; }
+
     public required string InterfaceId { get; init; }
     public string? PnpDeviceId { get; init; }
     public required string Name { get; init; }
@@ -374,8 +465,9 @@ public sealed class LocalNicRow
 
     public bool IsPhysical => Kind == LocalNicKind.Physical;
 
-    public static LocalNicRow From(LocalNicInfo info) => new()
+    public static LocalNicRow From(LocalNicInfo info, int index = 0) => new()
     {
+        Index = index,
         InterfaceId = info.InterfaceId,
         PnpDeviceId = info.PnpDeviceId,
         Name = info.Name,

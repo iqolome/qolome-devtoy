@@ -3,6 +3,9 @@ namespace Qolome.Devtoy.Core.Models;
 /// <summary>qolome_dict_item 行，含维护字段。</summary>
 public sealed class DictItemRecord
 {
+    /// <summary>当前列表中的显示序号（1-based，不入库）。</summary>
+    public int RowIndex { get; set; }
+
     public long ItemId { get; set; }
 
     public string ItemCode { get; set; } = "";

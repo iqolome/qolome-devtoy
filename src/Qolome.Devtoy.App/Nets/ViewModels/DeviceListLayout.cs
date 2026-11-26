@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
+using Qolome_Devtoy_App.Helpers;
 
 namespace Qolome.Nets.App.ViewModels;
 
@@ -8,6 +9,13 @@ public partial class DeviceListLayout : ObservableObject
     public static DeviceListLayout Shared { get; } = new();
 
     public const double MinWidth = 56;
+
+    /// <summary>拖拽列宽上限（数据列可宽于表头 8 字）。</summary>
+    public const double MaxWidth = 480;
+
+    public static double CheckWidth => TableColumnMetrics.CheckColumnWidth;
+    public static double IndexWidth => TableColumnMetrics.IndexColumnWidth;
+    public static double ActionsWidth => TableColumnMetrics.ActionColumnMaxWidth;
 
     [ObservableProperty]
     public partial double Code { get; set; } = 100;
@@ -45,6 +53,16 @@ public partial class DeviceListLayout : ObservableObject
     [ObservableProperty]
     public partial double Group { get; set; } = 110;
 
+    [ObservableProperty]
+    public partial double Created { get; set; } = TableColumnMetrics.DateTimeColumnWidth;
+
+    [ObservableProperty]
+    public partial double Updated { get; set; } = TableColumnMetrics.DateTimeColumnWidth;
+
+    public GridLength CheckLength => Pixel(CheckWidth);
+    public GridLength IndexLength => Pixel(IndexWidth);
+    public GridLength ActionsLength => Pixel(ActionsWidth);
+
     public GridLength CodeLength => Pixel(Code);
     public GridLength TypeLength => Pixel(Type);
     public GridLength HostnameLength => Pixel(Hostname);
@@ -57,9 +75,11 @@ public partial class DeviceListLayout : ObservableObject
     public GridLength DomainsLength => Pixel(Domains);
     public GridLength OsLength => Pixel(Os);
     public GridLength GroupLength => Pixel(Group);
+    public GridLength CreatedLength => Pixel(Created);
+    public GridLength UpdatedLength => Pixel(Updated);
 
     public double TotalWidth =>
-        Code + Type + Hostname + Vendor + Brand + Model + Description + Ip + Mac + Domains + Os + Group + 40;
+        CheckWidth + IndexWidth + Code + Type + Hostname + Vendor + Brand + Model + Description + Ip + Mac + Domains + Os + Group + Created + Updated + ActionsWidth + 40;
 
     public double Get(string key) => key switch
     {
@@ -75,12 +95,14 @@ public partial class DeviceListLayout : ObservableObject
         "Domains" => Domains,
         "Os" => Os,
         "Group" => Group,
+        "Created" => Created,
+        "Updated" => Updated,
         _ => MinWidth
     };
 
     public void Resize(string key, double width)
     {
-        width = Math.Max(MinWidth, width);
+        width = Math.Clamp(width, MinWidth, MaxWidth);
         switch (key)
         {
             case "Code": Code = width; break;
@@ -95,6 +117,8 @@ public partial class DeviceListLayout : ObservableObject
             case "Domains": Domains = width; break;
             case "Os": Os = width; break;
             case "Group": Group = width; break;
+            case "Created": Created = width; break;
+            case "Updated": Updated = width; break;
         }
     }
 

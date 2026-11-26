@@ -110,13 +110,22 @@
             SelectionChanged="OnModuleTabChanged">
             <TabView.TabItems>
                 <TabViewItem x:Name="ActiveTab" Header="项目列表" IsClosable="False">
+                    <!-- 外层横向滚动：避免 ListView 内置 HorizontalScroll 表头/行测量错位 -->
+                    <ScrollViewer
+                        Margin="0,8,0,0"
+                        HorizontalScrollBarVisibility="Auto"
+                        HorizontalScrollMode="Enabled"
+                        VerticalScrollBarVisibility="Disabled"
+                        VerticalScrollMode="Disabled">
+                        <Grid x:Name="ModuleTableHost">
                     <ListView
                             x:Name="ModuleList"
-                            Margin="0,8,0,0"
                             SelectionMode="Extended"
                             SelectionChanged="OnSelectionChanged"
                             Style="{StaticResource DevtoyTableListViewStyle}"
-                            helpers:TableListChrome.ColumnLines="True">
+                            helpers:TableListChrome.ColumnLines="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.HorizontalScrollMode="Disabled">
                             <ListView.Header>
                                 <Grid
                                     x:Name="ModuleHeaderRow"
@@ -131,76 +140,79 @@
                                         HorizontalAlignment="Stretch"
                                         helpers:TableListChrome.ColumnLines="True">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="30" MaxWidth="30" />
+                                            <ColumnDefinition Width="45" MaxWidth="45" />
                                             <ColumnDefinition Width="*" MinWidth="72" />
                                             <ColumnDefinition Width="96" MinWidth="64" />
                                             <ColumnDefinition Width="2*" MinWidth="96" />
                                             <ColumnDefinition Width="72" MinWidth="48" />
                                             <ColumnDefinition Width="72" MinWidth="48" />
                                             <ColumnDefinition Width="120" MinWidth="100" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="240" MinWidth="200" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="356" MaxWidth="356" MinWidth="356" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox
                                             x:Name="HeaderSelectAll"
                                             MinWidth="0"
+                                            HorizontalAlignment="Center"
                                             IsThreeState="True"
                                             VerticalAlignment="Center"
                                             ToolTipService.ToolTip="全选 / 取消全选"
                                             Checked="OnSelectAllChanged"
                                             Unchecked="OnSelectAllChanged" />
+                                        <TextBlock Grid.Column="1" Text="序号" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         <Button
                                             x:Name="SortProjectName"
-                                            Grid.Column="1"
+                                            Grid.Column="2"
                                             Tag="ProjectName"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="项目名称" />
                                         <Button
                                             x:Name="SortWorkspace"
-                                            Grid.Column="2"
+                                            Grid.Column="3"
                                             Tag="Workspace"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="所属工作区" />
                                         <Button
                                             x:Name="SortPath"
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Tag="ModulePath"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="路径" />
                                         <Button
                                             x:Name="SortType"
-                                            Grid.Column="4"
+                                            Grid.Column="5"
                                             Tag="Type"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="类型" />
                                         <Button
                                             x:Name="SortVersion"
-                                            Grid.Column="5"
+                                            Grid.Column="6"
                                             Tag="Version"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="版本号" />
-                                        <TextBlock Grid.Column="6" Text="标签" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="7" Text="标签" FontWeight="SemiBold" VerticalAlignment="Center" />
                                         <Button
                                             x:Name="SortCreateTime"
-                                            Grid.Column="7"
+                                            Grid.Column="8"
                                             Tag="CreateTime"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="创建时间" />
                                         <Button
                                             x:Name="SortModifyTime"
-                                            Grid.Column="8"
+                                            Grid.Column="9"
                                             Tag="ModifyTime"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="修改时间" />
-                                        <TextBlock Grid.Column="9" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="10" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
                                     </Grid>
                                 </Grid>
                             </ListView.Header>
@@ -213,19 +225,21 @@
                                 <DataTemplate>
                                     <Grid ColumnSpacing="8" Padding="0,4" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="30" MaxWidth="30" />
+                                            <ColumnDefinition Width="45" MaxWidth="45" />
                                             <ColumnDefinition Width="*" MinWidth="72" />
                                             <ColumnDefinition Width="96" MinWidth="64" />
                                             <ColumnDefinition Width="2*" MinWidth="96" />
                                             <ColumnDefinition Width="72" MinWidth="48" />
                                             <ColumnDefinition Width="72" MinWidth="48" />
                                             <ColumnDefinition Width="120" MinWidth="100" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="240" MinWidth="200" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="356" MaxWidth="356" MinWidth="356" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox
                                             MinWidth="0"
+                                            HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             Tag="{Binding}"
                                             Loaded="OnRowCheckLoaded"
@@ -233,16 +247,22 @@
                                             Unchecked="OnRowCheckChanged" />
                                         <TextBlock
                                             Grid.Column="1"
+                                            Text="{Binding RowIndex}"
+                                            Opacity="0.75"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="2"
                                             Text="{Binding ProjectNameDisplay}"
                                             TextTrimming="CharacterEllipsis"
                                             VerticalAlignment="Center" />
                                         <TextBlock
-                                            Grid.Column="2"
+                                            Grid.Column="3"
                                             Text="{Binding WorkspaceDisplay}"
                                             TextTrimming="CharacterEllipsis"
                                             VerticalAlignment="Center" />
                                         <TextBlock
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Tag="{Binding}"
                                             Text="{Binding ModulePath}"
                                             FontFamily="Consolas"
@@ -251,27 +271,23 @@
                                             VerticalAlignment="Center"
                                             DoubleTapped="OnModulePathDoubleTapped"
                                             ToolTipService.ToolTip="双击在资源管理器中打开此目录" />
-                                        <TextBlock Grid.Column="4" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="5" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
                                         <StackPanel
-                                            Grid.Column="6"
+                                            Grid.Column="7"
                                             Orientation="Vertical"
                                             Spacing="4"
                                             VerticalAlignment="Center"
                                             Loaded="OnModuleTagsCellLoaded" />
                                         <TextBlock
-                                            Grid.Column="7"
-                                            Text="{Binding CreateTimeDisplay}"
-                                            FontFamily="Consolas"
-                                            FontSize="12"
-                                            VerticalAlignment="Center" />
-                                        <TextBlock
                                             Grid.Column="8"
+                                            Text="{Binding CreateTimeDisplay}"
+                                            Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                        <TextBlock
+                                            Grid.Column="9"
                                             Text="{Binding ModifyTimeDisplay}"
-                                            FontFamily="Consolas"
-                                            FontSize="12"
-                                            VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                        <helpers:ActionButtonWrapPanel Grid.Column="10" MaxWidth="356" VerticalAlignment="Center">
                                             <Button
                                                 Tag="{Binding}"
                                                 Click="OnEditModule"
@@ -363,21 +379,31 @@
                                                     <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
                                                 </StackPanel>
                                             </Button>
-                                        </StackPanel>
+                                        </helpers:ActionButtonWrapPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
+                        </Grid>
+                    </ScrollViewer>
                 </TabViewItem>
 
                 <TabViewItem x:Name="IgnoredTab" Header="忽略列表" IsClosable="False">
+                    <ScrollViewer
+                        Margin="0,8,0,0"
+                        HorizontalScrollBarVisibility="Auto"
+                        HorizontalScrollMode="Enabled"
+                        VerticalScrollBarVisibility="Disabled"
+                        VerticalScrollMode="Disabled">
+                        <Grid x:Name="IgnoredTableHost">
                     <ListView
                             x:Name="IgnoredList"
-                            Margin="0,8,0,0"
                             SelectionMode="Extended"
                             SelectionChanged="OnIgnoredSelectionChanged"
                             Style="{StaticResource DevtoyTableListViewStyle}"
-                            helpers:TableListChrome.ColumnLines="True">
+                            helpers:TableListChrome.ColumnLines="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.HorizontalScrollMode="Disabled">
                             <ListView.Header>
                                 <Grid
                                     x:Name="IgnoredHeaderRow"
@@ -392,74 +418,77 @@
                                         HorizontalAlignment="Stretch"
                                         helpers:TableListChrome.ColumnLines="True">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="30" MaxWidth="30" />
+                                            <ColumnDefinition Width="45" MaxWidth="45" />
                                             <ColumnDefinition Width="*" MinWidth="80" />
                                             <ColumnDefinition Width="96" MinWidth="72" />
                                             <ColumnDefinition Width="2*" MinWidth="120" />
                                             <ColumnDefinition Width="72" MinWidth="56" />
                                             <ColumnDefinition Width="72" MinWidth="56" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="200" MinWidth="180" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="140" MaxWidth="140" MinWidth="140" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox
                                             x:Name="IgnoredHeaderSelectAll"
                                             MinWidth="0"
+                                            HorizontalAlignment="Center"
                                             IsThreeState="True"
                                             VerticalAlignment="Center"
                                             ToolTipService.ToolTip="全选 / 取消全选"
                                             Checked="OnIgnoredSelectAllChanged"
                                             Unchecked="OnIgnoredSelectAllChanged" />
+                                        <TextBlock Grid.Column="1" Text="序号" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         <Button
                                             x:Name="IgnoredSortProjectName"
-                                            Grid.Column="1"
+                                            Grid.Column="2"
                                             Tag="ProjectName"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="项目名称" />
                                         <Button
                                             x:Name="IgnoredSortWorkspace"
-                                            Grid.Column="2"
+                                            Grid.Column="3"
                                             Tag="Workspace"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="所属工作区" />
                                         <Button
                                             x:Name="IgnoredSortPath"
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Tag="ModulePath"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="路径" />
                                         <Button
                                             x:Name="IgnoredSortType"
-                                            Grid.Column="4"
+                                            Grid.Column="5"
                                             Tag="Type"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="类型" />
                                         <Button
                                             x:Name="IgnoredSortVersion"
-                                            Grid.Column="5"
+                                            Grid.Column="6"
                                             Tag="Version"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="版本号" />
                                         <Button
                                             x:Name="IgnoredSortCreateTime"
-                                            Grid.Column="6"
+                                            Grid.Column="7"
                                             Tag="CreateTime"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="创建时间" />
                                         <Button
                                             x:Name="IgnoredSortModifyTime"
-                                            Grid.Column="7"
+                                            Grid.Column="8"
                                             Tag="ModifyTime"
                                             Click="OnSortColumn"
                                             Style="{StaticResource SortHeaderButtonStyle}"
                                             Content="修改时间" />
-                                        <TextBlock Grid.Column="8" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="9" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
                                     </Grid>
                                 </Grid>
                             </ListView.Header>
@@ -472,18 +501,20 @@
                                 <DataTemplate>
                                     <Grid ColumnSpacing="8" Padding="0,4" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="30" MaxWidth="30" />
+                                            <ColumnDefinition Width="45" MaxWidth="45" />
                                             <ColumnDefinition Width="*" MinWidth="80" />
                                             <ColumnDefinition Width="96" MinWidth="72" />
                                             <ColumnDefinition Width="2*" MinWidth="120" />
                                             <ColumnDefinition Width="72" MinWidth="56" />
                                             <ColumnDefinition Width="72" MinWidth="56" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="132" MinWidth="110" />
-                                            <ColumnDefinition Width="200" MinWidth="180" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="128" MinWidth="84" />
+                                            <ColumnDefinition Width="140" MaxWidth="140" MinWidth="140" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox
                                             MinWidth="0"
+                                            HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             Tag="{Binding}"
                                             Loaded="OnIgnoredRowCheckLoaded"
@@ -491,16 +522,22 @@
                                             Unchecked="OnIgnoredRowCheckChanged" />
                                         <TextBlock
                                             Grid.Column="1"
+                                            Text="{Binding RowIndex}"
+                                            Opacity="0.75"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="2"
                                             Text="{Binding ProjectNameDisplay}"
                                             TextTrimming="CharacterEllipsis"
                                             VerticalAlignment="Center" />
                                         <TextBlock
-                                            Grid.Column="2"
+                                            Grid.Column="3"
                                             Text="{Binding WorkspaceDisplay}"
                                             TextTrimming="CharacterEllipsis"
                                             VerticalAlignment="Center" />
                                         <TextBlock
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Tag="{Binding}"
                                             Text="{Binding ModulePath}"
                                             FontFamily="Consolas"
@@ -509,21 +546,17 @@
                                             VerticalAlignment="Center"
                                             DoubleTapped="OnModulePathDoubleTapped"
                                             ToolTipService.ToolTip="双击在资源管理器中打开此目录" />
-                                        <TextBlock Grid.Column="4" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="5" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
-                                        <TextBlock
-                                            Grid.Column="6"
-                                            Text="{Binding CreateTimeDisplay}"
-                                            FontFamily="Consolas"
-                                            FontSize="12"
-                                            VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="{Binding TypeDisplay}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="{Binding VersionDisplay}" FontFamily="Consolas" VerticalAlignment="Center" />
                                         <TextBlock
                                             Grid.Column="7"
+                                            Text="{Binding CreateTimeDisplay}"
+                                            Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                        <TextBlock
+                                            Grid.Column="8"
                                             Text="{Binding ModifyTimeDisplay}"
-                                            FontFamily="Consolas"
-                                            FontSize="12"
-                                            VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                        <helpers:ActionButtonWrapPanel Grid.Column="9" MaxWidth="140" VerticalAlignment="Center">
                                             <Button
                                                 Tag="{Binding}"
                                                 Click="OnUnignoreModule"
@@ -553,11 +586,13 @@
                                                     <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
                                                 </StackPanel>
                                             </Button>
-                                        </StackPanel>
+                                        </helpers:ActionButtonWrapPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
+                        </Grid>
+                    </ScrollViewer>
                 </TabViewItem>
             </TabView.TabItems>
         </TabView>

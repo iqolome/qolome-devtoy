@@ -16,8 +16,24 @@ public sealed class InventoryService
     private const string MsgSelectEnvironment = "请先选择网络环境。";
     public static async Task<IReadOnlyList<NetworkEnvironment>> GetEnvironmentsAsync()
     {
-        await using var db = AppDatabase.CreateContext();
-        return await db.Environments.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
+        return await QueryWithSchemaRetryAsync(async () =>
+        {
+            await using var db = AppDatabase.CreateContext();
+            return await db.Environments.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
+        }).ConfigureAwait(false);
+    }
+
+    private static async Task<T> QueryWithSchemaRetryAsync<T>(Func<Task<T>> query)
+    {
+        try
+        {
+            return await query().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (AppDatabase.IsMissingTableException(ex))
+        {
+            await AppDatabase.EnsureBusinessSchemaAsync().ConfigureAwait(false);
+            return await query().ConfigureAwait(false);
+        }
     }
 
     public async Task<NetworkEnvironment> AddEnvironmentAsync(string name, string? description, string? defaultCidr)
@@ -86,11 +102,14 @@ public sealed class InventoryService
 
     public static async Task<IReadOnlyList<DeviceGroup>> GetGroupsAsync(int environmentId)
     {
-        await using var db = AppDatabase.CreateContext();
-        return await db.Groups.AsNoTracking()
-            .Where(x => x.NetworkEnvironmentId == environmentId)
-            .OrderBy(x => x.Name)
-            .ToListAsync();
+        return await QueryWithSchemaRetryAsync(async () =>
+        {
+            await using var db = AppDatabase.CreateContext();
+            return await db.Groups.AsNoTracking()
+                .Where(x => x.NetworkEnvironmentId == environmentId)
+                .OrderBy(x => x.Name)
+                .ToListAsync();
+        }).ConfigureAwait(false);
     }
 
     public async Task<DeviceGroup> AddGroupAsync(int environmentId, string name, string? description)
@@ -147,8 +166,14 @@ public sealed class InventoryService
 
     public static async Task<IReadOnlyList<DeviceType>> GetDeviceTypesAsync()
     {
-        await using var db = AppDatabase.CreateContext();
-        return await db.DeviceTypes.AsNoTracking().OrderBy(x => x.SortOrder).ThenBy(x => x.Name).ToListAsync();
+        return await QueryWithSchemaRetryAsync(async () =>
+        {
+            await using var db = AppDatabase.CreateContext();
+            return await db.DeviceTypes.AsNoTracking()
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.Name)
+                .ToListAsync();
+        }).ConfigureAwait(false);
     }
 
     public async Task<DeviceType> AddDeviceTypeAsync(
@@ -218,24 +243,101 @@ public sealed class InventoryService
 
     public static async Task<IReadOnlyList<Device>> GetDevicesAsync(int environmentId, int? groupId)
     {
-        await using var db = AppDatabase.CreateContext();
-        var query = db.Devices.AsNoTracking()
-            .Include(x => x.DeviceType)
-            .Include(x => x.DeviceGroup)
-            .Include(x => x.Domains)
-            .Include(x => x.Nics)
-            .Where(x => x.NetworkEnvironmentId == environmentId);
-        // null：全部；0：未分组；其他：指定分组。
-        if (groupId is int gid)
+        return await QueryWithSchemaRetryAsync(async () =>
         {
-            query = gid == 0
-                ? query.Where(x => x.DeviceGroupId == null)
-                : query.Where(x => x.DeviceGroupId == gid);
+            await using var db = AppDatabase.CreateContext();
+            var query = db.Devices.AsNoTracking()
+                .Include(x => x.DeviceType)
+                .Include(x => x.DeviceGroup)
+                .Include(x => x.Domains)
+                .Include(x => x.Nics)
+                .Where(x => x.NetworkEnvironmentId == environmentId);
+            // null：全部；0：未分组；其他：指定分组。
+            if (groupId is int gid)
+            {
+                query = gid == 0
+                    ? query.Where(x => x.DeviceGroupId == null)
+                    : query.Where(x => x.DeviceGroupId == gid);
+            }
+
+            var list = await query.ToListAsync();
+            list.Sort(CompareDeviceIpThenCode);
+            await BackfillDeviceTimestampsAsync(db, list).ConfigureAwait(false);
+            return list;
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>缺省/未写入的创建、修改时间补为当前 UTC，并写回库。</summary>
+    private static async Task BackfillDeviceTimestampsAsync(NetsDbContext db, List<Device> trackedOrDetached)
+    {
+        var now = DateTime.UtcNow;
+        var ids = trackedOrDetached
+            .Where(d => d.CreatedAtUtc == default || d.UpdatedAtUtc == default)
+            .Select(d => d.Id)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+        {
+            foreach (var d in trackedOrDetached)
+            {
+                if (d.CreatedAtUtc == default)
+                {
+                    d.CreatedAtUtc = now;
+                }
+
+                if (d.UpdatedAtUtc == default)
+                {
+                    d.UpdatedAtUtc = d.CreatedAtUtc == default ? now : d.CreatedAtUtc;
+                }
+            }
+
+            return;
         }
 
-        var list = await query.ToListAsync();
-        list.Sort(CompareDeviceIpThenCode);
-        return list;
+        var entities = await db.Devices.Where(x => ids.Contains(x.Id)).ToListAsync().ConfigureAwait(false);
+        var dirty = false;
+        foreach (var entity in entities)
+        {
+            if (entity.CreatedAtUtc == default)
+            {
+                entity.CreatedAtUtc = now;
+                dirty = true;
+            }
+
+            if (entity.UpdatedAtUtc == default)
+            {
+                entity.UpdatedAtUtc = entity.CreatedAtUtc;
+                dirty = true;
+            }
+        }
+
+        if (dirty)
+        {
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var byId = entities.ToDictionary(x => x.Id);
+        foreach (var d in trackedOrDetached)
+        {
+            if (byId.TryGetValue(d.Id, out var saved))
+            {
+                d.CreatedAtUtc = saved.CreatedAtUtc;
+                d.UpdatedAtUtc = saved.UpdatedAtUtc;
+            }
+            else
+            {
+                if (d.CreatedAtUtc == default)
+                {
+                    d.CreatedAtUtc = now;
+                }
+
+                if (d.UpdatedAtUtc == default)
+                {
+                    d.UpdatedAtUtc = d.CreatedAtUtc;
+                }
+            }
+        }
     }
 
     private static int CompareDeviceIpThenCode(Device left, Device right)
@@ -992,6 +1094,7 @@ public sealed class InventoryService
                     Code = FormatCode(nextSerial++),
                     NetworkEnvironmentId = environmentId,
                     CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow,
                     Source = "Scan"
                 };
                 db.Devices.Add(existing);
@@ -1053,6 +1156,7 @@ public sealed class InventoryService
                     Code = NullIfEmpty(row.Code) ?? FormatCode(nextSerial++),
                     NetworkEnvironmentId = environmentId,
                     CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow,
                     Source = "Import"
                 };
                 if (devices.Any(d => d.Code.Equals(existing.Code, StringComparison.OrdinalIgnoreCase)))

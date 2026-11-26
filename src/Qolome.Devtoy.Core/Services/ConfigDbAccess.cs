@@ -51,12 +51,92 @@ public static class ConfigDbAccess
                 """;
             cmd.ExecuteNonQuery();
             ModuleStore.EnsureSchema(sqlite, tx: null);
+            EnsureSqliteDictSchema(sqlite);
             return;
         }
 
         if (conn is MySqlConnection mysql)
         {
             EnsureMySqlConfigSchema(mysql);
+        }
+    }
+
+    /// <summary>Sqlite 下字典表不在 EF 模型中，须与配置表一并 IF NOT EXISTS 创建。</summary>
+    private static void EnsureSqliteDictSchema(SqliteConnection sqlite)
+    {
+        using (var cmd = sqlite.CreateCommand())
+        {
+            cmd.CommandText =
+                """
+                CREATE TABLE IF NOT EXISTS qolome_dict_item (
+                    item_id INTEGER NOT NULL PRIMARY KEY,
+                    item_code TEXT NULL,
+                    item_name TEXT NULL,
+                    item_scope INTEGER NULL,
+                    item_desc TEXT NULL,
+                    enum_flag INTEGER NULL,
+                    data_reference_type INTEGER NULL,
+                    remark TEXT NULL,
+                    modify_version INTEGER NULL,
+                    deleted INTEGER NULL,
+                    enabled INTEGER NULL,
+                    tenant_id INTEGER NULL,
+                    create_time TEXT NULL,
+                    creater_id INTEGER NULL,
+                    modify_time TEXT NULL,
+                    modifier_id INTEGER NULL
+                );
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = sqlite.CreateCommand())
+        {
+            cmd.CommandText =
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_qolome_dict_item_code ON qolome_dict_item (item_code);";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = sqlite.CreateCommand())
+        {
+            cmd.CommandText =
+                """
+                CREATE TABLE IF NOT EXISTS qolome_dict_val (
+                    val_id INTEGER NOT NULL PRIMARY KEY,
+                    item_id INTEGER NULL,
+                    val_value TEXT NULL,
+                    val_code TEXT NULL,
+                    val_name TEXT NULL,
+                    val_enum TEXT NULL,
+                    val_scope INTEGER NULL,
+                    val_desc TEXT NULL,
+                    seq INTEGER NULL,
+                    remark TEXT NULL,
+                    modify_version INTEGER NULL,
+                    deleted INTEGER NULL,
+                    enabled INTEGER NULL,
+                    tenant_id INTEGER NULL,
+                    create_time TEXT NULL,
+                    creater_id INTEGER NULL,
+                    modify_time TEXT NULL,
+                    modifier_id INTEGER NULL
+                );
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = sqlite.CreateCommand())
+        {
+            cmd.CommandText =
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_qolome_dict_val_item_value ON qolome_dict_val (item_id, val_value);";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = sqlite.CreateCommand())
+        {
+            cmd.CommandText =
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_qolome_dict_val_item_code ON qolome_dict_val (item_id, val_code);";
+            cmd.ExecuteNonQuery();
         }
     }
 

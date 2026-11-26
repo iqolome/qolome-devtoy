@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Qolome.Nets.App.ViewModels;
 using Qolome.Nets.Core.Data;
+using Qolome_Devtoy_App.Helpers;
 using Windows.System;
 
 namespace Qolome.Nets.App;
@@ -12,6 +13,7 @@ public sealed partial class DevicesPage : Page
     private string? _resizeKey;
     private double _resizeStartWidth;
     private double _resizeStartX;
+    private bool _suppressCheckSync;
 
     public DevicesViewModel ViewModel { get; } = new();
 
@@ -23,8 +25,6 @@ public sealed partial class DevicesPage : Page
     }
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await EditOrAddAsync(isNew: true);
-
-    private async void Edit_Click(object sender, RoutedEventArgs e) => await EditOrAddAsync(isNew: false);
 
     private async void Devices_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         => await EditOrAddAsync(isNew: false);
@@ -220,5 +220,169 @@ public sealed partial class DevicesPage : Page
         {
             ViewModel.Status = ex.Message;
         }
+    }
+
+    private void Devices_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ListViewCheckOnlySelection.IsProgrammatic(DevicesList))
+        {
+            return;
+        }
+
+        SyncHeaderSelectAll();
+        SyncVisibleRowChecks();
+    }
+
+    private void OnSelectAllChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressCheckSync || sender is not CheckBox box || !ReferenceEquals(box, HeaderSelectAll))
+        {
+            return;
+        }
+
+        ListViewCheckOnlySelection.RunProgrammatic(DevicesList, () =>
+        {
+            if (box.IsChecked == true)
+            {
+                DevicesList.SelectedItems.Clear();
+                foreach (var item in DevicesList.Items)
+                {
+                    DevicesList.SelectedItems.Add(item);
+                }
+            }
+            else if (box.IsChecked == false)
+            {
+                DevicesList.SelectedItems.Clear();
+            }
+        });
+    }
+
+    private void OnRowCheckLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { Tag: Device device } box)
+        {
+            return;
+        }
+
+        ListViewCheckOnlySelection.Attach(DevicesList);
+        _suppressCheckSync = true;
+        box.IsChecked = DevicesList.SelectedItems.Contains(device);
+        _suppressCheckSync = false;
+    }
+
+    private void OnRowCheckChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressCheckSync || sender is not CheckBox { Tag: Device device } box)
+        {
+            return;
+        }
+
+        ListViewCheckOnlySelection.RunProgrammatic(DevicesList, () =>
+        {
+            if (box.IsChecked == true)
+            {
+                if (!DevicesList.SelectedItems.Contains(device))
+                {
+                    DevicesList.SelectedItems.Add(device);
+                }
+            }
+            else
+            {
+                DevicesList.SelectedItems.Remove(device);
+            }
+        });
+    }
+
+    private void SyncHeaderSelectAll()
+    {
+        var total = DevicesList.Items?.Count ?? 0;
+        var selected = DevicesList.SelectedItems?.Count ?? 0;
+        _suppressCheckSync = true;
+        if (total == 0 || selected == 0)
+        {
+            HeaderSelectAll.IsChecked = false;
+        }
+        else if (selected >= total)
+        {
+            HeaderSelectAll.IsChecked = true;
+        }
+        else
+        {
+            HeaderSelectAll.IsChecked = null;
+        }
+
+        _suppressCheckSync = false;
+    }
+
+    private void SyncVisibleRowChecks()
+    {
+        if (DevicesList.ItemsSource is null)
+        {
+            return;
+        }
+
+        _suppressCheckSync = true;
+        foreach (var item in DevicesList.Items)
+        {
+            if (item is not Device device
+                || DevicesList.ContainerFromItem(device) is not ListViewItem container)
+            {
+                continue;
+            }
+
+            if (FindRowCheckBox(container) is { } box)
+            {
+                box.IsChecked = DevicesList.SelectedItems.Contains(device);
+            }
+        }
+
+        _suppressCheckSync = false;
+    }
+
+    private static CheckBox? FindRowCheckBox(DependencyObject root)
+    {
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is CheckBox { Tag: Device, Content: null } box)
+            {
+                return box;
+            }
+
+            var nested = FindRowCheckBox(child);
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private async void RowEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: Device device })
+        {
+            return;
+        }
+
+        ViewModel.SelectedDevice = device;
+        await EditOrAddAsync(isNew: false);
+    }
+
+    private async void RowDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: Device device })
+        {
+            return;
+        }
+
+        if (!await PromptDialogs.ConfirmAsync(XamlRoot, "删除设备", $"确定删除「{device.Code}」？"))
+        {
+            return;
+        }
+
+        await RunAsync(() => ViewModel.DeleteSelectedAsync([device]));
     }
 }

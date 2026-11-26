@@ -1,25 +1,46 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Nets.App.ViewModels;
+using Qolome_Devtoy_App.Helpers;
 
 namespace Qolome.Nets.App;
 
 public sealed partial class HostInfoPage : Page
 {
+    private ResizableColumnLayout? _nicColumnLayout;
+
     public HostInfoViewModel ViewModel { get; } = new();
 
     public HostInfoPage()
     {
         InitializeComponent();
-        ViewModel.PropertyChanged += (_, e) =>
+        Loaded += OnHostInfoLoaded;
+    }
+
+    private async void OnHostInfoLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_nicColumnLayout is null)
         {
-            if (e.PropertyName is nameof(HostInfoViewModel.IsBusy) or null)
-            {
-                BusyBar.Visibility = ViewModel.IsBusy ? Visibility.Visible : Visibility.Collapsed;
-            }
-        };
-        BusyBar.Visibility = Visibility.Collapsed;
-        Loaded += async (_, _) => await ViewModel.LoadAsync();
+            _nicColumnLayout = ResizableColumnLayout.Attach(
+                NicHeaderGrid,
+                NicList,
+                [
+                    TableColumnMetrics.IndexColumnSpec(),
+                    new ColumnSpec(0, 96, 120),
+                    new ColumnSpec(0, 120, 180),
+                    new ColumnSpec(0, 48, 64),
+                    new ColumnSpec(0, 64, 80),
+                    new ColumnSpec(0, 64, 88),
+                    new ColumnSpec(0, 120, 160),
+                    new ColumnSpec(0, 120, 160),
+                    new ColumnSpec(0, 88, 120),
+                    new ColumnSpec(0, 100, 140),
+                    new ColumnSpec(0, 80, 100),
+                ],
+                widthHost: NicTableHost);
+        }
+
+        await ViewModel.LoadAsync().ConfigureAwait(true);
     }
 
     private async void EnableAdapter_Click(object sender, RoutedEventArgs e)

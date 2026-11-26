@@ -525,13 +525,15 @@ public static class ModuleStore
         var modify = ParseTimestamp(ReadOptionalString(reader, 21)) ?? ParseTimestamp(updated);
         if (create is null && modify is null)
         {
-            return;
+            var now = DateTime.Now;
+            create = now;
+            modify = now;
         }
 
         settings.ModuleTimes[path] = new ModulePersistTimes
         {
             CreateTime = create,
-            ModifyTime = modify,
+            ModifyTime = modify ?? create,
         };
     }
 

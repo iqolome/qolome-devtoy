@@ -10,7 +10,7 @@ public static class AboutInfo
     public const string CompanyNameEn = "Qolome";
 
 #pragma warning disable S1075 // Product / license absolute URLs are intentional constants
-    public const string WebsiteUrl = "https://qolome.com/";
+    public const string WebsiteUrl = "https://www.qolome.com";
 
     public const string LicenseName = "Apache License 2.0";
 

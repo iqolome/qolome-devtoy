@@ -22,7 +22,8 @@
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#440078D7" />
                     <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#E4000000" />
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#E4000000" />
-                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#0F000000" />
+                    <!-- 冻结表头须不透明，否则滚动时下层文字会透出 -->
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#FFF3F3F3" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="DevtoyTableBorderBrush" Color="#33000000" />
@@ -34,7 +35,7 @@
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#440078D7" />
                     <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#E4000000" />
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#E4000000" />
-                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#0F000000" />
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#FFF3F3F3" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="DevtoyTableBorderBrush" Color="#33FFFFFF" />
@@ -46,7 +47,7 @@
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedPointerOverBrush" Color="#5060CDFF" />
                     <SolidColorBrush x:Key="DevtoyTableRowForegroundBrush" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="DevtoyTableRowSelectedForegroundBrush" Color="#FFFFFFFF" />
-                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="DevtoyTableHeaderBackgroundBrush" Color="#FF2B2B2B" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -70,11 +71,13 @@
             <Style x:Key="SortHeaderButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Padding" Value="0,4" />
+                <Setter Property="Padding" Value="0,6" />
                 <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="MinHeight" Value="28" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="UseSystemFocusVisuals" Value="False" />
             </Style>
@@ -111,6 +114,10 @@
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
                 <Setter Property="ItemContainerStyle" Value="{StaticResource DevtoyTableListViewItemStyle}" />
+                <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Enabled" />
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="ScrollViewer.VerticalScrollMode" Value="Enabled" />
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
                 <Setter Property="helpers:TableListChrome.Enable" Value="True" />
             </Style>
 
@@ -119,6 +126,33 @@
                 <Setter Property="Padding" Value="12,8" />
                 <Setter Property="Background" Value="{ThemeResource DevtoyTableHeaderBackgroundBrush}" />
                 <Setter Property="helpers:TableListChrome.ColumnLines" Value="True" />
+            </Style>
+
+            <!-- 表头：列宽够则单行，不够再按词换行；表体默认单行省略 -->
+            <x:Double x:Key="DevtoyTableColumnMaxWidth">112</x:Double>
+            <!-- 与 TableColumnMetrics 保持一致：复选框 / 序号 / 操作 / 日期时间 -->
+            <x:Double x:Key="DevtoyTableCheckColumnWidth">30</x:Double>
+            <x:Double x:Key="DevtoyTableIndexColumnWidth">44.72</x:Double>
+            <x:Double x:Key="DevtoyTableActionColumnMaxWidth">356</x:Double>
+            <x:Double x:Key="DevtoyTableDateTimeColumnWidth">128.4</x:Double>
+            <x:Double x:Key="DevtoyTableDateTimeColumnMinWidth">84</x:Double>
+            <Style x:Key="DevtoyTableHeaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="DevtoyTableCellTextStyle" TargetType="TextBlock">
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <!-- 日期时间：够宽单行；挤窄时在空格处换成「日期一行 / 时间一行」 -->
+            <Style x:Key="DevtoyTableDateTimeTextStyle" TargetType="TextBlock" BasedOn="{StaticResource DevtoyTableCellTextStyle}">
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="WrapWholeWords" />
+                <Setter Property="TextTrimming" Value="None" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

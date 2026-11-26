@@ -279,6 +279,11 @@ public sealed partial class GeneratePage : Page
         var rows = filtered
             .Select(t => new SelectableTableRow(t, _checkedTableNames.Contains(t.Name)))
             .ToList();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].Index = i + 1;
+        }
+
         TableList.ItemsSource = rows;
         SyncHeaderSelectAll();
         if (keyword.Length > 0)
@@ -491,6 +496,8 @@ public sealed partial class GeneratePage : Page
             CommentDisplay = source.CommentDisplay;
             _isSelected = isSelected;
         }
+
+        public int Index { get; set; }
 
         public string Name { get; }
 

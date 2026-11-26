@@ -17,6 +17,7 @@ public sealed partial class AboutPage : Page
         CompanyEnText.Text = AboutInfo.CompanyNameEn;
         LicenseText.Text =
             $"本软件采用 {AboutInfo.LicenseName} 授权。完整协议见仓库根目录 LICENSE 文件。";
+        WebsiteLink.Content = AboutInfo.WebsiteUrl;
         WebsiteLink.NavigateUri = new Uri(AboutInfo.WebsiteUrl);
         LicenseLink.NavigateUri = new Uri(AboutInfo.LicenseUrl);
         ServiceAgreementText.Text = AppInfo.ServiceAgreement;

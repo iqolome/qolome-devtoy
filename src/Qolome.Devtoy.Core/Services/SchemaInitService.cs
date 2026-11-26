@@ -97,33 +97,51 @@ public static class SchemaInitService
     private static void InitializeSqlite(DataSourceSettings dataSource)
     {
         var path = DataSourceRuntime.ResolveSqlitePath(dataSource);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        // 启动时 ConfigDbAccess 常会先建好 devtoy_doc 等配置表；这不等于「已初始化」。
+        // 仅当字典/网络业务表已存在时才中止，避免误伤空业务库。
         if (File.Exists(path))
         {
-            // 允许空文件；若已有业务表则提示
-            using var probe = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Cache=Shared");
-            probe.Open();
-            using var cmd = probe.CreateCommand();
-            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
-            var existing = new List<string>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                existing.Add(reader.GetString(0));
-            }
-
-            var configNames = new HashSet<string>(DevtoyTableNames.RequiredConfigTables, StringComparer.OrdinalIgnoreCase);
-            var hit = existing.Where(t => configNames.Contains(t)).ToList();
-            if (hit.Count > 0)
+            var existing = ListSqliteUserTables(path);
+            var businessHit = existing
+                .Where(t =>
+                    DevtoyTableNames.RequiredDictTables.Contains(t, StringComparer.OrdinalIgnoreCase)
+                    || DevtoyTableNames.RequiredNetsTables.Contains(t, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (businessHit.Count > 0)
             {
                 throw new InvalidOperationException(
-                    $"本地库已存在配置表：{string.Join(", ", hit)}。初始化已中止。");
+                    $"本地库已存在业务表：{string.Join(", ", businessHit)}。路径：{path}。初始化已中止（请备份后删除该文件，或改用空库）。");
             }
         }
 
         DataSourceRuntime.PersistCurrent(dataSource);
         using var conn = ConfigDbAccess.Open();
         ConfigDbAccess.EnsureConfigSchema(conn);
-        // 网络/OUI/字典表由宿主在初始化后调用 PrepareSchema（EF）补齐
+        // 网络/OUI 表由宿主在初始化后调用 PrepareSchema（EF）补齐
+    }
+
+    private static List<string> ListSqliteUserTables(string path)
+    {
+        var existing = new List<string>();
+        using var probe = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Cache=Shared");
+        probe.Open();
+        using var cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            existing.Add(reader.GetString(0));
+        }
+
+        return existing;
     }
 
     private static void EnsureSupported(DataSourceSettings dataSource)

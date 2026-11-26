@@ -31,7 +31,7 @@
 | --- | --- |
 | **产品** | Qolome DevToy |
 | **开发商** | Qolome |
-| **官网** | [https://qolome.com/](https://qolome.com/) |
+| **官网** | [https://www.qolome.com](https://www.qolome.com) |
 | **许可协议** | [Apache License 2.0](LICENSE) |
 | **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.1.0`） |
 

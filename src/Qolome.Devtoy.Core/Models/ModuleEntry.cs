@@ -2,6 +2,9 @@ namespace Qolome.Devtoy.Core.Models;
 
 public sealed class ModuleEntry
 {
+    /// <summary>当前列表中的显示序号（1-based，不入库）。</summary>
+    public int RowIndex { get; set; }
+
     public required string WorkspaceRoot { get; init; }
 
     public required string ModulePath { get; init; }

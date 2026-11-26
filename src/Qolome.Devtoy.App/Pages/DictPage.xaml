@@ -38,16 +38,31 @@
                     <TextBlock Text="新增字典" Style="{StaticResource DevtoyGlyphTextStyle}" />
                 </StackPanel>
             </Button>
+            <Button x:Name="DeleteSelectedBtn" Click="OnDeleteSelectedItems">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}" VerticalAlignment="Center">
+                        <SymbolIcon Symbol="Delete" />
+                    </Viewbox>
+                    <TextBlock Text="删除选中" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                </StackPanel>
+            </Button>
         </StackPanel>
+        <ScrollViewer
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Auto"
+            HorizontalScrollMode="Enabled"
+            VerticalScrollBarVisibility="Disabled"
+            VerticalScrollMode="Disabled">
+            <Grid x:Name="DictTableHost">
         <ListView
-                Grid.Row="1"
                 x:Name="DictList"
-                SelectionMode="Single"
+                SelectionMode="Extended"
+                SelectionChanged="OnDictSelectionChanged"
                 Style="{StaticResource DevtoyTableListViewStyle}"
                 helpers:TableListChrome.ColumnLines="True"
                 HorizontalAlignment="Stretch"
-                ScrollViewer.HorizontalScrollMode="Disabled"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollMode="Disabled">
                 <ListView.Header>
                     <Grid
                         x:Name="DictHeaderRow"
@@ -62,21 +77,35 @@
                             HorizontalAlignment="Stretch"
                             helpers:TableListChrome.ColumnLines="True">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" MinWidth="80" />
-                                <ColumnDefinition Width="1.2*" MinWidth="72" />
-                                <ColumnDefinition Width="64" />
-                                <ColumnDefinition Width="44" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="360" MinWidth="340" />
+                                <ColumnDefinition Width="30" MaxWidth="30" />
+                                <ColumnDefinition Width="45" MaxWidth="45" />
+                                <ColumnDefinition Width="*" MinWidth="96" />
+                                <ColumnDefinition Width="1.2*" MinWidth="96" />
+                                <ColumnDefinition Width="72" MinWidth="56" />
+                                <ColumnDefinition Width="72" MinWidth="56" />
+                                <ColumnDefinition Width="72" MinWidth="56" />
+                                <ColumnDefinition Width="128" MinWidth="84" />
+                                <ColumnDefinition Width="128" MinWidth="84" />
+                                <ColumnDefinition Width="284" MaxWidth="284" MinWidth="284" />
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="SortItemCode" Tag="ItemCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="编码" />
-                            <Button x:Name="SortItemName" Grid.Column="1" Tag="ItemName" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="名称" />
-                            <Button x:Name="SortReference" Grid.Column="2" Tag="ReferenceCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="类型" />
-                            <Button x:Name="SortEnum" Grid.Column="3" Tag="EnumFlag" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="枚举" />
-                            <Button x:Name="SortCreateTime" Grid.Column="4" Tag="CreateTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="创建日期" />
-                            <Button x:Name="SortModifyTime" Grid.Column="5" Tag="ModifyTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="修改日期" />
-                            <TextBlock Grid.Column="6" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <CheckBox
+                                x:Name="HeaderSelectAll"
+                                MinWidth="0"
+                                HorizontalAlignment="Center"
+                                IsThreeState="True"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="全选 / 取消全选"
+                                Checked="OnSelectAllChanged"
+                                Unchecked="OnSelectAllChanged" />
+                            <TextBlock Grid.Column="1" Text="序号" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Button x:Name="SortItemCode" Grid.Column="2" Tag="ItemCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="编码" />
+                            <Button x:Name="SortItemName" Grid.Column="3" Tag="ItemName" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="名称" />
+                            <Button x:Name="SortReference" Grid.Column="4" Tag="ReferenceCode" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="类型" />
+                            <Button x:Name="SortEnum" Grid.Column="5" Tag="EnumFlag" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="枚举" />
+                            <Button x:Name="SortEnabled" Grid.Column="6" Tag="Enabled" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="启用" />
+                            <Button x:Name="SortCreateTime" Grid.Column="7" Tag="CreateTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="创建日期" />
+                            <Button x:Name="SortModifyTime" Grid.Column="8" Tag="ModifyTime" Click="OnSortColumn" Style="{StaticResource SortHeaderButtonStyle}" Content="修改日期" />
+                            <TextBlock Grid.Column="9" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </Grid>
                     </Grid>
                 </ListView.Header>
@@ -89,24 +118,43 @@
                 <DataTemplate>
                     <Grid ColumnSpacing="8" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="80" />
-                            <ColumnDefinition Width="1.2*" MinWidth="72" />
-                            <ColumnDefinition Width="64" />
-                            <ColumnDefinition Width="44" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="360" MinWidth="340" />
+                            <ColumnDefinition Width="30" MaxWidth="30" />
+                            <ColumnDefinition Width="45" MaxWidth="45" />
+                            <ColumnDefinition Width="*" MinWidth="96" />
+                            <ColumnDefinition Width="1.2*" MinWidth="96" />
+                            <ColumnDefinition Width="72" MinWidth="56" />
+                            <ColumnDefinition Width="72" MinWidth="56" />
+                            <ColumnDefinition Width="72" MinWidth="56" />
+                            <ColumnDefinition Width="128" MinWidth="84" />
+                            <ColumnDefinition Width="128" MinWidth="84" />
+                            <ColumnDefinition Width="284" MaxWidth="284" MinWidth="284" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding ItemCode}" FontFamily="Consolas" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="1" Text="{Binding ItemName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{Binding ReferenceCode}" Opacity="0.75" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="3" Text="{Binding EnumDisplay}" Opacity="0.75" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="4" Text="{Binding CreateTimeDisplay}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="5" Text="{Binding ModifyTimeDisplay}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
-                        <StackPanel
-                            Grid.Column="6"
-                            Orientation="Horizontal"
-                            Spacing="4"
+                        <CheckBox
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Tag="{Binding}"
+                            Loaded="OnRowCheckLoaded"
+                            Checked="OnRowCheckChanged"
+                            Unchecked="OnRowCheckChanged" />
+                        <TextBlock Grid.Column="1" Text="{Binding RowIndex}" Opacity="0.75" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock
+                            Grid.Column="2"
+                            Text="{Binding ItemCode}"
+                            FontFamily="Consolas"
+                            VerticalAlignment="Center"
+                            TextTrimming="CharacterEllipsis"
+                            DoubleTapped="OnItemCodeDoubleTapped"
+                            ToolTipService.ToolTip="双击复制 &lt;dict-code&gt;编码&lt;/dict-code&gt;" />
+                        <TextBlock Grid.Column="3" Text="{Binding ItemName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="4" Text="{Binding ReferenceCode}" Opacity="0.75" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="5" Text="{Binding EnumDisplay}" Opacity="0.75" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="6" Text="{Binding EnabledDisplay}" Opacity="0.75" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="7" Text="{Binding CreateTimeDisplay}" Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                        <TextBlock Grid.Column="8" Text="{Binding ModifyTimeDisplay}" Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                        <helpers:ActionButtonWrapPanel
+                            Grid.Column="9"
+                            MaxWidth="284"
                             VerticalAlignment="Center">
                             <Button
                                 Tag="{Binding}"
@@ -164,10 +212,12 @@
                                     <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
                                 </StackPanel>
                             </Button>
-                        </StackPanel>
+                        </helpers:ActionButtonWrapPanel>
                     </Grid>
                 </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+            </Grid>
+        </ScrollViewer>
     </Grid>
 </Page>

@@ -59,8 +59,17 @@ public partial class DeviceTypesViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        _allTypes = [.. await InventoryService.GetDeviceTypesAsync()];
-        ApplyView();
+        try
+        {
+            _allTypes = [.. await InventoryService.GetDeviceTypesAsync()];
+            ApplyView();
+        }
+        catch (Exception ex)
+        {
+            _allTypes = [];
+            ApplyView();
+            Status = "加载设备类型失败: " + ex.Message;
+        }
     }
 
     partial void OnSearchQueryChanged(string value) => ApplyView();
@@ -119,6 +128,15 @@ public partial class DeviceTypesViewModel : ObservableObject
             GroupedTypes.Add(view);
         }
 
+        var row = 1;
+        foreach (var groupView in GroupedTypes)
+        {
+            foreach (var type in groupView)
+            {
+                type.RowIndex = row++;
+            }
+        }
+
         SelectedType = Types.FirstOrDefault(t => t.Id == selectedId);
         var suffix = string.IsNullOrWhiteSpace(SearchQuery) && SelectedGroupFilter?.Key is null
             ? $"{Types.Count} 种设备类型。"
@@ -161,9 +179,24 @@ public partial class DeviceTypesViewModel : ObservableObject
             return;
         }
 
-        await InventoryService.DeleteDeviceTypeAsync(SelectedType.Id);
+        await DeleteSelectedAsync([SelectedType]);
+    }
+
+    public async Task DeleteSelectedAsync(IReadOnlyList<DeviceType> types)
+    {
+        var ids = types.Select(t => t.Id).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var id in ids)
+        {
+            await InventoryService.DeleteDeviceTypeAsync(id);
+        }
+
         await LoadAsync();
-        Status = "已删除设备类型。";
+        Status = ids.Count == 1 ? "已删除设备类型。" : $"已删除 {ids.Count} 种设备类型。";
     }
 
     public async Task ExportAsync()

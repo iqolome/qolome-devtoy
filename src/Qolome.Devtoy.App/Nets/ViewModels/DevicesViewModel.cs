@@ -76,17 +76,28 @@ public partial class DevicesViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var environments = await InventoryService.GetEnvironmentsAsync();
-        Environments.Clear();
-        foreach (var env in environments)
+        try
         {
-            Environments.Add(env);
+            var environments = await InventoryService.GetEnvironmentsAsync();
+            Environments.Clear();
+            foreach (var env in environments)
+            {
+                Environments.Add(env);
+            }
+
+            DeviceTypes = await InventoryService.GetDeviceTypesAsync();
+
+            SelectedEnvironment = Environments.FirstOrDefault(e => e.Id == AppServices.SelectedEnvironmentId)
+                ?? Environments.FirstOrDefault();
+            if (SelectedEnvironment is null)
+            {
+                Status = "暂无网络环境，请先在「网络环境」中创建。";
+            }
         }
-
-        DeviceTypes = await InventoryService.GetDeviceTypesAsync();
-
-        SelectedEnvironment = Environments.FirstOrDefault(e => e.Id == AppServices.SelectedEnvironmentId)
-            ?? Environments.FirstOrDefault();
+        catch (Exception ex)
+        {
+            Status = "加载设备列表失败: " + ex.Message;
+        }
     }
 
     public async Task<(IReadOnlyList<DeviceType> Types, IReadOnlyList<DeviceGroup> Groups)> GetEditorLookupsAsync()
@@ -207,13 +218,18 @@ public partial class DevicesViewModel : ObservableObject
             }
 
             SelectedGroupFilter = DeviceGroupFilter.All;
+            await ReloadDevicesAsync();
+        }
+        catch (Exception ex)
+        {
+            Status = "加载设备失败: " + ex.Message;
+            _allDevices = [];
+            ApplyView();
         }
         finally
         {
             _suppressGroupFilterReload = false;
         }
-
-        await ReloadDevicesAsync();
     }
 
     private async Task ReloadDevicesAsync()
@@ -252,8 +268,10 @@ public partial class DevicesViewModel : ObservableObject
 
         query = ApplySort(query);
 
+        var index = 1;
         foreach (var device in query)
         {
+            device.RowIndex = index++;
             Devices.Add(device);
         }
 

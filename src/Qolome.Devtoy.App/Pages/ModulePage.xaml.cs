@@ -118,17 +118,20 @@ public sealed partial class ModulePage : Page
                 ModuleHeaderGrid,
                 ModuleList,
                 [
-                    new ColumnSpec(0, 36, 40),
+                    TableColumnMetrics.CheckColumnSpec(),
+                    TableColumnMetrics.IndexColumnSpec(),
                     new ColumnSpec(1.4, 72),
                     new ColumnSpec(0.8, 64),
                     new ColumnSpec(1.8, 96),
                     new ColumnSpec(0.7, 48),
                     new ColumnSpec(0.7, 48),
-                    new ColumnSpec(0, 100, 120),
-                    new ColumnSpec(0, 110, 132),
-                    new ColumnSpec(0, 110, 132),
-                    new ColumnSpec(0, 200, 240),
-                ]);
+                    new ColumnSpec(0, 100, 112),
+                    TableColumnMetrics.DateTimeColumnSpec(),
+                    TableColumnMetrics.DateTimeColumnSpec(),
+                    // 修改/生成配置/枚举路径/字典路径/忽略/删除：最多 5 钮一行，多则换行
+                    TableColumnMetrics.ActionColumnSpec(5),
+                ],
+                widthHost: ModuleTableHost);
         }
 
         if (_ignoredColumnLayout is null)
@@ -137,16 +140,19 @@ public sealed partial class ModulePage : Page
                 IgnoredHeaderGrid,
                 IgnoredList,
                 [
-                    new ColumnSpec(0, 36, 40),
+                    TableColumnMetrics.CheckColumnSpec(),
+                    TableColumnMetrics.IndexColumnSpec(),
                     new ColumnSpec(1.6, 80),
                     new ColumnSpec(1, 72),
                     new ColumnSpec(2.4, 120),
                     new ColumnSpec(0.9, 56),
                     new ColumnSpec(0.9, 56),
-                    new ColumnSpec(0, 110, 132),
-                    new ColumnSpec(0, 110, 132),
-                    new ColumnSpec(0, 160, 180),
-                ]);
+                    TableColumnMetrics.DateTimeColumnSpec(),
+                    TableColumnMetrics.DateTimeColumnSpec(),
+                    // 取消忽略 / 删除
+                    TableColumnMetrics.ActionColumnSpec(2),
+                ],
+                widthHost: IgnoredTableHost);
         }
     }
 
@@ -171,10 +177,12 @@ public sealed partial class ModulePage : Page
             IEnumerable<ModuleEntry> activeQuery = ApplyListFilters(_session.Modules.Where(m => !m.IsIgnored));
             var active = ApplySort(activeQuery).ToList();
             var ignored = ApplySort(ApplyListFilters(_session.Modules.Where(m => m.IsIgnored))).ToList();
+            for (var i = 0; i < active.Count; i++) active[i].RowIndex = i + 1;
+            for (var i = 0; i < ignored.Count; i++) ignored[i].RowIndex = i + 1;
             ModuleList.ItemsSource = active;
-            ModuleList.SelectedItems.Clear();
+            ListViewCheckOnlySelection.RunProgrammatic(ModuleList, () => ModuleList.SelectedItems.Clear());
             IgnoredList.ItemsSource = ignored;
-            IgnoredList.SelectedItems.Clear();
+            ListViewCheckOnlySelection.RunProgrammatic(IgnoredList, () => IgnoredList.SelectedItems.Clear());
             IgnoredTab.Header = ignored.Count > 0 ? $"忽略列表 ({ignored.Count})" : "忽略列表";
             UpdateBulkActionButtons();
             SyncHeaderSelectAll();
@@ -1215,6 +1223,11 @@ public sealed partial class ModulePage : Page
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!ListViewCheckOnlySelection.IsProgrammatic(ModuleList))
+        {
+            return;
+        }
+
         UpdateBulkActionButtons();
         SyncHeaderSelectAll();
         SyncVisibleRowChecks();
@@ -1223,6 +1236,11 @@ public sealed partial class ModulePage : Page
 
     private void OnIgnoredSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!ListViewCheckOnlySelection.IsProgrammatic(IgnoredList))
+        {
+            return;
+        }
+
         UpdateBulkActionButtons();
         SyncIgnoredHeaderSelectAll();
         SyncVisibleIgnoredRowChecks();
@@ -1266,14 +1284,17 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        if (box.IsChecked == true)
+        ListViewCheckOnlySelection.RunProgrammatic(list, () =>
         {
-            SelectAllInList(list);
-        }
-        else if (box.IsChecked == false)
-        {
-            list.SelectedItems.Clear();
-        }
+            if (box.IsChecked == true)
+            {
+                SelectAllInList(list);
+            }
+            else if (box.IsChecked == false)
+            {
+                list.SelectedItems.Clear();
+            }
+        });
     }
 
     private static void SelectAllInList(ListView list)
@@ -1298,6 +1319,7 @@ public sealed partial class ModulePage : Page
             return;
         }
 
+        ListViewCheckOnlySelection.Attach(list);
         _suppressCheckSync = true;
         box.IsChecked = list.SelectedItems.Contains(entry);
         _suppressCheckSync = false;
@@ -1316,17 +1338,20 @@ public sealed partial class ModulePage : Page
             return;
         }
 
-        if (box.IsChecked == true)
+        ListViewCheckOnlySelection.RunProgrammatic(list, () =>
         {
-            if (!list.SelectedItems.Contains(entry))
+            if (box.IsChecked == true)
             {
-                list.SelectedItems.Add(entry);
+                if (!list.SelectedItems.Contains(entry))
+                {
+                    list.SelectedItems.Add(entry);
+                }
             }
-        }
-        else
-        {
-            list.SelectedItems.Remove(entry);
-        }
+            else
+            {
+                list.SelectedItems.Remove(entry);
+            }
+        });
     }
 
     private void SyncHeaderSelectAll() =>

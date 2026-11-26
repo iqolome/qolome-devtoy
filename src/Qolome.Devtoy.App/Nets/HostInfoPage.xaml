@@ -9,34 +9,28 @@
     xmlns:helpers="using:Qolome_Devtoy_App.Helpers"
     mc:Ignorable="d">
 
-    <ScrollViewer
-        Padding="16"
-        HorizontalScrollMode="Auto"
-        HorizontalScrollBarVisibility="Auto"
-        VerticalScrollMode="Enabled"
-        VerticalScrollBarVisibility="Auto">
-        <Grid RowSpacing="12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <Grid Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <ScrollViewer
+            MaxHeight="440"
+            HorizontalScrollMode="Auto"
+            HorizontalScrollBarVisibility="Auto"
+            VerticalScrollMode="Auto"
+            VerticalScrollBarVisibility="Auto">
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
                 <TextBlock Text="本机信息" Style="{StaticResource TitleTextBlockStyle}" />
-                <Button
-                    Grid.Column="1"
-                    Style="{StaticResource AccentButtonStyle}"
-                    Command="{x:Bind ViewModel.RefreshCommand}"
-                    Content="刷新" />
-            </Grid>
 
         <Border
             Grid.Row="1"
@@ -46,19 +40,30 @@
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
             <StackPanel Spacing="8">
-                <Grid ColumnSpacing="12">
+                <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="硬件信息" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <ProgressBar
-                        x:Name="BusyBar"
+                    <TextBlock Text="硬件信息" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <ProgressRing
                         Grid.Column="1"
-                        Width="120"
-                        Height="4"
+                        Width="18"
+                        Height="18"
                         VerticalAlignment="Center"
-                        IsIndeterminate="True" />
+                        IsActive="{x:Bind ViewModel.IsHardwareBusy, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsHardwareBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                    <Button
+                        Grid.Column="2"
+                        Padding="6"
+                        VerticalAlignment="Center"
+                        Command="{x:Bind ViewModel.RefreshHardwareCommand}"
+                        ToolTipService.ToolTip="刷新硬件信息">
+                        <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}">
+                            <SymbolIcon Symbol="Refresh" />
+                        </Viewbox>
+                    </Button>
                 </Grid>
                 <TextBlock TextWrapping="Wrap">
                     <Run FontWeight="SemiBold" Text="设备名称：" />
@@ -99,7 +104,31 @@
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
             <StackPanel Spacing="10">
-                <TextBlock Text="网络信息" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="网络信息" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <ProgressRing
+                        Grid.Column="1"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        IsActive="{x:Bind ViewModel.IsNetworkBusy, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsNetworkBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                    <Button
+                        Grid.Column="2"
+                        Padding="6"
+                        VerticalAlignment="Center"
+                        Command="{x:Bind ViewModel.RefreshNetworkCommand}"
+                        ToolTipService.ToolTip="刷新网络信息">
+                        <Viewbox Width="{StaticResource DevtoyGlyphIconBox}" Height="{StaticResource DevtoyGlyphIconBox}">
+                            <SymbolIcon Symbol="Refresh" />
+                        </Viewbox>
+                    </Button>
+                </Grid>
                 <Grid ColumnSpacing="24" RowSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -195,147 +224,161 @@
                     ToolTipService.ToolTip="仅软网卡可删除（卸载设备；物理网卡不可用）" />
             </StackPanel>
         </Grid>
+            </Grid>
+        </ScrollViewer>
 
         <Border
-            Grid.Row="4"
+            Grid.Row="1"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-            <ListView
-                ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"
-                SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
-                SelectionMode="Single"
-                Style="{StaticResource DevtoyTableListViewStyle}"
-                BorderThickness="0"
-                ScrollViewer.VerticalScrollMode="Disabled"
-                ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                ScrollViewer.HorizontalScrollMode="Disabled"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                helpers:TableListChrome.ColumnLines="True">
-                <!-- 表头放进 ListView.Header，与行同宽（含滚动条槽），避免错位 -->
-                <ListView.Header>
-                    <Grid
-                        Padding="12,10"
-                        ColumnSpacing="8"
-                        Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
-                        BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
-                        BorderThickness="0,0,0,1"
+            <!-- 外层横向滚动 + 统一列宽，避免 Auto 列导致表头/行错位 -->
+            <ScrollViewer
+                HorizontalScrollBarVisibility="Auto"
+                HorizontalScrollMode="Enabled"
+                VerticalScrollBarVisibility="Disabled"
+                VerticalScrollMode="Disabled">
+                <Grid x:Name="NicTableHost">
+                    <ListView
+                        x:Name="NicList"
+                        ItemsSource="{x:Bind ViewModel.Adapters, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
+                        SelectionMode="Single"
+                        Style="{StaticResource DevtoyTableListViewStyle}"
+                        BorderThickness="0"
+                        HorizontalAlignment="Stretch"
+                        ScrollViewer.VerticalScrollMode="Enabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                        ScrollViewer.HorizontalScrollMode="Disabled"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         helpers:TableListChrome.ColumnLines="True">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="140" />
-                            <ColumnDefinition Width="88" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="1.2*" />
-                            <ColumnDefinition Width="1.2*" />
-                            <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="连接名" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="网卡名称" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="类型" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="3" Text="连接方式" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="4" Text="速率" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="5" Text="IPv4 信息" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="6" Text="IPv6 信息" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="7" Text="网关" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="8" Text="MAC" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="9" Text="持续时间" FontWeight="SemiBold" />
-                    </Grid>
-                </ListView.Header>
-                <!-- 外层页面滚动：禁用虚拟化，按内容撑开高度 -->
-                <ListView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Vertical" />
-                    </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
-                        <!-- 与表头 Padding 水平一致 -->
-                        <Setter Property="Padding" Value="12,6" />
-                        <Setter Property="MinHeight" Value="0" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:LocalNicRow">
-                        <Grid ColumnSpacing="8" ToolTipService.ToolTip="{x:Bind Description}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="88" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="90" />
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="90" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="80" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock
-                                Text="{x:Bind NetworkName}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="1"
-                                Text="{x:Bind AdapterName}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="2"
-                                Text="{x:Bind KindLabel}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="3"
-                                Text="{x:Bind ConnectionDisplay}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="4"
-                                Text="{x:Bind SpeedDisplay}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="5"
-                                Text="{x:Bind Ipv4Info}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="6"
-                                Text="{x:Bind Ipv6Info}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="7"
-                                Text="{x:Bind Gateway}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="8"
-                                Text="{x:Bind Mac}"
-                                FontFamily="Consolas"
-                                FontSize="12"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                            <TextBlock
-                                Grid.Column="9"
-                                Text="{x:Bind Duration}"
-                                TextWrapping="Wrap"
-                                VerticalAlignment="Top" />
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                        <ListView.Header>
+                            <Grid
+                                x:Name="NicHeaderRow"
+                                Padding="12,10"
+                                HorizontalAlignment="Stretch"
+                                Background="{ThemeResource DevtoyTableHeaderBackgroundBrush}"
+                                BorderBrush="{ThemeResource DevtoyTableGridLineBrush}"
+                                BorderThickness="0,0,0,1">
+                                <Grid
+                                    x:Name="NicHeaderGrid"
+                                    ColumnSpacing="8"
+                                    HorizontalAlignment="Stretch"
+                                    helpers:TableListChrome.ColumnLines="True">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="45" MaxWidth="45" />
+                                        <ColumnDefinition Width="120" MinWidth="96" />
+                                        <ColumnDefinition Width="180" MinWidth="120" />
+                                        <ColumnDefinition Width="64" MinWidth="48" />
+                                        <ColumnDefinition Width="80" MinWidth="64" />
+                                        <ColumnDefinition Width="88" MinWidth="64" />
+                                        <ColumnDefinition Width="160" MinWidth="120" />
+                                        <ColumnDefinition Width="160" MinWidth="120" />
+                                        <ColumnDefinition Width="120" MinWidth="88" />
+                                        <ColumnDefinition Width="140" MinWidth="100" />
+                                        <ColumnDefinition Width="100" MinWidth="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="序号" Style="{StaticResource DevtoyTableHeaderTextStyle}" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="连接名" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="2" Text="网卡名称" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="3" Text="类型" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="4" Text="连接方式" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="5" Text="速率" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="6" Text="IPv4 信息" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="7" Text="IPv6 信息" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="8" Text="网关" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="9" Text="MAC" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                    <TextBlock Grid.Column="10" Text="持续时间" Style="{StaticResource DevtoyTableHeaderTextStyle}" />
+                                </Grid>
+                            </Grid>
+                        </ListView.Header>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem" BasedOn="{StaticResource DevtoyTableListViewItemStyle}">
+                                <Setter Property="Padding" Value="12,6" />
+                                <Setter Property="MinHeight" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LocalNicRow">
+                                <Grid
+                                    ColumnSpacing="8"
+                                    HorizontalAlignment="Stretch"
+                                    ToolTipService.ToolTip="{x:Bind Description}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="45" MaxWidth="45" />
+                                        <ColumnDefinition Width="120" MinWidth="96" />
+                                        <ColumnDefinition Width="180" MinWidth="120" />
+                                        <ColumnDefinition Width="64" MinWidth="48" />
+                                        <ColumnDefinition Width="80" MinWidth="64" />
+                                        <ColumnDefinition Width="88" MinWidth="64" />
+                                        <ColumnDefinition Width="160" MinWidth="120" />
+                                        <ColumnDefinition Width="160" MinWidth="120" />
+                                        <ColumnDefinition Width="120" MinWidth="88" />
+                                        <ColumnDefinition Width="140" MinWidth="100" />
+                                        <ColumnDefinition Width="100" MinWidth="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Index}" Opacity="0.75" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind NetworkName}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind AdapterName}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind KindLabel}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ConnectionDisplay}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind SpeedDisplay}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock
+                                        Grid.Column="6"
+                                        Text="{x:Bind Ipv4Info}"
+                                        Style="{StaticResource DevtoyTableCellTextStyle}"
+                                        ToolTipService.ToolTip="{x:Bind Ipv4Info}" />
+                                    <TextBlock
+                                        Grid.Column="7"
+                                        Text="{x:Bind Ipv6Info}"
+                                        Style="{StaticResource DevtoyTableCellTextStyle}"
+                                        ToolTipService.ToolTip="{x:Bind Ipv6Info}" />
+                                    <TextBlock Grid.Column="8" Text="{x:Bind Gateway}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock
+                                        Grid.Column="9"
+                                        Text="{x:Bind Mac}"
+                                        FontFamily="Consolas"
+                                        FontSize="12"
+                                        Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                    <TextBlock Grid.Column="10" Text="{x:Bind Duration}" Style="{StaticResource DevtoyTableCellTextStyle}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </ScrollViewer>
         </Border>
 
-            <TextBlock
-                Grid.Row="5"
-                Text="{x:Bind ViewModel.Status, Mode=OneWay}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Opacity="0.8" />
+        <TextBlock
+            Grid.Row="2"
+            Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Opacity="0.8" />
+
+        <!-- 初次进入 / 刷新 / 网卡操作：整页 loading，防误操作 -->
+        <Grid
+            Grid.RowSpan="3"
+            Canvas.ZIndex="100"
+            Background="#88000000"
+            Visibility="{x:Bind ViewModel.PageBusyVisibility, Mode=OneWay}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12"
+                Padding="24">
+                <ProgressRing
+                    Width="48"
+                    Height="48"
+                    IsActive="{x:Bind ViewModel.IsPageBusy, Mode=OneWay}"
+                    IsIndeterminate="True" />
+                <TextBlock
+                    Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                    FontSize="14"
+                    Foreground="White"
+                    HorizontalAlignment="Center"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
         </Grid>
-    </ScrollViewer>
+    </Grid>
 </Page>

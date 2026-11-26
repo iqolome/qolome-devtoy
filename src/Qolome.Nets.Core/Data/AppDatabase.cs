@@ -2,6 +2,8 @@ using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using MySqlConnector;
 using Qolome.Devtoy.Core.Services;
 using Qolome.Nets.Core.Models;
@@ -120,6 +122,34 @@ public static class AppDatabase
         await PrepareSchemaAsync(business).ConfigureAwait(false);
     }
 
+    /// <summary>缺表时补建业务 Schema（配置表已存在导致 EnsureCreated 跳过的场景）。</summary>
+    public static async Task EnsureBusinessSchemaAsync()
+    {
+        if (!TryGetBusinessConfig(out var business, out var error))
+        {
+            throw new InvalidOperationException(error ?? "未配置业务数据源。");
+        }
+
+        ApplySqlitePath(business);
+        await PrepareSchemaAsync(business).ConfigureAwait(false);
+    }
+
+    public static bool IsMissingTableException(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException!)
+        {
+            var msg = e.Message;
+            if (msg.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("doesn't exist", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static async Task LoadStartupDataAsync(params Func<Task>[] extras)
     {
         if (!TryGetBusinessConfig(out _, out var error))
@@ -160,9 +190,18 @@ public static class AppDatabase
         }
 
         await using var db = CreateContext(database);
-        await db.Database.EnsureCreatedAsync();
-        await ApplySqlitePragmasAsync(db);
-        await UpgradeSchemaAsync(db);
+        // EnsureCreated 仅在「库中尚无任何表」时建表；配置表（devtoy_doc 等）先存在时会跳过，
+        // 导致网络业务表缺失。此时补调 CreateTables 只创建 EF 模型中尚未存在的表。
+        var created = await db.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        if (!created
+            && !await TableExistsAsync(db, NetsTableNames.NetworkEnvironment).ConfigureAwait(false))
+        {
+            var creator = db.GetService<IRelationalDatabaseCreator>();
+            await creator.CreateTablesAsync().ConfigureAwait(false);
+        }
+
+        await ApplySqlitePragmasAsync(db).ConfigureAwait(false);
+        await UpgradeSchemaAsync(db).ConfigureAwait(false);
     }
 
     public static async Task EnsureTopologyStorageAsync()
@@ -202,9 +241,10 @@ public static class AppDatabase
         }
 
         var raw = Environment.ExpandEnvironmentVariables(database.Sqlite.Path);
-        return Path.IsPathRooted(raw)
+        var full = Path.IsPathRooted(raw)
             ? Path.GetFullPath(raw)
             : Path.GetFullPath(Path.Combine(DataDirectory, raw));
+        return DevtoyPaths.ToEffectivePath(full);
     }
 
     private static void ApplySqlitePath(DatabaseConfig database) => DbPath = ResolveSqlitePath(database);
@@ -812,6 +852,50 @@ public static class AppDatabase
         if (!names.Contains(column))
         {
             await db.Database.ExecuteSqlRawAsync(ddl);
+        }
+    }
+
+    private static async Task<bool> TableExistsAsync(NetsDbContext db, string table)
+    {
+        NetsSqlIdentifiers.RequireKnownTableName(table);
+        var connection = db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+        {
+            await db.Database.OpenConnectionAsync().ConfigureAwait(false);
+        }
+
+        try
+        {
+            await using var cmd = connection.CreateCommand();
+            if (ContextIsMySql(db))
+            {
+                cmd.CommandText =
+                    """
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = DATABASE() AND table_name = @name
+                    LIMIT 1
+                    """;
+            }
+            else
+            {
+                cmd.CommandText =
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = @name LIMIT 1";
+            }
+
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@name";
+            p.Value = table;
+            cmd.Parameters.Add(p);
+            var result = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+            return result is not null && result is not DBNull;
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await db.Database.CloseConnectionAsync().ConfigureAwait(false);
+            }
         }
     }
 

@@ -15,6 +15,7 @@ public sealed class ResizableColumnLayout
 
     private Grid? _header;
     private FrameworkElement? _measureHost;
+    private FrameworkElement? _widthHost;
     private ListViewBase? _list;
     private Grid? _gripOverlay;
     private bool _measured;
@@ -28,27 +29,65 @@ public sealed class ResizableColumnLayout
         _specs = specs;
         _columnSpacing = columnSpacing;
         _widths = new double[specs.Length];
-        _minWidths = specs.Select(s => s.MinWidth).ToArray();
+        _minWidths = specs.Select(s =>
+        {
+            var min = s.MinWidth;
+            if (s.CapToHeaderMax)
+            {
+                min = Math.Min(min, TableColumnMetrics.MaxColumnWidth);
+            }
+
+            return Math.Max(TableColumnMetrics.MinColumnWidth * 0.5, min);
+        }).ToArray();
     }
 
+    private double MaxFor(int index)
+    {
+        var spec = _specs[index];
+        if (!spec.CapToHeaderMax)
+        {
+            return double.PositiveInfinity;
+        }
+
+        return TableColumnMetrics.MaxColumnWidth;
+    }
+
+    /// <param name="widthHost">
+    /// 外层横向滚动容器内的宿主（通常为包住 ListView 的 Grid）。
+    /// 传入后关闭 ListView 自身横向滚动，并把 MinWidth 同步为列宽合计，避免 WinUI
+    /// ItemsStackPanel 在 HorizontalScroll 下表头/行测量不一致导致错位。
+    /// </param>
     public static ResizableColumnLayout Attach(
         Grid headerGrid,
         ListViewBase listView,
         IReadOnlyList<ColumnSpec> specs,
-        double columnSpacing = 8)
+        double columnSpacing = 8,
+        FrameworkElement? widthHost = null)
     {
         var layout = new ResizableColumnLayout(specs.ToArray(), columnSpacing);
-        layout.AttachCore(headerGrid, listView);
+        layout.AttachCore(headerGrid, listView, widthHost);
         return layout;
     }
 
-    private void AttachCore(Grid headerGrid, ListViewBase listView)
+    private void AttachCore(Grid headerGrid, ListViewBase listView, FrameworkElement? widthHost)
     {
         _header = headerGrid;
         _list = listView;
+        _widthHost = widthHost ?? listView.Parent as FrameworkElement;
         // 以表头列网格自身宽度为准（勿用外层带 Padding 的父级，否则列宽会偏大导致错位）
         _measureHost = headerGrid;
         _measureHost.SizeChanged += OnMeasureHostSizeChanged;
+        if (_widthHost is not null && !ReferenceEquals(_widthHost, _measureHost))
+        {
+            _widthHost.SizeChanged += OnMeasureHostSizeChanged;
+        }
+
+        if (_widthHost is not null)
+        {
+            ScrollViewer.SetHorizontalScrollMode(listView, ScrollMode.Disabled);
+            ScrollViewer.SetHorizontalScrollBarVisibility(listView, ScrollBarVisibility.Disabled);
+        }
+
         _list.ContainerContentChanging += OnContainerContentChanging;
         _list.RegisterPropertyChangedCallback(ItemsControl.ItemsSourceProperty, (_, _) => RefreshAllRows());
         _list.Loaded += (_, _) => ApplyAll();
@@ -58,6 +97,13 @@ public sealed class ResizableColumnLayout
 
     private double GetContentWidth()
     {
+        // 外层横向滚动时，以 ListView 实际宽度为列分配基准，保证表头/表体同一套宽度
+        if (_widthHost is not null && _list is not null && _list.ActualWidth > 0)
+        {
+            var pad = GetHeaderHorizontalPadding();
+            return Math.Max(0, _list.ActualWidth - pad - _list.BorderThickness.Left - _list.BorderThickness.Right);
+        }
+
         if (_header is null || _header.ActualWidth <= 0)
         {
             return 0;
@@ -66,6 +112,46 @@ public sealed class ResizableColumnLayout
         return Math.Max(
             0,
             _header.ActualWidth - _header.Padding.Left - _header.Padding.Right);
+    }
+
+    private double GetHeaderHorizontalPadding()
+    {
+        if (_list?.Header is FrameworkElement headerRoot)
+        {
+            return headerRoot switch
+            {
+                Grid g => g.Padding.Left + g.Padding.Right,
+                Border b => b.Padding.Left + b.Padding.Right,
+                Control c => c.Padding.Left + c.Padding.Right,
+                _ => 24,
+            };
+        }
+
+        return 24;
+    }
+
+    private double CurrentTotalContentWidth()
+    {
+        if (_widths.Length == 0)
+        {
+            return 0;
+        }
+
+        return _widths.Sum() + _columnSpacing * Math.Max(0, _widths.Length - 1);
+    }
+
+    private void SyncWidthHostMinWidth()
+    {
+        if (_widthHost is null)
+        {
+            return;
+        }
+
+        var min = CurrentTotalContentWidth() + GetHeaderHorizontalPadding();
+        if (min > 1 && Math.Abs(_widthHost.MinWidth - min) > 0.5)
+        {
+            _widthHost.MinWidth = min;
+        }
     }
 
     private void BuildGripOverlay()
@@ -192,7 +278,7 @@ public sealed class ResizableColumnLayout
             var spec = _specs[i];
             if (spec.InitialPixels is double px)
             {
-                _widths[i] = Math.Max(spec.MinWidth, px);
+                _widths[i] = Math.Min(Math.Max(_minWidths[i], px), MaxFor(i));
                 fixedSum += _widths[i];
             }
             else
@@ -212,7 +298,22 @@ public sealed class ResizableColumnLayout
 
             var weight = Math.Max(0, spec.StarWeight);
             var share = flexWeight > 0 ? flexSpace * (weight / flexWeight) : flexSpace / Math.Max(1, columnCount);
-            _widths[i] = Math.Max(spec.MinWidth, share);
+            var width = Math.Max(_minWidths[i], share);
+            _widths[i] = Math.Min(width, MaxFor(i));
+        }
+
+        ClampAllToMax();
+    }
+
+    private void ClampAllToMax()
+    {
+        for (var i = 0; i < _widths.Length; i++)
+        {
+            var max = MaxFor(i);
+            if (_widths[i] > max)
+            {
+                _widths[i] = Math.Max(_minWidths[i], max);
+            }
         }
     }
 
@@ -221,8 +322,9 @@ public sealed class ResizableColumnLayout
         var columnCount = _widths.Length;
         var gaps = _columnSpacing * Math.Max(0, columnCount - 1);
         var available = Math.Max(0, totalWidth - gaps);
+        var minTotal = _minWidths.Sum();
         var sum = _widths.Sum();
-        // 滞后阈值：避免滚动条出现/消失导致 available 在临界值附近抖动引发死循环
+        // 滞后带宽：避免滚动条出现/消失导致 available 在临界值附近抖动引发死循环
         if (sum <= 0 || Math.Abs(sum - available) < 24)
         {
             return;
@@ -230,7 +332,20 @@ public sealed class ResizableColumnLayout
 
         if (sum < available)
         {
-            _widths[^1] += available - sum;
+            // 不再把余量全部塞进最后一列（会撑破「约 8 字」上限）；有余量则留白
+            ClampAllToMax();
+            return;
+        }
+
+        // 列最小宽合计已超过视口：不再强行压窄，交给横向滚动
+        if (minTotal + gaps >= available - 0.5)
+        {
+            for (var i = 0; i < _widths.Length; i++)
+            {
+                _widths[i] = Math.Max(_widths[i], _minWidths[i]);
+            }
+
+            ClampAllToMax();
             return;
         }
 
@@ -242,6 +357,8 @@ public sealed class ResizableColumnLayout
         {
             ShrinkColumns(overflow, flexOnly: false);
         }
+
+        ClampAllToMax();
     }
 
     private void ShrinkColumns(double overflow, bool flexOnly)
@@ -311,6 +428,20 @@ public sealed class ResizableColumnLayout
         var right = _dragIndex + 1;
         var newLeft = _dragSnapshot[left] + delta;
         var newRight = _dragSnapshot[right] - delta;
+        var leftMax = MaxFor(left);
+        var rightMax = MaxFor(right);
+        if (newLeft > leftMax)
+        {
+            newRight += newLeft - leftMax;
+            newLeft = leftMax;
+        }
+
+        if (newRight > rightMax)
+        {
+            newLeft += newRight - rightMax;
+            newRight = rightMax;
+        }
+
         if (newLeft < _minWidths[left])
         {
             newRight -= _minWidths[left] - newLeft;
@@ -399,6 +530,7 @@ public sealed class ResizableColumnLayout
 
             SyncGripColumns();
             RefreshAllRows();
+            SyncWidthHostMinWidth();
         }
         finally
         {
@@ -460,10 +592,41 @@ public sealed class ResizableColumnLayout
 
         for (var i = 0; i < _widths.Length; i++)
         {
-            grid.ColumnDefinitions[i].Width = new GridLength(_widths[i], GridUnitType.Pixel);
-            grid.ColumnDefinitions[i].MinWidth = _minWidths[i];
+            var w = _widths[i];
+            // MinWidth 必须等于当前列宽：若仍用规格下限，表头在窄视口内会被 Grid 压窄，
+            // 而行在横向滚动测量下保持完整宽，造成表头/表体错位。
+            grid.ColumnDefinitions[i].Width = new GridLength(w, GridUnitType.Pixel);
+            grid.ColumnDefinitions[i].MinWidth = w;
+            var max = MaxFor(i);
+            // 外层横向滚动模式下锁死列宽；内置横向滚动时仍允许上限约束
+            if (_widthHost is not null)
+            {
+                grid.ColumnDefinitions[i].MaxWidth = w;
+            }
+            else
+            {
+                grid.ColumnDefinitions[i].MaxWidth = double.IsInfinity(max) ? double.PositiveInfinity : Math.Max(max, w);
+            }
+        }
+
+        grid.HorizontalAlignment = HorizontalAlignment.Stretch;
+        // 外层滚动宿主负责 MinWidth；勿再给行/表头单独撑 MinWidth，以免与 ListView 测量打架
+        if (_widthHost is null)
+        {
+            TableListChrome.EnsureHorizontalScrollExtent(grid);
+        }
+        else
+        {
+            grid.ClearValue(FrameworkElement.MinWidthProperty);
         }
     }
 }
 
-public sealed record ColumnSpec(double StarWeight, double MinWidth, double? InitialPixels = null);
+/// <param name="CapToHeaderMax">
+/// 为 true 时列宽不超过约 8 个汉字（仅适合短标签列）；数据列/操作列保持 false。
+/// </param>
+public sealed record ColumnSpec(
+    double StarWeight,
+    double MinWidth,
+    double? InitialPixels = null,
+    bool CapToHeaderMax = false);

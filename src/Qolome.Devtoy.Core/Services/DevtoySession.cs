@@ -879,13 +879,25 @@ public sealed class DevtoySession
         }
         catch (Exception ex)
         {
-            LogError(failPrefix + ": " + ex.Message);
+            LogError(failPrefix + ": " + FormatMissingSchemaHint(ex.Message));
             return failValue;
         }
         finally
         {
             DatabaseGate.Exit();
         }
+    }
+
+    /// <summary>空库缺表时提示先「初始化」，避免误以为连接异常。</summary>
+    private static string FormatMissingSchemaHint(string message)
+    {
+        if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("doesn't exist", StringComparison.OrdinalIgnoreCase))
+        {
+            return message + "（当前库缺少业务表，请到「数据源设置」点击「初始化」建表）";
+        }
+
+        return message;
     }
 
     public async Task<CodegenResult> RunCodegenAsync(
@@ -1020,7 +1032,10 @@ public sealed class DevtoySession
                     SchemaInitService.Initialize(Settings.DataSource);
                 },
                 cancellationToken).ConfigureAwait(false);
-            Log($"数据库初始化成功（表：{string.Join(", ", SchemaInitService.RequiredTables)}）");
+            var path = Settings.DataSource.IsSqlite
+                ? DataSourceRuntime.ResolveSqlitePath(Settings.DataSource)
+                : Settings.DataSource.Database;
+            Log($"数据库初始化成功（路径/库：{path}；表：{string.Join(", ", SchemaInitService.RequiredTables)}）");
         }
         catch (Exception ex)
         {

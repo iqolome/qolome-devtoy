@@ -34,7 +34,7 @@ public static class DataSourceRuntime
     {
         if (!string.IsNullOrWhiteSpace(ds.SqlitePath))
         {
-            return Path.GetFullPath(ds.SqlitePath.Trim());
+            return DevtoyPaths.ToEffectivePath(ds.SqlitePath);
         }
 
         if (!string.IsNullOrWhiteSpace(ds.Database)
@@ -42,7 +42,7 @@ public static class DataSourceRuntime
                 || ds.Database.Contains('\\', StringComparison.Ordinal)
                 || ds.Database.Contains('/', StringComparison.Ordinal)))
         {
-            return Path.GetFullPath(ds.Database.Trim());
+            return DevtoyPaths.ToEffectivePath(ds.Database);
         }
 
         return DevtoyPaths.EnsureMigratedDefaultSqlitePath();

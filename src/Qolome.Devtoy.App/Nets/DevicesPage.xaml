@@ -57,7 +57,6 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Click="Add_Click" Content="新增" />
-                <Button Click="Edit_Click" Content="编辑" />
                 <Button
                     Click="Delete_Click"
                     Content="删除"
@@ -84,6 +83,7 @@
                     ItemsSource="{x:Bind ViewModel.Devices}"
                     SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
                     SelectionMode="Extended"
+                    SelectionChanged="Devices_SelectionChanged"
                     DoubleTapped="Devices_DoubleTapped"
                     KeyDown="Devices_KeyDown"
                     Style="{StaticResource DevtoyTableListViewStyle}"
@@ -99,6 +99,8 @@
                     BorderThickness="0,0,0,1"
                     helpers:TableListChrome.ColumnLines="True">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CheckLength, Mode=OneWay}" />
+                        <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.IndexLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CodeLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.TypeLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.HostnameLength, Mode=OneWay}" />
@@ -111,8 +113,21 @@
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.DomainsLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.OsLength, Mode=OneWay}" />
                         <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.GroupLength, Mode=OneWay}" />
+                        <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CreatedLength, Mode=OneWay}" />
+                        <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.UpdatedLength, Mode=OneWay}" />
+                        <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.ActionsLength, Mode=OneWay}" />
                     </Grid.ColumnDefinitions>
-                    <Grid>
+                    <CheckBox
+                        x:Name="HeaderSelectAll"
+                        MinWidth="0"
+                        HorizontalAlignment="Center"
+                        IsThreeState="True"
+                        VerticalAlignment="Center"
+                        ToolTipService.ToolTip="全选 / 取消全选"
+                        Checked="OnSelectAllChanged"
+                        Unchecked="OnSelectAllChanged" />
+                    <TextBlock Grid.Column="1" Text="序号" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Grid Grid.Column="2">
                         <HyperlinkButton
                             Padding="0,0,8,0"
                             HorizontalAlignment="Stretch"
@@ -128,7 +143,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="1">
+                    <Grid Grid.Column="3">
                         <TextBlock Text="类型" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Type"
@@ -137,7 +152,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="2">
+                    <Grid Grid.Column="4">
                         <HyperlinkButton
                             Padding="0,0,8,0"
                             HorizontalAlignment="Stretch"
@@ -153,7 +168,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="3">
+                    <Grid Grid.Column="5">
                         <HyperlinkButton
                             Padding="0,0,8,0"
                             HorizontalAlignment="Stretch"
@@ -169,7 +184,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="4">
+                    <Grid Grid.Column="6">
                         <HyperlinkButton
                             Padding="0,0,8,0"
                             HorizontalAlignment="Stretch"
@@ -185,7 +200,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="5">
+                    <Grid Grid.Column="7">
                         <TextBlock Text="型号" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Model"
@@ -194,7 +209,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="6">
+                    <Grid Grid.Column="8">
                         <TextBlock Text="设备说明" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Description"
@@ -203,7 +218,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="7">
+                    <Grid Grid.Column="9">
                         <HyperlinkButton
                             Padding="0,0,8,0"
                             HorizontalAlignment="Stretch"
@@ -219,7 +234,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="8">
+                    <Grid Grid.Column="10">
                         <TextBlock Text="MAC" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Mac"
@@ -228,7 +243,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="9">
+                    <Grid Grid.Column="11">
                         <TextBlock Text="域名" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Domains"
@@ -237,7 +252,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="10">
+                    <Grid Grid.Column="12">
                         <TextBlock Text="系统" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Os"
@@ -246,7 +261,7 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
-                    <Grid Grid.Column="11">
+                    <Grid Grid.Column="13">
                         <TextBlock Text="分组" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <local:ColumnResizeThumb
                             Tag="Group"
@@ -255,6 +270,25 @@
                             PointerReleased="ColumnSplitter_PointerReleased"
                             PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
                     </Grid>
+                    <Grid Grid.Column="14">
+                        <TextBlock Text="创建时间" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <local:ColumnResizeThumb
+                            Tag="Created"
+                            PointerPressed="ColumnSplitter_PointerPressed"
+                            PointerMoved="ColumnSplitter_PointerMoved"
+                            PointerReleased="ColumnSplitter_PointerReleased"
+                            PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
+                    </Grid>
+                    <Grid Grid.Column="15">
+                        <TextBlock Text="修改时间" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <local:ColumnResizeThumb
+                            Tag="Updated"
+                            PointerPressed="ColumnSplitter_PointerPressed"
+                            PointerMoved="ColumnSplitter_PointerMoved"
+                            PointerReleased="ColumnSplitter_PointerReleased"
+                            PointerCaptureLost="ColumnSplitter_PointerCaptureLost" />
+                    </Grid>
+                    <TextBlock Grid.Column="16" Text="操作" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Grid>
                     </ListView.Header>
                     <ListView.ItemContainerStyle>
@@ -266,6 +300,8 @@
                         <DataTemplate x:DataType="data:Device">
                             <Grid ColumnSpacing="0">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CheckLength, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.IndexLength, Mode=OneWay}" />
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CodeLength, Mode=OneWay}" />
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.TypeLength, Mode=OneWay}" />
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.HostnameLength, Mode=OneWay}" />
@@ -278,9 +314,27 @@
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.DomainsLength, Mode=OneWay}" />
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.OsLength, Mode=OneWay}" />
                                     <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.GroupLength, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.CreatedLength, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.UpdatedLength, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind vm:DeviceListLayout.Shared.ActionsLength, Mode=OneWay}" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind Code}" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <CheckBox
+                                    MinWidth="0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Tag="{x:Bind}"
+                                    Loaded="OnRowCheckLoaded"
+                                    Checked="OnRowCheckChanged"
+                                    Unchecked="OnRowCheckChanged" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Text="{x:Bind RowIndex}"
+                                    Opacity="0.75"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind Code}" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <Rectangle
                                         Width="4"
                                         Height="16"
@@ -294,31 +348,69 @@
                                         Source="{x:Bind local:DeviceTypeIconXaml.FromType(DeviceType), Mode=OneTime}" />
                                     <TextBlock Text="{x:Bind TypeName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" Text="{x:Bind Hostname}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="3" Text="{x:Bind Vendor}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="4" Text="{x:Bind Brand}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="5" Text="{x:Bind Model}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="4" Text="{x:Bind Hostname}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="5" Text="{x:Bind Vendor}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="6" Text="{x:Bind Brand}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="7" Text="{x:Bind Model}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock
-                                    Grid.Column="6"
+                                    Grid.Column="8"
                                     Text="{x:Bind Description}"
                                     TextTrimming="CharacterEllipsis"
                                     ToolTipService.ToolTip="{x:Bind Description}" />
                                 <TextBlock
-                                    Grid.Column="7"
+                                    Grid.Column="9"
                                     Text="{x:Bind IpsText}"
-                                    TextWrapping="Wrap"
+                                    TextWrapping="WrapWholeWords"
                                     TextTrimming="CharacterEllipsis"
                                     ToolTipService.ToolTip="{x:Bind NicsTooltip}" />
                                 <TextBlock
-                                    Grid.Column="8"
+                                    Grid.Column="10"
                                     Text="{x:Bind MacsText}"
                                     FontSize="12"
-                                    TextWrapping="Wrap"
+                                    TextWrapping="WrapWholeWords"
                                     TextTrimming="CharacterEllipsis"
                                     ToolTipService.ToolTip="{x:Bind NicsTooltip}" />
-                                <TextBlock Grid.Column="9" Text="{x:Bind DomainsText}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="10" Text="{x:Bind OsType}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="11" Text="{x:Bind GroupName}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="11" Text="{x:Bind DomainsText}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="12" Text="{x:Bind OsType}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="13" Text="{x:Bind GroupName}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="14"
+                                    Text="{x:Bind CreateTimeDisplay}"
+                                    Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                <TextBlock
+                                    Grid.Column="15"
+                                    Text="{x:Bind ModifyTimeDisplay}"
+                                    Style="{StaticResource DevtoyTableDateTimeTextStyle}" />
+                                <helpers:ActionButtonWrapPanel Grid.Column="16" MaxWidth="356" VerticalAlignment="Center">
+                                    <Button
+                                        Tag="{x:Bind}"
+                                        Click="RowEdit_Click"
+                                        Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Viewbox
+                                                Width="{StaticResource DevtoyGlyphIconBox}"
+                                                Height="{StaticResource DevtoyGlyphIconBox}"
+                                                VerticalAlignment="Center">
+                                                <SymbolIcon Symbol="Edit" />
+                                            </Viewbox>
+                                            <TextBlock Text="编辑" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button
+                                        Tag="{x:Bind}"
+                                        Click="RowDelete_Click"
+                                        Style="{StaticResource DevtoyRowActionButtonStyle}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Viewbox
+                                                Width="{StaticResource DevtoyGlyphIconBox}"
+                                                Height="{StaticResource DevtoyGlyphIconBox}"
+                                                VerticalAlignment="Center">
+                                                <SymbolIcon Symbol="Delete" />
+                                            </Viewbox>
+                                            <TextBlock Text="删除" Style="{StaticResource DevtoyGlyphTextStyle}" />
+                                        </StackPanel>
+                                    </Button>
+                                </helpers:ActionButtonWrapPanel>
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>

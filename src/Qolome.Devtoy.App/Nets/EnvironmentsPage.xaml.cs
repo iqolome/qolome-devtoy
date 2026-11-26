@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Nets.App.ViewModels;
+using Qolome.Nets.Core.Data;
 
 namespace Qolome.Nets.App;
 
@@ -20,24 +21,25 @@ public sealed partial class EnvironmentsPage : Page
 
     private async void EditEnv_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedEnvironment is null)
+        if (!TryGetTagged(sender, out NetworkEnvironment env))
         {
             return;
         }
 
-        var env = ViewModel.SelectedEnvironment;
+        ViewModel.SelectedEnvironment = env;
         await RunAsync(() => PromptDialogs.PromptTwoFieldsAsync(
             XamlRoot, "编辑网络环境", "名称", "默认 CIDR", ViewModel.EditEnvironmentAsync, env.Name, env.DefaultCidr));
     }
 
     private async void DeleteEnv_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedEnvironment is null)
+        if (!TryGetTagged(sender, out NetworkEnvironment env))
         {
             return;
         }
 
-        if (!await PromptDialogs.ConfirmAsync(XamlRoot, "删除网络环境", $"确定删除「{ViewModel.SelectedEnvironment.Name}」？"))
+        ViewModel.SelectedEnvironment = env;
+        if (!await PromptDialogs.ConfirmAsync(XamlRoot, "删除网络环境", $"确定删除「{env.Name}」？"))
         {
             return;
         }
@@ -51,29 +53,43 @@ public sealed partial class EnvironmentsPage : Page
 
     private async void EditGroup_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedGroup is null)
+        if (!TryGetTagged(sender, out DeviceGroup group))
         {
             return;
         }
 
-        var group = ViewModel.SelectedGroup;
+        ViewModel.SelectedGroup = group;
         await RunAsync(() => PromptDialogs.PromptTwoFieldsAsync(
             XamlRoot, "编辑分组", "名称", "说明", ViewModel.EditGroupAsync, group.Name, group.Description));
     }
 
     private async void DeleteGroup_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedGroup is null)
+        if (!TryGetTagged(sender, out DeviceGroup group))
         {
             return;
         }
 
-        if (!await PromptDialogs.ConfirmAsync(XamlRoot, "删除分组", $"确定删除分组「{ViewModel.SelectedGroup.Name}」？"))
+        ViewModel.SelectedGroup = group;
+        if (!await PromptDialogs.ConfirmAsync(XamlRoot, "删除分组", $"确定删除分组「{group.Name}」？"))
         {
             return;
         }
 
         await RunAsync(ViewModel.DeleteGroupAsync);
+    }
+
+    private static bool TryGetTagged<T>(object sender, out T value)
+        where T : class
+    {
+        if (sender is FrameworkElement { Tag: T tagged })
+        {
+            value = tagged;
+            return true;
+        }
+
+        value = null!;
+        return false;
     }
 
     private async Task RunAsync(Func<Task> action)

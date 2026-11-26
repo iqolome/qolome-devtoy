@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Qolome.Devtoy.Core.Models;
@@ -248,6 +249,48 @@ public sealed partial class DataSourcePage : Page
         if (folder is not null)
         {
             SqlitePathBox.Text = Path.Combine(folder.Path, DevtoyPaths.DefaultSqliteFileName);
+        }
+    }
+
+    private void OnOpenSqliteFolder(object sender, RoutedEventArgs e)
+    {
+        var raw = SqlitePathBox.Text?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            _session.Log("数据库文件路径为空，无法打开。");
+            return;
+        }
+
+        var path = DevtoyPaths.ToEffectivePath(raw);
+        try
+        {
+            if (File.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true,
+                });
+                return;
+            }
+
+            var dir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true,
+                });
+                return;
+            }
+
+            _session.Log($"目录不存在: {dir ?? path}");
+        }
+        catch (Exception ex)
+        {
+            _session.Log("打开文件夹失败: " + ex.Message);
         }
     }
 

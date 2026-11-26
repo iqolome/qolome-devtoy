@@ -69,6 +69,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="CommunityToolkit.WinUI.Behaviors" Version="8.2.250402" />
     <PackageReference Include="SkiaSharp" Version="3.119.0" />
     <PackageReference Include="Svg.Skia" Version="3.0.3" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
@@ -103,9 +104,7 @@
     VS2026 MSVC Host 工具链常无兼容的 mspdbcmf.exe；ScopeCppSDK\vc15 过旧会以 1106 失败。
     packaging\package.ps1 在找不到兼容工具时传 DevtoySkipAppxSymbols=true，跳过 .appxsym（不影响 .msix）。
   -->
-  <Target Name="DevtoySkipAppxSymbolPackage"
-          BeforeTargets="_EnsurePdbCmfExeFullPath"
-          Condition="'$(DevtoySkipAppxSymbols)' == 'true'">
+  <Target Name="DevtoySkipAppxSymbolPackage" BeforeTargets="_EnsurePdbCmfExeFullPath" Condition="'$(DevtoySkipAppxSymbols)' == 'true'">
     <ItemGroup>
       <PDBPayload Remove="@(PDBPayload)" />
     </ItemGroup>

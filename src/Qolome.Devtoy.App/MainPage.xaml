@@ -115,6 +115,14 @@
                                     FontSize="{StaticResource DevtoyFluentIconFontSize}" />
                             </NavigationViewItem.Icon>
                         </NavigationViewItem>
+                        <NavigationViewItem Content="性能配置" Tag="ConfigPerformance">
+                            <NavigationViewItem.Icon>
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    Glyph="&#xEC4A;"
+                                    FontSize="{StaticResource DevtoyFluentIconFontSize}" />
+                            </NavigationViewItem.Icon>
+                        </NavigationViewItem>
                         <NavigationViewItem Content="代码生成配置" Tag="ConfigBasic">
                             <NavigationViewItem.Icon>
                                 <FontIcon
@@ -244,5 +252,15 @@
                 </TextBox>
             </Grid>
         </Grid>
+
+        <!-- 顶部居中轻提示（类似 Ant Design Message），不拦截点击 -->
+        <StackPanel
+            x:Name="AppMessageHost"
+            Grid.RowSpan="2"
+            Margin="0,16,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            Canvas.ZIndex="1000" />
     </Grid>
 </Page>

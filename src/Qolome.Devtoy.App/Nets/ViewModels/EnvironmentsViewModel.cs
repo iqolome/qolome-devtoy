@@ -24,15 +24,22 @@ public partial class EnvironmentsViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var list = await InventoryService.GetEnvironmentsAsync();
-        Environments.Clear();
-        foreach (var item in list)
+        try
         {
-            Environments.Add(item);
-        }
+            var list = await InventoryService.GetEnvironmentsAsync();
+            Environments.Clear();
+            foreach (var item in list)
+            {
+                Environments.Add(item);
+            }
 
-        SelectedEnvironment = Environments.FirstOrDefault(e => e.Id == AppServices.SelectedEnvironmentId)
-            ?? Environments.FirstOrDefault();
+            SelectedEnvironment = Environments.FirstOrDefault(e => e.Id == AppServices.SelectedEnvironmentId)
+                ?? Environments.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            Status = "加载网络环境失败: " + ex.Message;
+        }
     }
 
     partial void OnSelectedEnvironmentChanged(NetworkEnvironment? value)

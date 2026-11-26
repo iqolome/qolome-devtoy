@@ -39,6 +39,9 @@ public sealed class DeviceType
     public string ColorGroup { get; set; } = DeviceTypeColorGroups.Other;
 
     public ICollection<Device> Devices { get; set; } = [];
+
+    [NotMapped]
+    public int RowIndex { get; set; }
 }
 
 public sealed class Device
@@ -68,6 +71,15 @@ public sealed class Device
     public DeviceType? DeviceType { get; set; }
     public ICollection<DeviceDomain> Domains { get; set; } = [];
     public ICollection<DeviceNic> Nics { get; set; } = [];
+
+    [NotMapped]
+    public int RowIndex { get; set; }
+
+    [NotMapped]
+    public string CreateTimeDisplay => FormatTimestamp(CreatedAtUtc);
+
+    [NotMapped]
+    public string ModifyTimeDisplay => FormatTimestamp(UpdatedAtUtc);
 
     [NotMapped]
     public string DomainsText => string.Join("; ", Domains.Select(d => d.Domain));
@@ -125,6 +137,12 @@ public sealed class Device
 
     public IEnumerable<string> NicMacs() =>
         OrderedNics().Select(n => n.Mac).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!);
+
+    private static string FormatTimestamp(DateTime utc)
+    {
+        var value = utc == default ? DateTime.UtcNow : utc;
+        return value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    }
 }
 
 public sealed class DeviceDomain

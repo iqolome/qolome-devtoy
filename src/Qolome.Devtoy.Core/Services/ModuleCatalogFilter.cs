@@ -131,20 +131,37 @@ public static class ModuleCatalogFilter
         DevtoySettings settings,
         string modulePath)
     {
+        var now = DateTime.Now;
         try
         {
             var path = Path.GetFullPath(modulePath);
             if (settings.ModuleTimes.TryGetValue(path, out var times))
             {
-                return (times.CreateTime, times.ModifyTime);
+                var create = times.CreateTime ?? now;
+                var modify = times.ModifyTime ?? now;
+                if (times.CreateTime is null || times.ModifyTime is null)
+                {
+                    times.CreateTime = create;
+                    times.ModifyTime = modify;
+                }
+
+                return (create, modify);
             }
+
+            // 尚无登记时间：用 now 补齐并写入设置，避免列表显示「—」
+            settings.ModuleTimes[path] = new ModulePersistTimes
+            {
+                CreateTime = now,
+                ModifyTime = now,
+            };
+            return (now, now);
         }
         catch
         {
             // ignore bad path
         }
 
-        return (null, null);
+        return (now, now);
     }
 
     private sealed class EntryBuildContext

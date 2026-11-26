@@ -22,7 +22,7 @@
 #define MyAppDisplayName "Qolome Devtoy"
 #define MyAppPublisher "Qolome"
 #define MyAppExeName "Qolome.Devtoy.App.exe"
-#define MyAppUrl "https://qolome.com"
+#define MyAppUrl "https://www.qolome.com"
 
 [Setup]
 AppId={{A7C3E9F1-2B4D-5E6A-8C0D-1E2F3A4B5C6D}
