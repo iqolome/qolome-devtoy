@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![WinUI](https://img.shields.io/badge/UI-WinUI%203-0078D4.svg)](https://learn.microsoft.com/windows/apps/winui/)
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj)
+[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj)
 
 独立 Windows 开发者工具（**WinUI 3 / .NET 10**），对齐 `cloud-workspace/qolome-codegen` IDEA 插件能力，并内嵌局域网扫描 / 资产库存（代码自 `qolome-nets` 复制，两仓独立演进）。目标：**更独立、更现代 UI、更好性能**（纯 C# 代码生成，不依赖 JVM）。
 
@@ -33,7 +33,7 @@
 | **开发商** | Qolome |
 | **官网** | [https://www.qolome.com](https://www.qolome.com) |
 | **许可协议** | [Apache License 2.0](LICENSE) |
-| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.1.1`） |
+| **版本** | 以 `src/Qolome.Devtoy.App/Qolome.Devtoy.App.csproj` 的 `<Version>` 为准（当前 `1.1.2`） |
 
 应用内 **关于** 页可查看版本、服务协议与链接。
 
@@ -239,6 +239,6 @@ dotnet run --project src\Qolome.Devtoy.App\Qolome.Devtoy.App.csproj -p:WinAppRun
 - 版本号变更请用脚本一键同步（**GitHub / GitLab 同一脚本**；csproj / MSIX / Sonar / README / Inno 等，**不含** NuGet 依赖版本；缺文件自动跳过）：
   ```powershell
   .\scripts\bump-version.ps1 -Bump patch          # 或 -Bump minor / major
-  .\scripts\bump-version.ps1 -Version 1.1.1       # 或指定版本（不要写 v）
+  .\scripts\bump-version.ps1 -Version 1.1.2       # 或指定版本（不要写 v）
   .\scripts\bump-version.ps1 -Bump patch -DryRun  # 只预览
   ```

@@ -11,7 +11,7 @@
   <Identity
     Name="com.qolome.devtoy"
     Publisher="CN=Qolome, O=Qolome, C=CN"
-    Version="1.1.1.0" />
+    Version="1.1.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="B2007BB4-BAF4-460F-8BA7-8F6C181935E2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

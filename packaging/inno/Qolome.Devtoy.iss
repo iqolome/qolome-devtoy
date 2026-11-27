@@ -1,9 +1,9 @@
 ; Inno Setup — Qolome Devtoy
-; 构建: ISCC.exe /DMyAppVersion=1.1.1 packaging\inno\Qolome.Devtoy.iss
+; 构建: ISCC.exe /DMyAppVersion=1.1.2 packaging\inno\Qolome.Devtoy.iss
 ; 或由 packaging\package.ps1 自动调用（传入 /D 覆盖路径）
 
 #ifndef MyAppVersion
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.1.2"
 #endif
 
 #ifndef SourceDir
