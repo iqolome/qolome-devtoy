@@ -115,21 +115,22 @@ public static class ConfigSqlDumpService
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            $"SELECT path, sort_order, updated_at FROM `{DevtoyTableNames.Workspace}` ORDER BY sort_order, path COLLATE NOCASE";
+            $"SELECT path, sort_order, create_time, modify_time FROM `{DevtoyTableNames.Workspace}` ORDER BY sort_order, path COLLATE NOCASE";
         using var reader = cmd.ExecuteReader();
         var count = 0;
         while (reader.Read())
         {
             var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
             var sort = reader.IsDBNull(1) ? 0L : reader.GetInt64(1);
-            var updated = reader.IsDBNull(2)
-                ? DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
-                : reader.GetString(2);
+            var fallback = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            var create = reader.IsDBNull(2) ? fallback : reader.GetString(2);
+            var modify = reader.IsDBNull(3) ? create : reader.GetString(3);
             sb.Append("INSERT INTO `").Append(DevtoyTableNames.Workspace)
-                .Append("` (`path`, `sort_order`, `updated_at`) VALUES (")
+                .Append("` (`path`, `sort_order`, `create_time`, `modify_time`) VALUES (")
                 .Append(SqlString(path)).Append(", ")
                 .Append(sort.ToString(CultureInfo.InvariantCulture)).Append(", ")
-                .Append(SqlString(updated))
+                .Append(SqlString(create)).Append(", ")
+                .Append(SqlString(modify))
                 .AppendLine(");");
             count++;
         }
@@ -146,7 +147,7 @@ public static class ConfigSqlDumpService
                    java, web, flutter, version, manual,
                    codegen_model_name, codegen_dao, codegen_service, codegen_controller,
                    enable_codegen, enable_enum, enable_ts_dict, tag_boot_starter,
-                   enum_package_path, ts_dict_path, create_time, modify_time, updated_at
+                   enum_package_path, ts_dict_path, create_time, modify_time
             FROM `{DevtoyTableNames.Module}`
             ORDER BY path COLLATE NOCASE
             """;
@@ -159,8 +160,8 @@ public static class ConfigSqlDumpService
                 .Append("`java`, `web`, `flutter`, `version`, `manual`, ")
                 .Append("`codegen_model_name`, `codegen_dao`, `codegen_service`, `codegen_controller`, ")
                 .Append("`enable_codegen`, `enable_enum`, `enable_ts_dict`, `tag_boot_starter`, ")
-                .Append("`enum_package_path`, `ts_dict_path`, `create_time`, `modify_time`, `updated_at`) VALUES (");
-            for (var i = 0; i < 23; i++)
+                .Append("`enum_package_path`, `ts_dict_path`, `create_time`, `modify_time`) VALUES (");
+            for (var i = 0; i < 22; i++)
             {
                 if (i > 0)
                 {

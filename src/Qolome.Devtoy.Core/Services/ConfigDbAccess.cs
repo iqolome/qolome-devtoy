@@ -153,7 +153,8 @@ public static class ConfigDbAccess
             CREATE TABLE IF NOT EXISTS `devtoy_workspace` (
               `path` varchar(512) NOT NULL,
               `sort_order` int NOT NULL DEFAULT 0,
-              `updated_at` varchar(64) NOT NULL,
+              `create_time` varchar(64) NOT NULL,
+              `modify_time` varchar(64) NOT NULL,
               PRIMARY KEY (`path`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             CREATE TABLE IF NOT EXISTS `devtoy_module` (
@@ -179,7 +180,6 @@ public static class ConfigDbAccess
               `ts_dict_path` varchar(512) NULL,
               `create_time` varchar(64) NOT NULL,
               `modify_time` varchar(64) NOT NULL,
-              `updated_at` varchar(64) NOT NULL,
               PRIMARY KEY (`path`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """;
@@ -189,6 +189,8 @@ public static class ConfigDbAccess
             c.CommandText = batch;
             c.ExecuteNonQuery();
         }
+
+        ModuleStore.MigrateMySqlCatalogTimeColumns(mysql);
     }
 
     private static IEnumerable<string> SplitStatements(string script)

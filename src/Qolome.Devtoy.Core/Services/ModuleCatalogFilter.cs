@@ -247,6 +247,7 @@ public static class ModuleCatalogFilter
         ov.JavaScript = null;
 
         CleanupOverride(settings, modulePath, ov);
+        TouchModifyTime(settings, modulePath);
 
         if (!string.IsNullOrWhiteSpace(displayName))
         {
@@ -275,6 +276,7 @@ public static class ModuleCatalogFilter
         ov.CodegenController = controller;
 
         CleanupOverride(settings, modulePath, ov);
+        TouchModifyTime(settings, modulePath);
     }
 
     /// <summary>保存标签 / 功能启用标志；不覆盖已有其它 override 字段。</summary>
@@ -311,6 +313,7 @@ public static class ModuleCatalogFilter
         }
 
         CleanupOverride(settings, modulePath, ov);
+        TouchModifyTime(settings, modulePath);
     }
 
     public static void SaveEnumPath(DevtoySettings settings, string modulePath, string? enumPackagePath)
@@ -319,6 +322,7 @@ public static class ModuleCatalogFilter
         var ov = GetOrCreateOverride(settings, modulePath);
         ov.EnumPackagePath = string.IsNullOrWhiteSpace(enumPackagePath) ? null : enumPackagePath.Trim();
         CleanupOverride(settings, modulePath, ov);
+        TouchModifyTime(settings, modulePath);
     }
 
     public static void SaveTsDictPath(DevtoySettings settings, string modulePath, string? tsDictPath)
@@ -327,6 +331,33 @@ public static class ModuleCatalogFilter
         var ov = GetOrCreateOverride(settings, modulePath);
         ov.TsDictPath = string.IsNullOrWhiteSpace(tsDictPath) ? null : tsDictPath.Trim();
         CleanupOverride(settings, modulePath, ov);
+        TouchModifyTime(settings, modulePath);
+    }
+
+    /// <summary>用户改动模块元数据时刷新 modify_time；保留已有 create_time。</summary>
+    public static void TouchModifyTime(DevtoySettings settings, string modulePath)
+    {
+        try
+        {
+            var path = Path.GetFullPath(modulePath);
+            var now = DateTime.Now;
+            if (settings.ModuleTimes.TryGetValue(path, out var times))
+            {
+                times.CreateTime ??= now;
+                times.ModifyTime = now;
+                return;
+            }
+
+            settings.ModuleTimes[path] = new ModulePersistTimes
+            {
+                CreateTime = now,
+                ModifyTime = now,
+            };
+        }
+        catch
+        {
+            // ignore bad path
+        }
     }
 
     /// <summary>按模块覆盖合并枚举/字典路径到 CodegenSettings 副本。</summary>

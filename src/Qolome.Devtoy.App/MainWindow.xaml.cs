@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Qolome.Devtoy.Core.Models;
 using Qolome.Devtoy.Core.Services;
 using Qolome.Nets.Core.Data;
 using Qolome_Devtoy_App.Helpers;
@@ -41,7 +42,7 @@ public sealed partial class MainWindow : Window
                 AppServices.Session.LogWarn(warn);
             }
 
-            AppServices.Session.Log($"配置库（SQLite）：{DevtoyPaths.LocalDbPath}");
+            AppServices.Session.Log($"配置库：{DescribeConfigConnection()}");
             AppServices.Session.Log($"业务库：{AppDatabase.DescribeConnection()}");
         }
         catch (Exception ex)
@@ -57,5 +58,21 @@ public sealed partial class MainWindow : Window
         {
             ImageSource = new BitmapImage(new Uri(Path.GetFullPath(icoPath))),
         };
+    }
+
+    private static string DescribeConfigConnection()
+    {
+        var ds = DataSourceRuntime.Current;
+        if (ds.IsSqlite)
+        {
+            return $"SQLite {DataSourceRuntime.ResolvedSqlitePath}";
+        }
+
+        if (ds.DatabaseKind == DatabaseKind.MySql)
+        {
+            return $"MySQL {ds.Username}@{ds.Host}:{ds.Port}/{ds.Database}";
+        }
+
+        return ds.DatabaseKind.ToString();
     }
 }

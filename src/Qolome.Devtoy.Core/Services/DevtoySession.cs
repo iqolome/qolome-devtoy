@@ -235,6 +235,20 @@ public sealed class DevtoySession
         var specified = ModuleScanner.BuildSpecifiedModules(Settings.SpecifiedProjects);
         var merged = ModuleScanner.Merge(workspaceModules, specified);
         Modules = ModuleCatalogFilter.Apply(merged, Settings);
+        // Apply 会为新模块补齐 ModuleTimes；立即落盘（不用防抖，避免切 MySQL 后表仍为空）
+        try
+        {
+            _store.SaveNow(Settings);
+            if (DataSourceRuntime.IsRemoteMySql && SettingsStore.LastRemoteModuleWriteCount >= 0)
+            {
+                Log($"配置库已同步模块 {SettingsStore.LastRemoteModuleWriteCount} 行（MySQL）");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarn("模块目录落库失败：" + ex.Message);
+        }
+
         ModulesChanged?.Invoke();
         var ignored = Modules.Count(m => m.IsIgnored);
         var wsCount = Settings.WorkspaceRoots.Count;
@@ -514,6 +528,7 @@ public sealed class DevtoySession
         }
 
         Settings.IgnoredModulePaths.Add(path);
+        ModuleCatalogFilter.TouchModifyTime(Settings, path);
         return true;
     }
 
@@ -531,7 +546,13 @@ public sealed class DevtoySession
                 return false;
             }
         });
-        return Settings.IgnoredModulePaths.Count < before;
+        if (Settings.IgnoredModulePaths.Count < before)
+        {
+            ModuleCatalogFilter.TouchModifyTime(Settings, path);
+            return true;
+        }
+
+        return false;
     }
 
     public void UpdateWorkspaceModuleOverride(

@@ -33,7 +33,8 @@ public static class ModuleStore
             CREATE TABLE IF NOT EXISTS devtoy_workspace (
                 path TEXT PRIMARY KEY NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL
+                create_time TEXT NOT NULL,
+                modify_time TEXT NOT NULL
             );
             """;
         cmd.ExecuteNonQuery();
@@ -68,12 +69,11 @@ public static class ModuleStore
                 enum_package_path TEXT NULL,
                 ts_dict_path TEXT NULL,
                 create_time TEXT NOT NULL,
-                modify_time TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                modify_time TEXT NOT NULL
             );
             """;
         mod.ExecuteNonQuery();
-        EnsureModuleTimeColumns(conn, tx);
+        MigrateSqliteCatalogTimeColumns(conn, tx);
     }
 
     /// <summary>表中是否已有工作区或模块行（用于判断是否已迁移）。</summary>
@@ -166,7 +166,7 @@ public static class ModuleStore
                    codegen_model_name, codegen_dao, codegen_service, codegen_controller,
                    enable_codegen, enable_enum, enable_ts_dict, tag_boot_starter,
                    enum_package_path, ts_dict_path,
-                   create_time, modify_time, updated_at
+                   create_time, modify_time
             FROM devtoy_module
             ORDER BY path COLLATE NOCASE ASC
             """;
@@ -200,6 +200,7 @@ public static class ModuleStore
         settings.NormalizeWorkspaceRoots();
 
         var now = DateTime.UtcNow.ToString("O");
+        var existingWsTimes = LoadExistingWorkspaceTimes(conn, tx);
         using (var clearWs = conn.CreateCommand())
         {
             clearWs.Transaction = tx;
@@ -215,20 +216,25 @@ public static class ModuleStore
                 continue;
             }
 
+            var full = Path.GetFullPath(path);
+            var create = existingWsTimes.TryGetValue(full, out var times) && !string.IsNullOrWhiteSpace(times.Create)
+                ? times.Create
+                : now;
             using var insert = conn.CreateCommand();
             insert.Transaction = tx;
             insert.CommandText =
                 """
-                INSERT INTO devtoy_workspace (path, sort_order, updated_at)
-                VALUES ($path, $sort_order, $updated_at)
+                INSERT INTO devtoy_workspace (path, sort_order, create_time, modify_time)
+                VALUES ($path, $sort_order, $create_time, $modify_time)
                 """;
-            insert.Parameters.AddWithValue("$path", Path.GetFullPath(path));
+            insert.Parameters.AddWithValue("$path", full);
             insert.Parameters.AddWithValue("$sort_order", i);
-            insert.Parameters.AddWithValue("$updated_at", now);
+            insert.Parameters.AddWithValue("$create_time", create);
+            insert.Parameters.AddWithValue("$modify_time", now);
             insert.ExecuteNonQuery();
         }
 
-        var existingCreate = LoadExistingCreateTimes(conn, tx);
+        var existingTimes = LoadExistingTimes(conn, tx);
         var rows = BuildRows(settings);
         using (var clearMod = conn.CreateCommand())
         {
@@ -239,21 +245,7 @@ public static class ModuleStore
 
         foreach (var row in rows.Values.OrderBy(r => r.Path, StringComparer.OrdinalIgnoreCase))
         {
-            if (settings.ModuleTimes.TryGetValue(row.Path, out var meta)
-                && meta.CreateTime is not null)
-            {
-                row.CreateTime = meta.CreateTime.Value.ToUniversalTime().ToString("O");
-            }
-            else if (existingCreate.TryGetValue(row.Path, out var created))
-            {
-                row.CreateTime = created;
-            }
-            else
-            {
-                row.CreateTime = now;
-            }
-
-            row.ModifyTime = now;
+            ApplyPersistTimes(row, settings, existingTimes, now);
             InsertModuleRow(conn, tx, row, now);
         }
     }
@@ -264,7 +256,8 @@ public static class ModuleStore
         CREATE TABLE IF NOT EXISTS `devtoy_workspace` (
             `path` TEXT PRIMARY KEY NOT NULL,
             `sort_order` INTEGER NOT NULL DEFAULT 0,
-            `updated_at` TEXT NOT NULL
+            `create_time` TEXT NOT NULL,
+            `modify_time` TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS `devtoy_module` (
             `path` TEXT PRIMARY KEY NOT NULL,
@@ -288,8 +281,7 @@ public static class ModuleStore
             `enum_package_path` TEXT NULL,
             `ts_dict_path` TEXT NULL,
             `create_time` TEXT NOT NULL,
-            `modify_time` TEXT NOT NULL,
-            `updated_at` TEXT NOT NULL
+            `modify_time` TEXT NOT NULL
         );
         """;
 
@@ -349,7 +341,7 @@ public static class ModuleStore
                    `codegen_model_name`, `codegen_dao`, `codegen_service`, `codegen_controller`,
                    `enable_codegen`, `enable_enum`, `enable_ts_dict`, `tag_boot_starter`,
                    `enum_package_path`, `ts_dict_path`,
-                   `create_time`, `modify_time`, `updated_at`
+                   `create_time`, `modify_time`
             FROM `devtoy_module`
             ORDER BY `path` ASC
             """;
@@ -360,11 +352,13 @@ public static class ModuleStore
         }
     }
 
-    /// <summary>远程 MySQL：将内存模块列表写入关系表。</summary>
-    public static void SaveFromRemote(DbConnection conn, DevtoySettings settings)
+    /// <summary>远程 MySQL：将内存模块列表写入关系表。返回写入的模块行数。</summary>
+    public static int SaveFromRemote(DbConnection conn, DevtoySettings settings)
     {
         settings.NormalizeWorkspaceRoots();
         var now = DateTime.UtcNow.ToString("O");
+        var existingWsTimes = LoadExistingWorkspaceTimesDb(conn);
+        var existingTimes = LoadExistingTimesDb(conn);
 
         using (var clearWs = conn.CreateCommand())
         {
@@ -380,45 +374,172 @@ public static class ModuleStore
                 continue;
             }
 
+            var full = Path.GetFullPath(path);
+            var create = existingWsTimes.TryGetValue(full, out var times) && !string.IsNullOrWhiteSpace(times.Create)
+                ? times.Create
+                : now;
             using var insert = conn.CreateCommand();
             insert.CommandText =
                 """
-                INSERT INTO `devtoy_workspace` (`path`, `sort_order`, `updated_at`)
-                VALUES (@path, @sort_order, @updated_at)
+                INSERT INTO `devtoy_workspace` (`path`, `sort_order`, `create_time`, `modify_time`)
+                VALUES (@path, @sort_order, @create_time, @modify_time)
                 """;
-            AddDbParam(insert, "@path", Path.GetFullPath(path));
+            AddDbParam(insert, "@path", full);
             AddDbParam(insert, "@sort_order", i);
-            AddDbParam(insert, "@updated_at", now);
+            AddDbParam(insert, "@create_time", create);
+            AddDbParam(insert, "@modify_time", now);
             insert.ExecuteNonQuery();
         }
 
-        var existingCreate = LoadExistingCreateTimesDb(conn);
         var rows = BuildRows(settings);
+        // 内存尚未有可落库模块时，禁止 DELETE 清空远程已有行
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
         using (var clearMod = conn.CreateCommand())
         {
             clearMod.CommandText = "DELETE FROM `devtoy_module`";
             clearMod.ExecuteNonQuery();
         }
 
+        var written = 0;
         foreach (var row in rows.Values.OrderBy(r => r.Path, StringComparer.OrdinalIgnoreCase))
         {
-            if (settings.ModuleTimes.TryGetValue(row.Path, out var meta)
-                && meta.CreateTime is not null)
+            ApplyPersistTimes(row, settings, existingTimes, now);
+            InsertModuleRowDb(conn, row, now);
+            written++;
+        }
+
+        return written;
+    }
+
+    /// <summary>远程模块表行数（失败视为 0）。</summary>
+    public static long CountRemoteModules(DbConnection conn)
+    {
+        try
+        {
+            return CountRowsDb(conn, DevtoyTableNames.Module);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 从默认本机 SQLite 合并模块元数据到 settings（不整表清空已有工作区）。
+    /// 用于首次切到 MySQL 时补齐 overrides / times。
+    /// </summary>
+    public static bool MergeCatalogFromDefaultLocalSqlite(DevtoySettings settings)
+    {
+        var localPath = DevtoyPaths.EnsureMigratedDefaultSqlitePath();
+        if (!File.Exists(localPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={localPath};Cache=Shared;Mode=ReadOnly");
+            conn.Open();
+            var temp = new DevtoySettings();
+            LoadInto(temp, conn, tx: null);
+            var merged = false;
+            if (settings.WorkspaceRoots.Count == 0 && temp.WorkspaceRoots.Count > 0)
             {
-                row.CreateTime = meta.CreateTime.Value.ToUniversalTime().ToString("O");
-            }
-            else if (existingCreate.TryGetValue(row.Path, out var created))
-            {
-                row.CreateTime = created;
-            }
-            else
-            {
-                row.CreateTime = now;
+                settings.WorkspaceRoots = temp.WorkspaceRoots;
+                settings.NormalizeWorkspaceRoots();
+                merged = true;
             }
 
-            row.ModifyTime = now;
-            InsertModuleRowDb(conn, row, now);
+            foreach (var spec in temp.SpecifiedProjects)
+            {
+                if (settings.SpecifiedProjects.Any(s =>
+                        string.Equals(s.Root, spec.Root, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                settings.SpecifiedProjects.Add(spec);
+                merged = true;
+            }
+
+            foreach (var path in temp.IgnoredModulePaths)
+            {
+                if (settings.IgnoredModulePaths.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                settings.IgnoredModulePaths.Add(path);
+                merged = true;
+            }
+
+            foreach (var (key, value) in temp.ModuleDisplayNames)
+            {
+                if (settings.ModuleDisplayNames.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                settings.ModuleDisplayNames[key] = value;
+                merged = true;
+            }
+
+            foreach (var (key, value) in temp.ModuleOverrides)
+            {
+                if (settings.ModuleOverrides.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                settings.ModuleOverrides[key] = value;
+                merged = true;
+            }
+
+            foreach (var (key, value) in temp.ModuleTimes)
+            {
+                if (settings.ModuleTimes.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                settings.ModuleTimes[key] = value;
+                merged = true;
+            }
+
+            return merged;
         }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>工作区已配置但 ModuleTimes 为空时，扫描并灌入创建/修改时间。</summary>
+    public static int SeedModuleTimesFromWorkspaceScan(DevtoySettings settings)
+    {
+        if (settings.ModuleTimes.Count > 0)
+        {
+            return 0;
+        }
+
+        settings.NormalizeWorkspaceRoots();
+        var scanned = settings.WorkspaceRoots
+            .Where(static r => !string.IsNullOrWhiteSpace(r) && Directory.Exists(r))
+            .SelectMany(ModuleScanner.ScanWorkspace)
+            .ToList();
+        if (scanned.Count == 0 && settings.SpecifiedProjects.Count == 0)
+        {
+            return 0;
+        }
+
+        var specified = ModuleScanner.BuildSpecifiedModules(settings.SpecifiedProjects);
+        var merged = ModuleScanner.Merge(scanned, specified);
+        _ = ModuleCatalogFilter.Apply(merged, settings);
+        return settings.ModuleTimes.Count;
     }
 
     private static void ClearModuleCollections(DevtoySettings settings)
@@ -520,9 +641,8 @@ public static class ModuleStore
 
     private static void ApplyTimesFromReader(DevtoySettings settings, string path, DbDataReader reader)
     {
-        var updated = ReadOptionalString(reader, 22);
-        var create = ParseTimestamp(ReadOptionalString(reader, 20)) ?? ParseTimestamp(updated);
-        var modify = ParseTimestamp(ReadOptionalString(reader, 21)) ?? ParseTimestamp(updated);
+        var create = ParseTimestamp(ReadOptionalString(reader, 20));
+        var modify = ParseTimestamp(ReadOptionalString(reader, 21)) ?? create;
         if (create is null && modify is null)
         {
             var now = DateTime.Now;
@@ -544,9 +664,56 @@ public static class ModuleStore
         MergeIgnoredRows(settings, rows);
         MergeDisplayNameRows(settings, rows);
         MergeOverrideRows(settings, rows);
+        // 扫描得到的模块时间也要落库，否则重启后全部变成「刚才」
+        MergeModuleTimesRows(settings, rows);
         return rows
-            .Where(kv => IsPersistableRow(kv.Value))
+            .Where(kv => IsPersistableRow(kv.Value) || settings.ModuleTimes.ContainsKey(kv.Key))
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void MergeModuleTimesRows(DevtoySettings settings, Dictionary<string, ModuleRow> rows)
+    {
+        foreach (var path in settings.ModuleTimes.Keys)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            GetOrAddRow(rows, path);
+        }
+    }
+
+    /// <summary>优先内存 ModuleTimes，其次库中已有值；避免每次保存把 modify_time 刷成 now。</summary>
+    private static void ApplyPersistTimes(
+        ModuleRow row,
+        DevtoySettings settings,
+        IReadOnlyDictionary<string, (string Create, string Modify)> existing,
+        string now)
+    {
+        string? create = null;
+        string? modify = null;
+        if (settings.ModuleTimes.TryGetValue(row.Path, out var meta))
+        {
+            if (meta.CreateTime is not null)
+            {
+                create = meta.CreateTime.Value.ToUniversalTime().ToString("O");
+            }
+
+            if (meta.ModifyTime is not null)
+            {
+                modify = meta.ModifyTime.Value.ToUniversalTime().ToString("O");
+            }
+        }
+
+        if (existing.TryGetValue(row.Path, out var stored))
+        {
+            create ??= stored.Create;
+            modify ??= stored.Modify;
+        }
+
+        row.CreateTime = string.IsNullOrWhiteSpace(create) ? now : create;
+        row.ModifyTime = string.IsNullOrWhiteSpace(modify) ? now : modify;
     }
 
     private static ModuleRow GetOrAddRow(Dictionary<string, ModuleRow> rows, string path)
@@ -680,13 +847,13 @@ public static class ModuleStore
                 java, web, flutter, version, manual,
                 codegen_model_name, codegen_dao, codegen_service, codegen_controller,
                 enable_codegen, enable_enum, enable_ts_dict, tag_boot_starter,
-                enum_package_path, ts_dict_path, create_time, modify_time, updated_at
+                enum_package_path, ts_dict_path, create_time, modify_time
             ) VALUES (
                 $path, $workspace_path, $source, $display_name, $ignored,
                 $java, $web, $flutter, $version, $manual,
                 $codegen_model_name, $codegen_dao, $codegen_service, $codegen_controller,
                 $enable_codegen, $enable_enum, $enable_ts_dict, $tag_boot_starter,
-                $enum_package_path, $ts_dict_path, $create_time, $modify_time, $updated_at
+                $enum_package_path, $ts_dict_path, $create_time, $modify_time
             )
             """;
         cmd.Parameters.AddWithValue("$path", row.Path);
@@ -711,7 +878,6 @@ public static class ModuleStore
         cmd.Parameters.AddWithValue("$ts_dict_path", (object?)NullIfWhite(row.TsDictPath) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$create_time", create);
         cmd.Parameters.AddWithValue("$modify_time", modify);
-        cmd.Parameters.AddWithValue("$updated_at", modify);
         cmd.ExecuteNonQuery();
     }
 
@@ -752,13 +918,13 @@ public static class ModuleStore
                 `java`, `web`, `flutter`, `version`, `manual`,
                 `codegen_model_name`, `codegen_dao`, `codegen_service`, `codegen_controller`,
                 `enable_codegen`, `enable_enum`, `enable_ts_dict`, `tag_boot_starter`,
-                `enum_package_path`, `ts_dict_path`, `create_time`, `modify_time`, `updated_at`
+                `enum_package_path`, `ts_dict_path`, `create_time`, `modify_time`
             ) VALUES (
                 @path, @workspace_path, @source, @display_name, @ignored,
                 @java, @web, @flutter, @version, @manual,
                 @codegen_model_name, @codegen_dao, @codegen_service, @codegen_controller,
                 @enable_codegen, @enable_enum, @enable_ts_dict, @tag_boot_starter,
-                @enum_package_path, @ts_dict_path, @create_time, @modify_time, @updated_at
+                @enum_package_path, @ts_dict_path, @create_time, @modify_time
             )
             """;
         AddDbParam(cmd, "@path", row.Path);
@@ -783,7 +949,6 @@ public static class ModuleStore
         AddDbParam(cmd, "@ts_dict_path", (object?)NullIfWhite(row.TsDictPath) ?? DBNull.Value);
         AddDbParam(cmd, "@create_time", create);
         AddDbParam(cmd, "@modify_time", modify);
-        AddDbParam(cmd, "@updated_at", modify);
         cmd.ExecuteNonQuery();
     }
 
@@ -820,14 +985,15 @@ public static class ModuleStore
         return result is long n ? n : Convert.ToInt64(result);
     }
 
-    private static Dictionary<string, string> LoadExistingCreateTimesDb(DbConnection conn)
+    private static Dictionary<string, (string Create, string Modify)> LoadExistingTimesDb(DbConnection conn)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, (string Create, string Modify)>(StringComparer.OrdinalIgnoreCase);
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             """
             SELECT `path`,
-                   COALESCE(NULLIF(`create_time`, ''), `updated_at`) AS created
+                   COALESCE(NULLIF(`create_time`, ''), NULLIF(`modify_time`, '')) AS created,
+                   COALESCE(NULLIF(`modify_time`, ''), NULLIF(`create_time`, '')) AS modified
             FROM `devtoy_module`
             """;
         try
@@ -837,19 +1003,23 @@ public static class ModuleStore
             {
                 var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
                 var created = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(created))
+                var modified = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                if (string.IsNullOrWhiteSpace(path))
                 {
                     continue;
                 }
 
+                string key;
                 try
                 {
-                    map[Path.GetFullPath(path)] = created;
+                    key = Path.GetFullPath(path);
                 }
                 catch
                 {
-                    map[path.Trim()] = created;
+                    key = path.Trim();
                 }
+
+                map[key] = (created, string.IsNullOrWhiteSpace(modified) ? created : modified);
             }
         }
         catch
@@ -1016,33 +1186,262 @@ public static class ModuleStore
             || (Source != SourceSpecified && (Java is not null || Web is not null || Flutter is not null || !string.IsNullOrWhiteSpace(Version)));
     }
 
-    private static void EnsureModuleTimeColumns(SqliteConnection conn, SqliteTransaction? tx)
+    /// <summary>Sqlite：workspace 补 create_time / 将 updated_at 迁为 modify_time；module 去掉重复的 updated_at。</summary>
+    private static void MigrateSqliteCatalogTimeColumns(SqliteConnection conn, SqliteTransaction? tx)
     {
+        EnsureColumn(conn, tx, DevtoyTableNames.Workspace, "create_time", "TEXT");
+        EnsureColumn(conn, tx, DevtoyTableNames.Workspace, "modify_time", "TEXT");
         EnsureColumn(conn, tx, DevtoyTableNames.Module, "create_time", "TEXT");
         EnsureColumn(conn, tx, DevtoyTableNames.Module, "modify_time", "TEXT");
 
-        using var backfill = conn.CreateCommand();
-        if (tx is not null)
-        {
-            backfill.Transaction = tx;
-        }
-
-        backfill.CommandText =
+        TryExec(conn, tx,
+            """
+            UPDATE devtoy_workspace
+            SET create_time = COALESCE(NULLIF(create_time, ''), NULLIF(modify_time, ''), NULLIF(updated_at, ''), create_time),
+                modify_time = COALESCE(NULLIF(modify_time, ''), NULLIF(updated_at, ''), NULLIF(create_time, ''), modify_time)
+            """);
+        TryExec(conn, tx,
             """
             UPDATE devtoy_module
-            SET create_time = COALESCE(NULLIF(create_time, ''), updated_at, create_time),
-                modify_time = COALESCE(NULLIF(modify_time, ''), updated_at, modify_time)
-            WHERE (create_time IS NULL OR create_time = '')
-               OR (modify_time IS NULL OR modify_time = '')
-            """;
+            SET create_time = COALESCE(NULLIF(create_time, ''), NULLIF(modify_time, ''), NULLIF(updated_at, ''), create_time),
+                modify_time = COALESCE(NULLIF(modify_time, ''), NULLIF(updated_at, ''), NULLIF(create_time, ''), modify_time)
+            """);
+
+        if (HasColumn(conn, tx, DevtoyTableNames.Workspace, "updated_at")
+            && HasColumn(conn, tx, DevtoyTableNames.Workspace, "modify_time"))
+        {
+            TryExec(conn, tx, "ALTER TABLE devtoy_workspace DROP COLUMN updated_at");
+        }
+
+        if (HasColumn(conn, tx, DevtoyTableNames.Module, "updated_at"))
+        {
+            TryExec(conn, tx, "ALTER TABLE devtoy_module DROP COLUMN updated_at");
+        }
+    }
+
+    /// <summary>MySQL：workspace 增 create_time、updated_at→modify_time；module 删 updated_at。</summary>
+    public static void MigrateMySqlCatalogTimeColumns(DbConnection conn)
+    {
+        if (conn is not MySqlConnector.MySqlConnection)
+        {
+            return;
+        }
+
+        EnsureMySqlColumn(conn, DevtoyTableNames.Workspace, "create_time", "varchar(64) NULL");
+        EnsureMySqlColumn(conn, DevtoyTableNames.Workspace, "modify_time", "varchar(64) NULL");
+        EnsureMySqlColumn(conn, DevtoyTableNames.Module, "create_time", "varchar(64) NULL");
+        EnsureMySqlColumn(conn, DevtoyTableNames.Module, "modify_time", "varchar(64) NULL");
+
+        TryExecDb(conn,
+            """
+            UPDATE `devtoy_workspace`
+            SET `create_time` = COALESCE(NULLIF(`create_time`, ''), NULLIF(`modify_time`, ''), NULLIF(`updated_at`, ''), `create_time`),
+                `modify_time` = COALESCE(NULLIF(`modify_time`, ''), NULLIF(`updated_at`, ''), NULLIF(`create_time`, ''), `modify_time`)
+            """);
+        TryExecDb(conn,
+            """
+            UPDATE `devtoy_module`
+            SET `create_time` = COALESCE(NULLIF(`create_time`, ''), NULLIF(`modify_time`, ''), NULLIF(`updated_at`, ''), `create_time`),
+                `modify_time` = COALESCE(NULLIF(`modify_time`, ''), NULLIF(`updated_at`, ''), NULLIF(`create_time`, ''), `modify_time`)
+            """);
+
+        if (HasMySqlColumn(conn, DevtoyTableNames.Workspace, "updated_at"))
+        {
+            TryExecDb(conn, "ALTER TABLE `devtoy_workspace` DROP COLUMN `updated_at`");
+        }
+
+        if (HasMySqlColumn(conn, DevtoyTableNames.Module, "updated_at"))
+        {
+            TryExecDb(conn, "ALTER TABLE `devtoy_module` DROP COLUMN `updated_at`");
+        }
+
+        // 新建列允许 NULL，回填后改为 NOT NULL（失败则保留可空）
+        TryExecDb(conn, "ALTER TABLE `devtoy_workspace` MODIFY COLUMN `create_time` varchar(64) NOT NULL");
+        TryExecDb(conn, "ALTER TABLE `devtoy_workspace` MODIFY COLUMN `modify_time` varchar(64) NOT NULL");
+        TryExecDb(conn, "ALTER TABLE `devtoy_module` MODIFY COLUMN `create_time` varchar(64) NOT NULL");
+        TryExecDb(conn, "ALTER TABLE `devtoy_module` MODIFY COLUMN `modify_time` varchar(64) NOT NULL");
+    }
+
+    private static void TryExec(SqliteConnection conn, SqliteTransaction? tx, string sql)
+    {
         try
         {
-            backfill.ExecuteNonQuery();
+            using var cmd = conn.CreateCommand();
+            if (tx is not null)
+            {
+                cmd.Transaction = tx;
+            }
+
+            cmd.CommandText = sql;
+            cmd.ExecuteNonQuery();
         }
         catch
         {
-            // 旧库无 updated_at 时忽略
+            // 列不存在等迁移差异忽略
         }
+    }
+
+    private static void TryExecDb(DbConnection conn, string sql)
+    {
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.ExecuteNonQuery();
+        }
+        catch
+        {
+            // 列不存在等迁移差异忽略
+        }
+    }
+
+    private static void EnsureMySqlColumn(DbConnection conn, string table, string column, string typeSql)
+    {
+        if (HasMySqlColumn(conn, table, column))
+        {
+            return;
+        }
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"ALTER TABLE `{table}` ADD COLUMN `{column}` {typeSql}";
+        cmd.ExecuteNonQuery();
+    }
+
+    private static bool HasMySqlColumn(DbConnection conn, string table, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = @table
+              AND COLUMN_NAME = @column
+            """;
+        AddDbParam(cmd, "@table", table);
+        AddDbParam(cmd, "@column", column);
+        var result = cmd.ExecuteScalar();
+        return Convert.ToInt64(result) > 0;
+    }
+
+    private static Dictionary<string, (string Create, string Modify)> LoadExistingWorkspaceTimes(
+        SqliteConnection conn,
+        SqliteTransaction tx)
+    {
+        var map = new Dictionary<string, (string Create, string Modify)>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            """
+            SELECT path,
+                   COALESCE(NULLIF(create_time, ''), NULLIF(modify_time, '')) AS created,
+                   COALESCE(NULLIF(modify_time, ''), NULLIF(create_time, '')) AS modified
+            FROM devtoy_workspace
+            """;
+        try
+        {
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                AddPathTimes(map, reader);
+            }
+        }
+        catch
+        {
+            // 旧列名 updated_at
+            try
+            {
+                cmd.CommandText =
+                    """
+                    SELECT path,
+                           COALESCE(NULLIF(updated_at, '')) AS created,
+                           COALESCE(NULLIF(updated_at, '')) AS modified
+                    FROM devtoy_workspace
+                    """;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    AddPathTimes(map, reader);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        return map;
+    }
+
+    private static Dictionary<string, (string Create, string Modify)> LoadExistingWorkspaceTimesDb(DbConnection conn)
+    {
+        var map = new Dictionary<string, (string Create, string Modify)>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            """
+            SELECT `path`,
+                   COALESCE(NULLIF(`create_time`, ''), NULLIF(`modify_time`, '')) AS created,
+                   COALESCE(NULLIF(`modify_time`, ''), NULLIF(`create_time`, '')) AS modified
+            FROM `devtoy_workspace`
+            """;
+        try
+        {
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                AddPathTimes(map, reader);
+            }
+        }
+        catch
+        {
+            try
+            {
+                cmd.Parameters.Clear();
+                cmd.CommandText =
+                    """
+                    SELECT `path`,
+                           COALESCE(NULLIF(`updated_at`, '')) AS created,
+                           COALESCE(NULLIF(`updated_at`, '')) AS modified
+                    FROM `devtoy_workspace`
+                    """;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    AddPathTimes(map, reader);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        return map;
+    }
+
+    private static void AddPathTimes(
+        Dictionary<string, (string Create, string Modify)> map,
+        DbDataReader reader)
+    {
+        var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
+        var created = reader.IsDBNull(1) ? "" : reader.GetString(1);
+        var modified = reader.IsDBNull(2) ? "" : reader.GetString(2);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        string key;
+        try
+        {
+            key = Path.GetFullPath(path);
+        }
+        catch
+        {
+            key = path.Trim();
+        }
+
+        map[key] = (created, string.IsNullOrWhiteSpace(modified) ? created : modified);
     }
 
     private static void EnsureColumn(
@@ -1115,6 +1514,10 @@ public static class ModuleStore
                 "ALTER TABLE devtoy_module ADD COLUMN create_time TEXT",
             (DevtoyTableNames.Module, "modify_time") =>
                 "ALTER TABLE devtoy_module ADD COLUMN modify_time TEXT",
+            (DevtoyTableNames.Workspace, "create_time") =>
+                "ALTER TABLE devtoy_workspace ADD COLUMN create_time TEXT",
+            (DevtoyTableNames.Workspace, "modify_time") =>
+                "ALTER TABLE devtoy_workspace ADD COLUMN modify_time TEXT",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(column),
                 column,
@@ -1122,17 +1525,18 @@ public static class ModuleStore
         };
     }
 
-    private static Dictionary<string, string> LoadExistingCreateTimes(
+    private static Dictionary<string, (string Create, string Modify)> LoadExistingTimes(
         SqliteConnection conn,
         SqliteTransaction tx)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, (string Create, string Modify)>(StringComparer.OrdinalIgnoreCase);
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             """
             SELECT path,
-                   COALESCE(NULLIF(create_time, ''), updated_at) AS created
+                   COALESCE(NULLIF(create_time, ''), NULLIF(modify_time, '')) AS created,
+                   COALESCE(NULLIF(modify_time, ''), NULLIF(create_time, '')) AS modified
             FROM devtoy_module
             """;
         try
@@ -1142,19 +1546,23 @@ public static class ModuleStore
             {
                 var path = reader.IsDBNull(0) ? "" : reader.GetString(0);
                 var created = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(created))
+                var modified = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                if (string.IsNullOrWhiteSpace(path))
                 {
                     continue;
                 }
 
+                string key;
                 try
                 {
-                    map[Path.GetFullPath(path)] = created;
+                    key = Path.GetFullPath(path);
                 }
                 catch
                 {
-                    map[path.Trim()] = created;
+                    key = path.Trim();
                 }
+
+                map[key] = (created, string.IsNullOrWhiteSpace(modified) ? created : modified);
             }
         }
         catch

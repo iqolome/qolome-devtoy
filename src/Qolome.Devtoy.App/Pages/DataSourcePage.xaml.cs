@@ -411,9 +411,11 @@ public sealed partial class DataSourcePage : Page
     {
         ApplyToModel();
         DataSourceRuntime.PersistCurrent(_session.Settings.DataSource);
-        _session.SaveSettings();
         try
         {
+            // 先扫一遍灌 ModuleTimes，再落配置库，避免 MySQL 模块表被空 BuildRows 写空
+            _session.RefreshModules();
+            _session.SaveSettings();
             await UiBusy.RunAsync(
                     "正在准备业务库 Schema…",
                     async () =>

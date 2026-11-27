@@ -335,10 +335,40 @@ public sealed class SettingsStore
     {
         using var conn = ConfigDbAccess.Open();
         ConfigDbAccess.EnsureConfigSchema(conn);
+        // 远程模块表为空：从本机 SQLite 合并 + 必要时扫描补齐 ModuleTimes
+        TryHydrateModulesFromLocalSqlite(conn, settings);
+        if (settings.ModuleTimes.Count == 0)
+        {
+            ModuleStore.SeedModuleTimesFromWorkspaceScan(settings);
+        }
+
+        // settings JSON 可能已在 hydrate/seed 前序列化；模块改动只走关系表
         UpsertDocDb(conn, KindSettings, mainJson, now);
-        ModuleStore.SaveFromRemote(conn, settings);
+        var written = ModuleStore.SaveFromRemote(conn, settings);
+        LastRemoteModuleWriteCount = written;
         // 清理过渡期 JSON 备份，模块已落关系表
         DeleteDocKindDb(conn, KindModuleState);
+    }
+
+    /// <summary>最近一次远程模块写入行数（供 UI 日志）。</summary>
+    public static int LastRemoteModuleWriteCount { get; private set; }
+
+    /// <summary>远程模块表为空时，从本机 SQLite 合并目录元数据（不因内存已有工作区而跳过）。</summary>
+    private static void TryHydrateModulesFromLocalSqlite(System.Data.Common.DbConnection remoteConn, DevtoySettings settings)
+    {
+        try
+        {
+            if (ModuleStore.CountRemoteModules(remoteConn) > 0)
+            {
+                return;
+            }
+
+            ModuleStore.MergeCatalogFromDefaultLocalSqlite(settings);
+        }
+        catch
+        {
+            // 本机库不可用时忽略，继续写远程
+        }
     }
 
     private static DevtoySettings? TryLoadFromRemoteMySql()
@@ -364,6 +394,23 @@ public sealed class SettingsStore
                     ApplyModuleStateJson(settings, moduleJson);
                     ModuleStore.SaveFromRemote(conn, settings);
                     DeleteDocKindDb(conn, KindModuleState);
+                }
+                else
+                {
+                    // 远程空库：本机合并 + 扫描补齐后再写
+                    TryHydrateModulesFromLocalSqlite(conn, settings);
+                    if (settings.ModuleTimes.Count == 0)
+                    {
+                        ModuleStore.SeedModuleTimesFromWorkspaceScan(settings);
+                    }
+
+                    if (settings.WorkspaceRoots.Count > 0
+                        || settings.SpecifiedProjects.Count > 0
+                        || settings.ModuleOverrides.Count > 0
+                        || settings.ModuleTimes.Count > 0)
+                    {
+                        ModuleStore.SaveFromRemote(conn, settings);
+                    }
                 }
             }
 
